@@ -4,3 +4,32 @@ npm-debug.log*
 node_modules
 .npm
 .DS_Store
+
+# Environment — contains credentials, never commit
+.env
+
+# Generated output — not part of source
+dist/
+cache.json
+
+# Content — label-specific, keep private
+content/
+
+# Brand assets — label-specific images (logo, banner, etc.)
+assets/
+
+# Generated label copy — contains release metadata
+label-copy/
+
+# Label copy export scripts — side project, not part of main generator
+scripts/
+
+# Label copy tests — depend on scripts/ which is gitignored
+test/property/exportLabelCopy.property.test.js
+test/property/labelCopyFormatter.property.test.js
+test/unit/exportLabelCopy.test.js
+test/unit/labelCopyFormatter.test.js
+
+# Kiro IDE workspace files
+.kiro/
+scripts/
