@@ -1,0 +1,40 @@
+{% extends "base.njk" %}
+
+{% block title %}Releases — {{ labelName }}{% endblock %}
+{% block title2 %}Releases — {{ labelName }}{% endblock %}
+{% block metaDescription %}All releases on {{ labelName }} — browse the full discography.{% endblock %}
+{% block ogDescription %}All releases on {{ labelName }} — browse the full discography.{% endblock %}
+{% block twitterTitle %}Releases — {{ labelName }}{% endblock %}
+{% block twitterDescription %}All releases on {{ labelName }} — browse the full discography.{% endblock %}
+
+{% block content %}
+  <div class="releases-page">
+    <div class="releases-page-inner">
+      <h1>Releases</h1>
+      {% if allAlbums and allAlbums.length %}
+        <div class="release-grid">
+          {% for album in allAlbums %}
+            <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card">
+              {% if album.artwork | isLocal %}
+                <img src="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+              {% elif album.artwork %}
+                <img src="{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+              {% else %}
+                <div class="artwork-placeholder"></div>
+              {% endif %}
+              <div class="card-body">
+                <span class="release-artist">{{ album.artistName }}</span>
+                <span class="release-title">{{ album.title }}</span>
+                {% if album.releaseDate %}
+                  <span class="release-year">{{ album.releaseDate | formatDate }}</span>
+                {% endif %}
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>No releases currently available.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

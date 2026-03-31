@@ -1,0 +1,21 @@
+{% extends "base.njk" %}
+
+{% block title %}{{ title }} — {{ labelName }}{% endblock %}
+{% block title2 %}{{ title }} — {{ labelName }}{% endblock %}
+{% block metaDescription %}{{ title }} — {{ labelName }}{% endblock %}
+{% block ogDescription %}{{ title }} — {{ labelName }}{% endblock %}
+{% block twitterTitle %}{{ title }} — {{ labelName }}{% endblock %}
+{% block twitterDescription %}{{ title }} — {{ labelName }}{% endblock %}
+
+{% block content %}
+  <article class="text-page">
+    <h1>{{ title }}</h1>
+    {% if pageHtml %}
+      <div class="prose">{{ pageHtml | safe }}</div>
+    {% else %}
+      <div class="prose">
+        <p>Content coming soon.</p>
+      </div>
+    {% endif %}
+  </article>
+{% endblock %}

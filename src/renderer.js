@@ -1,0 +1,260 @@
+'use strict';
+
+const fs = require('fs/promises');
+const path = require('path');
+const nunjucks = require('nunjucks');
+const { renderMarkdown } = require('./markdown');
+
+/**
+ * Render the full static site from merged site data.
+ * @param {object} data - MergedSiteData
+ * @param {object} pages - map of page name → markdown file path (from content.pages)
+ * @param {string} outputDir - Directory to write rendered HTML files into
+ * @returns {Promise<number>} Total number of pages written
+ */
+async function renderSite(data, pages, outputDir, labelName) {
+  labelName = labelName || process.env.LABEL_NAME || 'My Label';
+  const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
+  const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
+  const templatesDir = path.join(__dirname, '..', 'templates');
+  const env = nunjucks.configure(templatesDir, { autoescape: true });
+
+  // Custom filter: check if a URL is a local file (not http/https)
+  env.addFilter('isLocal', (url) => url && !url.startsWith('http'));
+
+  // Custom filter: URL-encode a string
+  env.addFilter('urlencode', (str) => encodeURIComponent(str || ''));
+
+  // Custom filter: extract YouTube video ID from a URL
+  env.addFilter('youtubeId', (url) => {
+    if (!url) return ''
+    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
+    return m ? m[1] : ''
+  });
+
+  // Custom filter: convert newlines to <br> tags (handles \r\n and \n)
+  env.addFilter('nl2br', (str) => str ? str.replace(/\r\n|\r|\n/g, '<br>') : '');
+
+  // Custom filter: format ISO date string to readable date
+  env.addFilter('formatDate', (iso) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+  });
+
+  let count = 0;
+
+  // Load optional page content
+  async function loadPage(name) {
+    const page = pages[name]
+    if (!page) return null
+    const filePath = typeof page === 'string' ? page : page.path
+    if (filePath) {
+      try {
+        let md = await fs.readFile(filePath, 'utf8');
+        // Strip front-matter before rendering
+        md = md.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '')
+        return renderMarkdown(md);
+      } catch { /* ignore */ }
+    }
+    return null;
+  }
+
+  const newsHtml = await loadPage('news');
+  const aboutHtml = await loadPage('about');
+
+  // Discover all extra pages (anything in pages/ that isn't news/about)
+  const CORE_PAGES = new Set(['news', 'about', 'imprint', 'contact'])
+
+  function pageInfo (name) {
+    const page = pages[name]
+    const menu = (page && typeof page === 'object') ? (page.menu || 'footer') : 'footer'
+    return {
+      name,
+      title: name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, ' '),
+      slug: name,
+      menu
+    }
+  }
+
+  // Built-in pages with content
+  const builtinPages = ['imprint', 'contact']
+    .filter(n => pages[n])
+    .map(pageInfo)
+
+  // Extra pages
+  const extraPages = Object.keys(pages)
+    .filter(name => !CORE_PAGES.has(name))
+    .map(pageInfo)
+
+  const allNavPages = [...builtinPages, ...extraPages]
+  const mainNavPages = allNavPages.filter(p => p.menu === 'main' || p.menu === 'both')
+  const footerNavPages = allNavPages.filter(p => p.menu === 'footer' || p.menu === 'both' || p.menu === 'main')
+
+  // Collect all albums across all artists, sorted newest first
+  const allAlbums = [];
+  for (const artist of data.artists || []) {
+    for (const album of artist.albums || []) {
+      allAlbums.push({ ...album, artistName: artist.name, artistSlug: artist.slug });
+    }
+  }
+  allAlbums.sort((a, b) => {
+    if (!a.releaseDate && !b.releaseDate) return 0;
+    if (!a.releaseDate) return 1;
+    if (!b.releaseDate) return -1;
+    return new Date(b.releaseDate) - new Date(a.releaseDate);
+  });
+
+  // Sort artists alphabetically
+  const sortedArtists = [...(data.artists || [])].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+  );
+
+  const baseCtx = {
+    artists: sortedArtists,
+    labelName,
+    siteUrl,
+    gaMeasurementId,
+    currentYear: new Date().getFullYear(),
+    latestReleases: allAlbums.slice(0, 12),
+    totalReleases: allAlbums.length,
+    labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
+    labelEmail: process.env.LABEL_EMAIL || '',
+    labelAddress: process.env.LABEL_ADDRESS || '',
+    labelVatId: process.env.LABEL_VAT_ID || '',
+    extraPages,
+    mainNavPages,
+    footerNavPages,
+    pages,
+    social: {
+      bandcamp:   process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
+      spotify:    process.env.LABEL_SPOTIFY_URL || '',
+      soundcloud: process.env.LABEL_SOUNDCLOUD_URL || '',
+      youtube:    process.env.LABEL_YOUTUBE_URL || '',
+      instagram:  process.env.LABEL_INSTAGRAM_URL || '',
+      facebook:   process.env.LABEL_FACEBOOK_URL || '',
+      tiktok:     process.env.LABEL_TIKTOK_URL || '',
+      twitter:    process.env.LABEL_TWITTER_URL || '',
+    },
+  };
+
+  // --- index ---
+  await fs.mkdir(outputDir, { recursive: true });
+  const sitemapUrls = [];
+  const indexHtml = nunjucks.render('index.njk', {
+    ...baseCtx,
+    allAlbums,
+    newsHtml,
+    aboutHtml,
+    rootPath: './',
+    canonicalUrl: siteUrl || null,
+  });
+  await fs.writeFile(path.join(outputDir, 'index.html'), indexHtml, 'utf8');
+  if (siteUrl) sitemapUrls.push({ url: siteUrl, priority: '1.0' });
+  count++;
+
+  // --- artist + album pages ---
+  for (const artist of data.artists || []) {
+    const artistDir = path.join(outputDir, 'artists', artist.slug);
+    await fs.mkdir(artistDir, { recursive: true });
+    const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
+
+    const artistHtml = nunjucks.render('artist.njk', {
+      ...baseCtx,
+      artist: {
+        ...artist,
+        albums: [...(artist.albums || [])].sort((a, b) => {
+          if (!a.releaseDate && !b.releaseDate) return 0;
+          if (!a.releaseDate) return 1;
+          if (!b.releaseDate) return -1;
+          return new Date(b.releaseDate) - new Date(a.releaseDate);
+        })
+      },
+      rootPath: '../../',
+      canonicalUrl: artistUrl,
+    });
+    await fs.writeFile(path.join(artistDir, 'index.html'), artistHtml, 'utf8');
+    if (artistUrl) sitemapUrls.push({ url: artistUrl, priority: '0.8' });
+    count++;
+
+    for (const album of artist.albums || []) {
+      const albumDir = path.join(outputDir, 'artists', artist.slug, album.slug);
+      await fs.mkdir(albumDir, { recursive: true });
+      const albumUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/${album.slug}/` : null;
+
+      const albumHtml = nunjucks.render('album.njk', {
+        ...baseCtx,
+        album,
+        artist,
+        rootPath: '../../../',
+        canonicalUrl: albumUrl,
+      });
+      await fs.writeFile(path.join(albumDir, 'index.html'), albumHtml, 'utf8');
+      if (albumUrl) sitemapUrls.push({ url: albumUrl, priority: '0.7' });
+      count++;
+    }
+  }
+
+  // --- releases page ---
+  const releasesDir = path.join(outputDir, 'releases');
+  await fs.mkdir(releasesDir, { recursive: true });
+  const releasesUrl = siteUrl ? `${siteUrl}releases/` : null;
+  const releasesHtml = nunjucks.render('releases.njk', {
+    ...baseCtx,
+    allAlbums,
+    rootPath: '../',
+    canonicalUrl: releasesUrl,
+  });
+  await fs.writeFile(path.join(releasesDir, 'index.html'), releasesHtml, 'utf8');
+  if (releasesUrl) sitemapUrls.push({ url: releasesUrl, priority: '0.6' });
+  count++;
+
+  // --- all static pages (imprint, contact, and any extra pages) ---
+  for (const page of allNavPages) {
+    const html = await loadPage(page.name);
+    if (html) {
+      const pageDir = path.join(outputDir, page.slug);
+      await fs.mkdir(pageDir, { recursive: true });
+      const pageUrl = siteUrl ? `${siteUrl}${page.slug}/` : null;
+      await fs.writeFile(path.join(pageDir, 'index.html'), nunjucks.render('page.njk', {
+        ...baseCtx, title: page.title, pageHtml: html, rootPath: '../',
+        canonicalUrl: pageUrl,
+      }), 'utf8');
+      if (pageUrl) sitemapUrls.push({ url: pageUrl, priority: '0.4' });
+      count++;
+    }
+  }
+
+  // --- 404 page (used by S3/CloudFront as error document) ---
+  const notFoundHtml = nunjucks.render('page.njk', {
+    ...baseCtx,
+    title: 'Page Not Found',
+    pageHtml: '<p>The page you are looking for does not exist.</p><p><a href="/">Return to homepage</a></p>',
+    rootPath: '/',
+    canonicalUrl: null,
+  });
+  await fs.writeFile(path.join(outputDir, '404.html'), notFoundHtml, 'utf8');
+  count++;
+
+  // --- sitemap.xml ---
+  if (siteUrl && sitemapUrls.length) {
+    const today = new Date().toISOString().slice(0, 10);
+    const sitemap = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      ...sitemapUrls.map(({ url, priority }) =>
+        `  <url>\n    <loc>${url}</loc>\n    <lastmod>${today}</lastmod>\n    <priority>${priority}</priority>\n  </url>`
+      ),
+      '</urlset>',
+    ].join('\n');
+    await fs.writeFile(path.join(outputDir, 'sitemap.xml'), sitemap, 'utf8');
+  }
+
+  // --- robots.txt ---
+  const robotsLines = ['User-agent: *', 'Allow: /'];
+  if (siteUrl) robotsLines.push(`Sitemap: ${siteUrl}sitemap.xml`);
+  await fs.writeFile(path.join(outputDir, 'robots.txt'), robotsLines.join('\n') + '\n', 'utf8');
+
+  return count;
+}
+
+module.exports.renderSite = renderSite;
