@@ -30,8 +30,8 @@ function extractAlbumId (raw) {
 /**
  * Returns true if the album's artist field matches the given artist name.
  * Handles cases like "various" compilations — those are kept.
- * Filters out albums clearly belonging to a different artist (e.g. VOYNA releases
- * appearing on Golden Apes' Bandcamp page).
+ * Filters out albums clearly belonging to a different artist (e.g. a guest artist's
+ * releases appearing on the label's main artist page).
  */
 function albumBelongsToArtist (album, artistName) {
   if (!album.artist) return true // no artist field — keep it

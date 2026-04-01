@@ -3,7 +3,7 @@
 const fs = require('fs/promises')
 const path = require('path')
 
-const DEFAULT_CSS = `/* Aenaos Records — Brand Theme */
+const DEFAULT_CSS = `/* Label Site Generator — Default Theme */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {

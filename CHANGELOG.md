@@ -1,6 +1,6 @@
 # Changelog
 
-## Aenaos Static Site Generator
+## Label Site Generator
 
 This project extends the original `bandcamp-scraper` library into a full static site generator for music labels.
 
@@ -60,14 +60,14 @@ This project extends the original `bandcamp-scraper` library into a full static 
 **Bug fixes**
 - Fixed duplicate slug collision for albums with same title (appends release year)
 - Fixed artwork path resolution for deduplicated slugs
-- Fixed VOYNA releases appearing under Golden Apes
+- Fixed cross-artist album contamination (releases from one artist appearing under another)
 - Fixed Tidal artist links pointing to album URLs
 - Fixed 1985 placeholder dates from Discogs
 - Fixed `Content-Type` header for Tidal API requests
 
 ---
 
-### v1.0.0 — 2026 (Initial Aenaos Static Site Generator release)
+### v1.0.0 — 2026 (Initial Label Site Generator release)
 
 **Core pipeline**
 - Static site generator built on top of `bandcamp-scraper`
