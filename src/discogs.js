@@ -19,7 +19,7 @@ function httpsGet (url, token) {
   return new Promise((resolve) => {
     const opts = {
       headers: {
-        'User-Agent': 'AenaosStaticSiteGenerator/1.0',
+        'User-Agent': 'LabelSiteGenerator/2.0',
         Authorization: token ? `Discogs token=${token}` : undefined
       }
     }

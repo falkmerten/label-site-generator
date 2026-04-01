@@ -1,4 +1,4 @@
-# Aenaos Static Site Generator
+# Label Site Generator
 
 Generates a complete static website for a Bandcamp music label. Scrapes artist and album data from Bandcamp, enriches it with streaming links and physical release data from multiple APIs, merges it with local content, and renders a branded HTML site.
 
