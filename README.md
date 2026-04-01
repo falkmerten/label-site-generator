@@ -34,8 +34,10 @@ Built on top of the [bandcamp-scraper](https://github.com/masterT/bandcamp-scrap
 ## Requirements
 
 - Node.js 18+
-- A Bandcamp label account (API access optional but recommended)
+- A Bandcamp label account with API access (see note below)
 - Spotify Developer credentials (recommended — enables full enrichment pipeline)
+
+> **Bandcamp API access**: The generator uses the Bandcamp API to fetch your label's artist roster. API access is available to Bandcamp label accounts — go to your Bandcamp label settings → **API Access** to obtain your `CLIENT_ID` and `CLIENT_SECRET`. Without API credentials the generator falls back to HTML scraping of your label page, which is less reliable. Note that Bandcamp API access is only available to label accounts, not individual artist accounts.
 
 ---
 
