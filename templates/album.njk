@@ -162,7 +162,16 @@
         </div>
         {% endif %}
         <ul class="physical-links">
-          {% if album.discogsSellUrl %}
+          {% if album.discogsSellUrlVinyl %}
+            <li><a href="{{ album.discogsSellUrlVinyl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy Vinyl on Discogs</a></li>
+          {% endif %}
+          {% if album.discogsSellUrlCd %}
+            <li><a href="{{ album.discogsSellUrlCd }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-compact-disc"></i> Buy CD on Discogs</a></li>
+          {% endif %}
+          {% if album.discogsSellUrlCassette %}
+            <li><a href="{{ album.discogsSellUrlCassette }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
+          {% endif %}
+          {% if not album.discogsSellUrlVinyl and not album.discogsSellUrlCd and not album.discogsSellUrlCassette and album.discogsSellUrl %}
             <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
           {% endif %}
           {% if album.upc or (artist.name and album.title) %}

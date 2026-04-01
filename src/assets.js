@@ -771,6 +771,12 @@ main { min-height: 60vh; }
   color: var(--text-muted);
 }
 
+.release-formats {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
 /* ── News / About sections ── */
 .news-section, .about-section { background: var(--bg); }
 

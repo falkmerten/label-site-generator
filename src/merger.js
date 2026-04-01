@@ -88,6 +88,9 @@ async function mergeData (rawData, content) {
               physicalFormats: album.physicalFormats || null,
               discogsUrl: album.discogsUrl || null,
               discogsSellUrl: album.discogsSellUrl || null,
+              discogsSellUrlVinyl: album.discogsSellUrlVinyl || null,
+              discogsSellUrlCd: album.discogsSellUrlCd || null,
+              discogsSellUrlCassette: album.discogsSellUrlCassette || null,
               labelName: album.labelName || null,
               slug: toSlug(album.title)
             }
@@ -163,6 +166,9 @@ async function mergeData (rawData, content) {
             physicalFormats: album.physicalFormats || null,
             discogsUrl: album.discogsUrl || null,
             discogsSellUrl: album.discogsSellUrl || null,
+            discogsSellUrlVinyl: album.discogsSellUrlVinyl || null,
+            discogsSellUrlCd: album.discogsSellUrlCd || null,
+            discogsSellUrlCassette: album.discogsSellUrlCassette || null,
             labelName: album.labelName || null,
             slug: albumSlug
           }

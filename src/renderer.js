@@ -25,7 +25,18 @@ async function renderSite(data, pages, outputDir, labelName) {
   // Custom filter: URL-encode a string
   env.addFilter('urlencode', (str) => encodeURIComponent(str || ''));
 
-  // Custom filter: extract YouTube video ID from a URL
+  // Custom filter: compute available format labels for an album card
+  // Digital is always included. Physical formats (Vinyl, CD etc.) are prepended if available.
+  env.addFilter('availableFormats', (album) => {
+    const physical = album.physicalFormats || []
+    const formats = []
+    if (physical.includes('Vinyl')) formats.push('Vinyl')
+    if (physical.includes('CD')) formats.push('CD')
+    if (physical.includes('Cassette')) formats.push('Cassette')
+    if (physical.includes('Box Set')) formats.push('Box Set')
+    formats.push('Digital')
+    return formats.join(', ')
+  });
   env.addFilter('youtubeId', (url) => {
     if (!url) return ''
     const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)

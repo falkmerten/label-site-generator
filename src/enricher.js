@@ -329,9 +329,9 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./itunes')
-                let result = null
-                if (album.upc) result = await lookupByUpc(album.upc)
-                if (!result) result = await searchAlbum(artist.name, album.title)
+                // Try title search first (more reliable), fall back to UPC
+                let result = await searchAlbum(artist.name, album.title)
+                if (!result && album.upc) result = await lookupByUpc(album.upc)
                 if (result) {
                   album.streamingLinks = album.streamingLinks || {}
                   album.streamingLinks.appleMusic = result.albumUrl
@@ -349,9 +349,9 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./deezer')
-                let result = null
-                if (album.upc) result = await lookupByUpc(album.upc)
-                if (!result) result = await searchAlbum(artist.name, album.title)
+                // Try title search first (more reliable), fall back to UPC
+                let result = await searchAlbum(artist.name, album.title)
+                if (!result && album.upc) result = await lookupByUpc(album.upc)
                 if (result) {
                   album.streamingLinks = album.streamingLinks || {}
                   album.streamingLinks.deezer = result.albumUrl
@@ -373,7 +373,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                 try { token = await getAccessToken(tidalClientId, tidalClientSecret) } catch { return }
                 if (!token) return
                 let result = null
-                if (album.upc) result = await lookupByUpc(token, album.upc)
+                if (album.upc) result = await lookupByUpc(token, album.upc, album.title)
                 if (!result) result = await searchAlbum(token, artist.name, album.title)
                 if (result) {
                   album.streamingLinks = album.streamingLinks || {}
@@ -437,7 +437,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             try { token = await getAccessToken(tidalClientId, tidalClientSecret) } catch { return }
             if (!token) return
             let result = null
-            if (album.upc) result = await lookupByUpc(token, album.upc)
+            if (album.upc) result = await lookupByUpc(token, album.upc, album.title)
             if (!result) result = await searchAlbum(token, artist.name, album.title)
             if (result) {
               album.streamingLinks = album.streamingLinks || {}

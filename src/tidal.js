@@ -83,13 +83,25 @@ async function getAccessToken (clientId, clientSecret) {
  * Looks up a Tidal album by UPC/barcode.
  * Returns { albumUrl, artistId } or null.
  */
-async function lookupByUpc (token, upc) {
+async function lookupByUpc (token, upc, albumTitle) {
   const qs = querystring.stringify({ countryCode: 'US', 'filter[barcodeId]': upc })
   const data = await httpsGet(`/v2/albums?${qs}`, token)
   if (!data || !data.data || data.data.length === 0) return null
   const album = data.data[0]
   const id = album.id
   if (!id) return null
+
+  // Verify title matches if provided — UPC can sometimes point to wrong release
+  if (albumTitle) {
+    const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const foundTitle = normalise((album.attributes && album.attributes.title) || '')
+    const targetTitle = normalise(albumTitle)
+    if (foundTitle && targetTitle && !foundTitle.includes(targetTitle) && !targetTitle.includes(foundTitle)) {
+      console.warn(`    ⚠ Tidal UPC mismatch: searched "${albumTitle}", found "${(album.attributes||{}).title}" — skipping`)
+      return null
+    }
+  }
+
   const artistId = album.relationships &&
     album.relationships.artists &&
     album.relationships.artists.data &&
@@ -112,19 +124,31 @@ async function searchAlbum (token, artistName, albumTitle) {
 
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const targetAlbum = normalise(albumTitle)
+  const targetArtist = normalise(artistName)
 
+  // Require title match — don't fall back to first result blindly
   const match = items.find(item => {
     const attrs = item.attributes || {}
-    return normalise(attrs.title || '') === targetAlbum
-  }) || items[0]
+    const titleMatch = normalise(attrs.title || '') === targetAlbum
+    return titleMatch
+  })
 
-  if (!match) return null
-  const artistId = match.relationships &&
-    match.relationships.artists &&
-    match.relationships.artists.data &&
-    match.relationships.artists.data[0] &&
-    match.relationships.artists.data[0].id
-  return { albumUrl: `https://tidal.com/browse/album/${match.id}`, artistId: artistId || null }
+  // If no exact title match, try partial (title starts with or contains target)
+  const fuzzyMatch = !match && items.find(item => {
+    const attrs = item.attributes || {}
+    const normTitle = normalise(attrs.title || '')
+    return normTitle.includes(targetAlbum) || targetAlbum.includes(normTitle)
+  })
+
+  const best = match || fuzzyMatch
+  if (!best) return null
+
+  const artistId = best.relationships &&
+    best.relationships.artists &&
+    best.relationships.artists.data &&
+    best.relationships.artists.data[0] &&
+    best.relationships.artists.data[0].id
+  return { albumUrl: `https://tidal.com/browse/album/${best.id}`, artistId: artistId || null }
 }
 
 /**
@@ -203,7 +227,7 @@ async function enrichAlbumsWithTidal (albums, artistName, clientId, clientSecret
       await delay(DELAY_MS)
       let result = null
       if (album.upc) {
-        result = await lookupByUpc(token, album.upc)
+        result = await lookupByUpc(token, album.upc, album.title)
       }
       if (!result) {
         result = await searchAlbum(token, artistName, album.title)
