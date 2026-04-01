@@ -28,6 +28,8 @@
                 {% if album.releaseDate %}
                   <span class="release-year">{{ album.releaseDate | formatDate }}</span>
                 {% endif %}
+                {% set formats = album | availableFormats %}
+                {% if formats %}<span class="release-formats">({{ formats }})</span>{% endif %}
               </div>
             </a>
           {% endfor %}

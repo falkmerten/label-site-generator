@@ -4,7 +4,6 @@ const https = require('https')
 const querystring = require('querystring')
 
 // Discogs allows 60 req/min with a token = 1 req/second
-// Use a shared queue to throttle all requests globally
 const DELAY_MS = 1100
 
 let _lastRequestTime = 0
@@ -39,44 +38,71 @@ function httpsGet (url, token) {
   })
 }
 
-function extractFormats (result) {
+/**
+ * Returns the physical format type for a release result, or null if digital-only.
+ * Checks both search result format array and full release formats array.
+ */
+function getPhysicalFormats (formats) {
   const physical = new Set()
-  // Skip digital/file/download releases entirely
-  const formats = result.format || []
-  const isDigitalOnly = formats.some(f => {
-    const fl = f.toLowerCase()
-    return fl === 'file' || fl === 'digital' || fl.includes('mp3') || fl.includes('flac') || fl.includes('wav') || fl.includes('download')
-  })
-  if (isDigitalOnly) return []
+  if (!formats || formats.length === 0) return physical
 
-  for (const f of formats) {
-    const fl = f.toLowerCase()
-    if (fl.includes('vinyl') || fl === 'lp' || fl === '7"' || fl === '10"' || fl === '12"'
-        || fl === '7' || fl === '10' || fl === '12') {
-      physical.add('Vinyl')
-    } else if (fl.includes('cd') || fl === 'cdr' || fl === 'cdep') {
-      physical.add('CD')
-    } else if (fl.includes('cass') || fl.includes('tape')) {
-      physical.add('Cassette')
-    } else if (fl.includes('box')) {
-      physical.add('Box Set')
-    }
+  // formats can be strings (search results) or objects with name/descriptions (full release)
+  const formatNames = formats.map(f => typeof f === 'string' ? f : (f.name || '')).map(s => s.toLowerCase())
+  const formatDescs = formats.flatMap(f => typeof f === 'object' ? (f.descriptions || []) : []).map(s => s.toLowerCase())
+  const all = [...formatNames, ...formatDescs]
+
+  // Skip if digital-only
+  const isDigital = all.some(s => s === 'file' || s === 'digital' || s.includes('mp3') || s.includes('flac') || s.includes('wav') || s.includes('download'))
+  const hasPhysical = all.some(s =>
+    s.includes('vinyl') || s === 'lp' || s.includes('cd') || s === 'cdr' ||
+    s.includes('cass') || s.includes('tape') || s.includes('box') ||
+    s === '7"' || s === '10"' || s === '12"'
+  )
+  if (isDigital && !hasPhysical) return physical
+
+  for (const s of all) {
+    if (s.includes('vinyl') || s === 'lp' || s === '7"' || s === '10"' || s === '12"') physical.add('Vinyl')
+    else if (s.includes('cd') || s === 'cdr' || s === 'cdep') physical.add('CD')
+    else if (s.includes('cass') || s.includes('tape')) physical.add('Cassette')
+    else if (s.includes('box')) physical.add('Box Set')
   }
-  return [...physical]
+  return physical
 }
 
 async function searchDiscogs (token, params) {
   const qs = querystring.stringify({ ...params, token, per_page: 10, page: 1 })
   const data = await httpsGet(`https://api.discogs.com/database/search?${qs}`, token)
   if (!data || !data.results || data.results.length === 0) return null
-  return data.results // return all results
+  return data.results
+}
+
+/**
+ * Fetches versions of a master release and returns per-format sell links.
+ * Returns { vinyl: url|null, cd: url|null, cassette: url|null }
+ */
+async function getMasterVersionSellLinks (token, masterId) {
+  await throttle()
+  const data = await httpsGet(`https://api.discogs.com/masters/${masterId}/versions?per_page=50&page=1`, token)
+  if (!data || !data.versions) return {}
+
+  const sellLinks = {}
+  for (const v of data.versions) {
+    const formats = getPhysicalFormats(v.format ? [v.format] : [])
+    for (const fmt of formats) {
+      const key = fmt.toLowerCase()
+      if (!sellLinks[key]) {
+        sellLinks[key] = `https://www.discogs.com/sell/release/${v.id}`
+      }
+    }
+    if (sellLinks.vinyl && sellLinks.cd) break // found both, stop early
+  }
+  return sellLinks
 }
 
 /**
  * Looks up a release on Discogs.
  * Tries UPC first, then artist+title fallback.
- * Aggregates formats across all matching editions.
- * Uses the most complete release (most formats/info) as the primary.
+ * Uses master release to find per-format physical sell links.
  */
 async function lookupRelease (token, upc, artistName, albumTitle) {
   let results = null
@@ -92,40 +118,59 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
 
   if (!results || results.length === 0) return null
 
-  // Filter to physical releases only, fall back to all if none found
-  const physicalResults = results.filter(r => extractFormats(r).length > 0)
-  const candidates = physicalResults.length > 0 ? physicalResults : results
+  // Find the master release or best physical release
+  const masterResult = results.find(r => r.type === 'master')
+  const physicalResults = results.filter(r => getPhysicalFormats(r.format || []).size > 0)
 
-  // Aggregate all physical formats
+  // Prefer master, then first physical, then first result
+  const primaryResult = masterResult || physicalResults[0] || results[0]
+  if (!primaryResult) return null
+
+  // Aggregate all physical formats from search results
   const allFormats = new Set()
-  const sellUrls = []
-  let primaryResult = null
+  for (const r of results) {
+    for (const f of getPhysicalFormats(r.format || [])) allFormats.add(f)
+  }
 
-  for (const result of candidates) {
-    if (!result.id) continue
-    const formats = extractFormats(result)
-    formats.forEach(f => allFormats.add(f))
-    if (formats.length > 0) {
-      sellUrls.push(`https://www.discogs.com/sell/release/${result.id}`)
-      if (!primaryResult) primaryResult = result // first physical release is primary
+  // Per-format sell links
+  const sellLinks = {}
+
+  if (masterResult) {
+    // Use master versions endpoint for accurate per-format sell links
+    const masterSellLinks = await getMasterVersionSellLinks(token, masterResult.id)
+    Object.assign(sellLinks, masterSellLinks)
+  } else {
+    // No master — use individual physical releases from search results
+    for (const r of physicalResults) {
+      const formats = getPhysicalFormats(r.format || [])
+      for (const fmt of formats) {
+        const key = fmt.toLowerCase()
+        if (!sellLinks[key]) sellLinks[key] = `https://www.discogs.com/sell/release/${r.id}`
+      }
     }
   }
 
-  // If no physical results had formats, use first candidate for metadata only
-  if (!primaryResult) primaryResult = candidates[0]
-  if (!primaryResult) return null
-
-  // Fetch full release metadata from primary physical result
+  // Fetch metadata from primary result
   await throttle()
-  const primaryRelease = await httpsGet(`https://api.discogs.com/releases/${primaryResult.id}`, token)
+  const isMaster = primaryResult.type === 'master'
+  const metaUrl = isMaster
+    ? `https://api.discogs.com/masters/${primaryResult.id}`
+    : `https://api.discogs.com/releases/${primaryResult.id}`
+  const meta = await httpsGet(metaUrl, token)
 
-  const labelName = primaryRelease && primaryRelease.labels && primaryRelease.labels[0] ? primaryRelease.labels[0].name : null
-  const country = primaryRelease ? primaryRelease.country : null
-  const notes = primaryRelease && primaryRelease.notes ? primaryRelease.notes : null
+  const labelName = meta && meta.labels && meta.labels[0] ? meta.labels[0].name : null
+  const country = meta && !isMaster ? meta.country : null
+  const notes = meta && meta.notes ? meta.notes : null
+
+  // If no physical formats found at all, skip
+  if (allFormats.size === 0 && Object.keys(sellLinks).length === 0) return null
 
   return {
     discogsUrl: `https://www.discogs.com${primaryResult.uri}`,
-    discogsSellUrl: sellUrls[0] || `https://www.discogs.com/sell/release/${primaryResult.id}`,
+    discogsSellUrl: sellLinks.vinyl || sellLinks.cd || sellLinks.cassette || null,
+    discogsSellUrlVinyl: sellLinks.vinyl || null,
+    discogsSellUrlCd: sellLinks.cd || null,
+    discogsSellUrlCassette: sellLinks.cassette || null,
     formats: [...allFormats],
     labelName,
     country,
@@ -147,6 +192,9 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
       if (result) {
         album.discogsUrl = result.discogsUrl
         album.discogsSellUrl = result.discogsSellUrl
+        album.discogsSellUrlVinyl = result.discogsSellUrlVinyl
+        album.discogsSellUrlCd = result.discogsSellUrlCd
+        album.discogsSellUrlCassette = result.discogsSellUrlCassette
         if (result.formats.length > 0) album.physicalFormats = result.formats
         if (result.labelName) album.labelName = result.labelName
         if (result.country) album.country = result.country

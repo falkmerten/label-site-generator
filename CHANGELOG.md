@@ -6,57 +6,92 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
-### 2026 — Aenaos Static Site Generator
+### v2.0.0 — 2026-04-01
+
+**SEO & Analytics**
+- Meta descriptions, Open Graph tags, Twitter Card tags on all pages
+- JSON-LD structured data (`MusicGroup`, `MusicAlbum`, `MusicRecording`) for rich search results
+- Canonical URLs on all pages
+- Auto-generated `sitemap.xml` with priorities and `robots.txt`
+- Google Analytics 4 integration via `GA_MEASUREMENT_ID` env var
+- Dynamic copyright year in footer
+
+**Artwork**
+- `--download-artwork` flag — downloads all remote artwork to `content/{artist}/{album}/artwork.jpg`
+- Artwork served locally — no dependency on external CDN URLs
+- SVG placeholder image for albums without artwork
+- Correct artwork resolution for duplicate-slug albums (e.g. two releases with same title)
+
+**Discogs improvements**
+- Master release detection — uses `/masters/{id}/versions` for accurate per-format sell links
+- Per-format sell links: separate "Buy Vinyl on Discogs" and "Buy CD on Discogs" buttons
+- Digital-only releases filtered out — no physical section shown for digital-only Discogs entries
+- Release dates no longer sourced from Discogs (Bandcamp/Spotify only)
+- Catalogue numbers removed from album pages
+
+**Tidal improvements**
+- Artist-level Tidal URL fetched from album relationships (no separate artist search needed)
+- `--tidal-only` flag — re-checks Tidal links without running other enrichment
+- Title verification on UPC lookup — rejects mismatched results
+- `searchAlbum` requires title match — no longer falls back to first result blindly
+- `tidalArtistUrl` support in `content/artists.json` for manual override
+
+**Enrichment pipeline**
+- iTunes and Deezer: title search preferred over UPC (more reliable, avoids UPC mismatches)
+- Concurrent enrichment — iTunes, Deezer, Tidal, MusicFetch run in parallel per album
+- Discogs throttle reduced to 1100ms (from 2000ms) with shared global rate limiter
+- Bandcamp-only releases preserved when Spotify rebuilds album list
+- Artist field validation prevents cross-artist album contamination
+- Improved album type matching (album/EP/single) for Spotify ↔ Bandcamp pairing
+
+**Album cards (homepage, artist pages, releases page)**
+- Format availability shown: `(Digital)`, `(Vinyl, Digital)`, `(CD, Vinyl, Digital)` etc.
+- Release date shown on homepage and artist page album cards
+
+**Videos**
+- `videos.json` support — add YouTube links manually per album in `content/{artist}/{album}/videos.json`
+- Discogs video import removed (unreliable)
+
+**AWS deployment**
+- `--deploy` flag — syncs `dist/` to S3 and creates CloudFront invalidation
+- `AWS_S3_BUCKET`, `AWS_S3_REGION`, `AWS_CLOUDFRONT_DISTRIBUTION_ID` env vars
+- CloudFront invalidation output suppressed, single log line with invalidation ID
+
+**Bug fixes**
+- Fixed duplicate slug collision for albums with same title (appends release year)
+- Fixed artwork path resolution for deduplicated slugs
+- Fixed VOYNA releases appearing under Golden Apes
+- Fixed Tidal artist links pointing to album URLs
+- Fixed 1985 placeholder dates from Discogs
+- Fixed `Content-Type` header for Tidal API requests
+
+---
+
+### v1.0.0 — 2026 (Initial Aenaos Static Site Generator release)
 
 **Core pipeline**
 - Static site generator built on top of `bandcamp-scraper`
 - Bandcamp API integration for label roster (OAuth2 client_credentials)
 - JSON cache (`cache.json`) — incremental scraping, skip Bandcamp on re-runs
-- Single-artist refresh (`--artist <name>`) — re-scrapes one artist, preserves enrichment data
-- Uses `/music` path for Bandcamp artist pages to ensure all releases are fetched
-- `albumBelongsToArtist()` filter — prevents cross-artist album contamination (e.g. VOYNA releases on Golden Apes page)
-- NFD slug normalisation — accented characters (e.g. `á`) correctly slugified
+- Single-artist refresh (`--artist <name>`)
+- `albumBelongsToArtist()` filter — prevents cross-artist album contamination
+- NFD slug normalisation
 
 **Streaming link enrichment (`--enrich`)**
-- Spotify Web API — artist page fetch (UPC extraction), album search fallback
-- `content/artists.json` — maps artist slugs to Spotify artist URLs for reliable enrichment
-- `--init-artists` — auto-generates `artists.json` with Spotify URLs + album list validation
-- Spotify as source of truth — album list rebuilt from Spotify when artist URL is configured; unmatched Bandcamp-only releases dropped; Spotify-only releases added
-- Fuzzy title matching — strips `, ALBUM`, `, EP`, `(Single)`, `feat.` suffixes for cross-platform matching
-- iTunes/Apple Music API — UPC lookup, title search fallback (free, no auth)
-- Deezer API — UPC lookup, title search fallback (free, no auth); sets artist-level Deezer link
-- Tidal API — UPC lookup, title search fallback (requires credentials)
-- Discogs API — physical formats (Vinyl, CD, Cassette), catalog number, label name, sell links, YouTube videos; fills missing release dates and descriptions
-- MusicFetch via RapidAPI — optional, fills Amazon Music and other gaps
+- Spotify, iTunes/Apple Music, Deezer, Tidal, Discogs, MusicFetch
+- `content/artists.json` — Spotify artist URL map
+- `--init-artists` — auto-generates `artists.json`
 
 **Content system**
-- `content/{artist-slug}/bio.md` — artist biography override
-- `content/{artist-slug}/bio.docx` — Word document auto-converted to `bio.md` on generate
-- `content/{artist-slug}/photo.jpg` — artist photo
-- `content/{artist-slug}/images/` — gallery photos (lightbox on artist page)
-- `content/pages/*.md` / `*.docx` — dynamic static pages (auto-discovered, footer links)
-- `--init-content` — scaffolds `content/{artist}/` folders with README instructions
-- Word document conversion via `mammoth` — artist bios, imprint, contact, terms, data protection, any page
+- Artist bios (Markdown or Word .docx), photos, gallery images, album artwork
+- Dynamic static pages from `content/pages/`
+- `--init-content` — scaffolds content folders
 
 **Design**
 - Brand colours `#0c0032` / `#cacadb`
-- Hero banner + overlapping round logo (homepage)
-- Artist pages: blurred artist photo as hero banner, sharp round artist photo overlapping nav
-- Album pages: blurred album artwork as hero banner, round artwork overlapping nav
-- Artist photo gallery with lightbox (prev/next, keyboard navigation, click-outside-to-close)
-- Physical release badges (Vinyl, CD, Cassette) with Discogs sell link and Amazon search link
-- YouTube video embeds on album pages (from Discogs)
-- Font Awesome 6 brand icons for all streaming services
-- Sticky dark navigation with artists dropdown
-- Responsive layout
-
-**Pages**
-- Homepage with latest 12 releases, artists grid, news section, about section
-- Artist pages with bio, streaming links, discography, gallery
-- Album pages with Bandcamp embed, streaming links, physical release section, tracklist, credits, videos
-- Full releases page
-- Dynamic static pages — any `.md`/`.docx` in `content/pages/` becomes a page with a footer link
-- Imprint and Contact pages only rendered when content file exists
+- Hero banners, artist photo gallery with lightbox
+- Physical release badges, streaming links, YouTube video embeds
+- Font Awesome 6, responsive layout
 
 ---
 
@@ -66,14 +101,7 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 - add property `artist` to album product
 - add property `url` to album info
-- fix typo in JSON schemas for `required` keyword
-- fix add missing properties `releaseDate`, `numTracks`, `numMinutes` for search result type `"album"`
 
 ### Version 1.0.0 (2016-07-25)
 
-- rename resource property `image` -> `imageUrl`
-- rename resource property `images` -> `imageUrls`
-- rename resource property `link` -> `url`
-- rename resource property `from` -> `location`
-- rename resource property `orMore` -> `offerMore`
-- remove resource property `numRemaining`
+- rename resource properties (`image` → `imageUrl`, `link` → `url`, etc.)
