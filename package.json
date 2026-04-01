@@ -1,8 +1,8 @@
 {
-  "name": "bandcamp-scraper",
+  "name": "label-site-generator",
   "version": "2.0.0",
-  "description": "A scraper for https://bandcamp.com",
-  "main": "lib/index.js",
+  "description": "Static site generator for music labels — scrapes Bandcamp, enriches with Spotify/Tidal/Discogs, generates a branded HTML site.",
+  "main": "generate.js",
   "scripts": {
     "generate": "node generate.js",
     "serve": "npx serve dist",
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/masterT/bandcamp-scraper"
+    "url": "https://github.com/falkmerten/label-site-generator"
   },
-  "author": "Simon Thiboutôt <salut@simonthiboutot.com> (http://simonthiboutot.com)",
-  "license": "MIT",
+  "author": "Falk Merten / Aenaos Records",
+  "license": "GPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/masterT/bandcamp-scraper/issues"
+    "url": "https://github.com/falkmerten/label-site-generator/issues"
   },
-  "homepage": "https://github.com/masterT/bandcamp-scraper",
+  "homepage": "https://github.com/falkmerten/label-site-generator",
   "devDependencies": {
     "fast-check": "^3.0.0",
     "jasmine": "^2.8.0",
