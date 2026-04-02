@@ -57,10 +57,11 @@ async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
       const snippet = item.snippet || {}
       // Skip "Topic" auto-generated channels
       if ((snippet.channelTitle || '').includes('- Topic')) return false
-      // Verify the video title or channel contains the artist name
+      // Verify the video title, channel, or description contains the artist name
       const vidTitle = normalise(snippet.title || '')
       const channel = normalise(snippet.channelTitle || '')
-      return vidTitle.includes(targetArtist) || channel.includes(targetArtist)
+      const desc = normalise(snippet.description || '')
+      return vidTitle.includes(targetArtist) || channel.includes(targetArtist) || desc.includes(targetArtist)
     })
     .slice(0, maxResults)
     .map(item => ({
