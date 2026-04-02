@@ -274,5 +274,12 @@
       </section>
     {% endif %}
 
+    {% if album.reviews %}
+      <section class="album-reviews prose">
+        <h2>Press</h2>
+        {{ album.reviews | safe }}
+      </section>
+    {% endif %}
+
   </article>
 {% endblock %}

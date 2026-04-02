@@ -206,6 +206,13 @@ async function mergeData (rawData, content) {
             mergedAlbum.customStores = albumContent.customStores
           }
 
+          if (albumContent && albumContent.reviewsPath) {
+            try {
+              const mdContent = await fs.readFile(albumContent.reviewsPath, 'utf8')
+              mergedAlbum.reviews = renderMarkdown(mdContent)
+            } catch { /* ignore */ }
+          }
+
           return mergedAlbum
         })
       )

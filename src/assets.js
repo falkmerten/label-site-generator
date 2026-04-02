@@ -585,7 +585,7 @@ main { min-height: 60vh; }
 }
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
   gap: 1.25rem;
 }
 .video-item iframe {
@@ -713,6 +713,28 @@ main { min-height: 60vh; }
   margin-bottom: 0.75rem;
   color: var(--text-muted);
 }
+
+/* ── Reviews / Press ── */
+.album-reviews { margin-top: 2rem; margin-bottom: 2rem; }
+.album-reviews h2 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  color: var(--text-muted);
+}
+.album-reviews blockquote {
+  border-left: 3px solid var(--brand-mid);
+  padding: 0.75rem 1.25rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--text);
+  background: rgba(0,0,0,0.02);
+  border-radius: 0 4px 4px 0;
+}
+.album-reviews blockquote p { margin-bottom: 0.5rem; }
+.album-reviews blockquote p:last-child { margin-bottom: 0; }
 
 .credits-text {
   font-family: inherit;
