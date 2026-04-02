@@ -17,6 +17,21 @@ async function renderSite(data, pages, outputDir, labelName) {
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
   const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
   const physicalStores = (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
+  // Build custom store definitions from env vars: STORE_{ID}_URL, STORE_{ID}_LABEL, STORE_{ID}_ICON
+  const customStoreDefs = {}
+  for (const [key, val] of Object.entries(process.env)) {
+    const m = key.match(/^STORE_([A-Z0-9]+)_URL$/i)
+    if (m) {
+      const id = m[1].toLowerCase()
+      customStoreDefs[id] = {
+        id,
+        url: val,
+        label: process.env[`STORE_${m[1]}_LABEL`] || `Buy at ${m[1]}`,
+        icon: process.env[`STORE_${m[1]}_ICON`] || 'fa-solid fa-store'
+      }
+    }
+  }
   const templatesDir = path.join(__dirname, '..', 'templates');
   const env = nunjucks.configure(templatesDir, { autoescape: true });
 
@@ -25,6 +40,13 @@ async function renderSite(data, pages, outputDir, labelName) {
 
   // Custom filter: URL-encode a string
   env.addFilter('urlencode', (str) => encodeURIComponent(str || ''));
+
+  // Custom filter: resolve store URL template with artist and album name
+  env.addFilter('storeUrl', (template, artistName, albumTitle) => {
+    return (template || '')
+      .replace(/\{artist\}/g, encodeURIComponent(artistName || ''))
+      .replace(/\{album\}/g, encodeURIComponent(albumTitle || ''))
+  });
 
   // Custom filter: compute available format labels for an album card
   // Digital is always included. Physical formats (Vinyl, CD etc.) are prepended if available.
@@ -127,6 +149,7 @@ async function renderSite(data, pages, outputDir, labelName) {
     siteUrl,
     gaMeasurementId,
     physicalStores,
+    customStoreDefs,
     currentYear: new Date().getFullYear(),
     latestReleases: allAlbums.slice(0, 12),
     totalReleases: allAlbums.length,

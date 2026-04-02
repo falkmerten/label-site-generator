@@ -6,6 +6,25 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.1.0 — 2026-04-02
+
+**Custom physical store links**
+- `PHYSICAL_STORES` env var controls which stores appear on album pages and in what order (default: `bandcamp,discogs`)
+- Custom stores defined via env vars: `STORE_{ID}_URL`, `STORE_{ID}_LABEL`, `STORE_{ID}_ICON`
+- URL templates support `{artist}` and `{album}` placeholders (auto URL-encoded)
+- Per-album `stores.json` override for direct product URLs on specific releases
+- Custom stores appear after built-in stores in the configured order
+
+**Bandcamp physical products**
+- Physical format badges (Vinyl, CD etc.) now sourced directly from Bandcamp `packages` data
+- "Buy on Bandcamp" button shown in physical section when physical packages exist
+- No Discogs enrichment needed for Bandcamp-sold physical releases
+
+**Artist biography**
+- Biography text now fills full page width (removed 65ch max-width constraint)
+
+---
+
 ### v2.0.1 — 2026-04-02
 
 **Bug fixes**

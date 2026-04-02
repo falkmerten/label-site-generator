@@ -210,7 +210,7 @@ Both `youtube.com/watch?v=` and `youtu.be/` URL formats are supported. The `titl
 
 ### Custom store links (`stores.json`)
 
-To add custom physical store links to an album page, create a `stores.json` file in the album's content folder:
+To add a direct product URL for a specific album (overriding the global search URL), create a `stores.json` file:
 
 ```
 content/{artist-slug}/{album-slug}/stores.json
@@ -219,20 +219,27 @@ content/{artist-slug}/{album-slug}/stores.json
 Format:
 ```json
 [
-  { "store": "rough-trade", "label": "Buy at Rough Trade", "icon": "fa-solid fa-store", "url": "https://www.roughtrade.com/..." },
-  { "store": "jpc", "label": "Buy at JPC", "icon": "fa-solid fa-compact-disc", "url": "https://www.jpc.de/..." }
+  { "store": "rough-trade", "label": "Buy at Rough Trade", "icon": "fa-solid fa-store", "url": "https://www.roughtrade.com/products/xyz" }
 ]
 ```
 
-The `icon` field accepts any [Font Awesome 6](https://fontawesome.com/icons) class string. The `store` field is an identifier (not displayed).
+### Global custom stores (`.env`)
 
-Control which built-in stores appear and in what order via `PHYSICAL_STORES` in `.env`:
+Define custom stores globally so they appear on all album pages with a search URL:
 
+```env
+# Which stores to show and in what order
+PHYSICAL_STORES=bandcamp,discogs,roughtradeurl
+
+# Custom store definition
+STORE_ROUGHTRADEURL=https://www.roughtrade.com/search?q={artist}+{album}
+STORE_ROUGHTRADE_LABEL=Buy at Rough Trade
+STORE_ROUGHTRADE_ICON=fa-solid fa-store
 ```
-PHYSICAL_STORES=bandcamp,discogs
-```
 
-Built-in stores: `bandcamp`, `discogs`. Custom stores from `stores.json` always appear after built-in stores.
+URL templates support `{artist}` and `{album}` placeholders which are automatically URL-encoded. The store ID in `PHYSICAL_STORES` must match the suffix of `STORE_{ID}_URL` (case-insensitive).
+
+Per-album `stores.json` entries always appear and are not filtered by `PHYSICAL_STORES`.
 
 ### Static pages
 
