@@ -6,6 +6,18 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.0.1 — 2026-04-02
+
+**Bug fixes**
+- Discogs: per-format sell links (Vinyl/CD) now correctly resolved from master release versions endpoint
+- Discogs: ambiguous format strings (e.g. "Album") now resolved by fetching full release object
+- Discogs: title search fallback disabled when UPC exists but returns no results — prevents wrong physical data being attached to releases sharing a title with unrelated Discogs entries
+- Navigation dropdown: removed gap between nav item and dropdown that caused it to close when moving the mouse into it
+- Tidal: `searchAlbum` no longer falls back to first result — requires title match to prevent wrong links
+- Tidal: `lookupByUpc` now verifies returned album title matches before accepting
+
+---
+
 ### v2.0.0 — 2026-04-01
 
 **SEO & Analytics**

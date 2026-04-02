@@ -87,15 +87,48 @@ async function getMasterVersionSellLinks (token, masterId) {
 
   const sellLinks = {}
   for (const v of data.versions) {
-    const formats = getPhysicalFormats(v.format ? [v.format] : [])
-    for (const fmt of formats) {
-      const key = fmt.toLowerCase()
-      if (!sellLinks[key]) {
-        sellLinks[key] = `https://www.discogs.com/sell/release/${v.id}`
+    // versions endpoint returns format as a comma-separated string e.g. "LP, Album, Limited Edition"
+    const formatStr = (v.format || '').toLowerCase()
+    const formatParts = formatStr.split(',').map(s => s.trim())
+
+    const isDigital = formatParts.some(s => s === 'file' || s === 'digital' || s.includes('mp3') || s.includes('flac') || s.includes('download'))
+    if (isDigital) continue
+
+    const isVinyl = formatParts.some(s => s.includes('vinyl') || s === 'lp' || s === '7"' || s === '10"' || s === '12"' || s === '7' || s === '10' || s === '12')
+    const isCd = formatParts.some(s => s.includes('cd') || s === 'cdr' || s === 'cdep')
+    const isCassette = formatParts.some(s => s.includes('cass') || s.includes('tape'))
+
+    if (isVinyl && !sellLinks.vinyl) {
+      sellLinks.vinyl = `https://www.discogs.com/sell/release/${v.id}`
+    } else if (isCd && !sellLinks.cd) {
+      sellLinks.cd = `https://www.discogs.com/sell/release/${v.id}`
+    } else if (isCassette && !sellLinks.cassette) {
+      sellLinks.cassette = `https://www.discogs.com/sell/release/${v.id}`
+    } else if (!isVinyl && !isCd && !isCassette && !sellLinks._ambiguous) {
+      // Format string is ambiguous (e.g. just "Album") — fetch full release to check
+      sellLinks._ambiguous = v.id
+    }
+
+    if (sellLinks.vinyl && sellLinks.cd) break
+  }
+
+  // Resolve ambiguous version by fetching full release
+  if (sellLinks._ambiguous && (!sellLinks.vinyl || !sellLinks.cd)) {
+    await throttle()
+    const rel = await httpsGet(`https://api.discogs.com/releases/${sellLinks._ambiguous}`, token)
+    if (rel && rel.formats) {
+      for (const f of rel.formats) {
+        const name = (f.name || '').toLowerCase()
+        if ((name.includes('cd') || name === 'cdr') && !sellLinks.cd) {
+          sellLinks.cd = `https://www.discogs.com/sell/release/${sellLinks._ambiguous}`
+        } else if ((name.includes('vinyl') || name === 'lp') && !sellLinks.vinyl) {
+          sellLinks.vinyl = `https://www.discogs.com/sell/release/${sellLinks._ambiguous}`
+        }
       }
     }
-    if (sellLinks.vinyl && sellLinks.cd) break // found both, stop early
   }
+  delete sellLinks._ambiguous
+
   return sellLinks
 }
 
@@ -111,24 +144,47 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     results = await searchDiscogs(token, { barcode: upc })
   }
 
-  if (!results && artistName && albumTitle) {
+  // Only fall back to title search if we have no UPC at all
+  // With a UPC that returns no results, skip — title search is too unreliable
+  // for physical format detection (can match wrong release with same title)
+  if (!results && !upc && artistName && albumTitle) {
     await throttle()
     results = await searchDiscogs(token, { artist: artistName, release_title: albumTitle })
   }
 
   if (!results || results.length === 0) return null
 
-  // Find the master release or best physical release
-  const masterResult = results.find(r => r.type === 'master')
-  const physicalResults = results.filter(r => getPhysicalFormats(r.format || []).size > 0)
+  // Verify results match the artist name to avoid wrong matches
+  const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const targetArtist = normalise(artistName)
+  const targetTitle = normalise(albumTitle)
 
-  // Prefer master, then first physical, then first result
-  const primaryResult = masterResult || physicalResults[0] || results[0]
+  const verified = results.filter(r => {
+    const rTitle = normalise(r.title || '')
+    // Discogs title format is often "Artist - Title"
+    const parts = (r.title || '').split(' - ')
+    const rArtist = normalise(parts.length > 1 ? parts[0] : '')
+    const rAlbum = normalise(parts.length > 1 ? parts.slice(1).join(' - ') : r.title || '')
+
+    const artistMatch = !rArtist || rArtist.includes(targetArtist) || targetArtist.includes(rArtist)
+    const titleMatch = rAlbum.includes(targetTitle) || targetTitle.includes(rAlbum) || rTitle.includes(targetTitle)
+    return artistMatch && titleMatch
+  })
+
+  // Fall back to all results if verification filtered everything out
+  const candidates = verified.length > 0 ? verified : results
+
+  // Find the master release or best physical release
+  const masterResult = candidates.find(r => r.type === 'master')
+  const physicalResults = candidates.filter(r => getPhysicalFormats(r.format || []).size > 0)
+
+  // Prefer master, then first physical, then first candidate
+  const primaryResult = masterResult || physicalResults[0] || candidates[0]
   if (!primaryResult) return null
 
-  // Aggregate all physical formats from search results
+  // Aggregate all physical formats from candidates
   const allFormats = new Set()
-  for (const r of results) {
+  for (const r of candidates) {
     for (const f of getPhysicalFormats(r.format || [])) allFormats.add(f)
   }
 

@@ -136,10 +136,22 @@ a.nav-item:hover {
 
 .has-dropdown { position: relative; }
 
+/* Invisible bridge prevents gap between nav item and dropdown from closing it */
+.has-dropdown::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.has-dropdown:hover .dropdown { display: block; }
+
 .dropdown {
   display: none;
   position: absolute;
-  top: calc(100% + 6px);
+  top: 100%;
   left: 0;
   background: var(--brand-dark);
   border: 1px solid var(--header-border);
@@ -148,6 +160,7 @@ a.nav-item:hover {
   box-shadow: 0 8px 24px rgba(12,0,50,0.4);
   z-index: 200;
   padding: 0.4rem 0;
+  margin-top: 0;
 }
 
 .has-dropdown:hover .dropdown { display: block; }

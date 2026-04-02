@@ -141,7 +141,7 @@
       </section>
     {% endif %}
 
-    {% if (album.physicalFormats and album.physicalFormats.length) or album.discogsSellUrl %}
+    {% if (album.physicalFormats and album.physicalFormats.length) and (album.discogsSellUrl or album.discogsSellUrlVinyl or album.discogsSellUrlCd or album.discogsSellUrlCassette) %}
       <section class="physical-release">
         <h2>Physical Release</h2>
         {% if album.physicalFormats and album.physicalFormats.length %}
