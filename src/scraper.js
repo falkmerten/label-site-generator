@@ -140,7 +140,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     const albumUrlsToScrape = (fullAlbumUrls.length > 0
       ? fullAlbumUrls
       : (artistInfo.albums || []).map(a => a.url)
-    ).map(u => u.replace(/([^:])\/\/+/g, '$1/'))
+    ).map(u => u.replace(/(https?:\/\/)|(\/)+/g, (m, proto) => proto || '/'))
 
     const albums = []
     for (const albumUrl of albumUrlsToScrape) {

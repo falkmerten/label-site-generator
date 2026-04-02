@@ -6,6 +6,14 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.1.2 — 2026-04-02
+
+**Bug fixes**
+- Fixed URL normalizer regex that was truncating `bandcamp.com` to `bandcamp.co`
+- Repaired 86 corrupted Bandcamp URLs in cache
+
+---
+
 ### v2.1.1 — 2026-04-02
 
 **Bug fixes**
