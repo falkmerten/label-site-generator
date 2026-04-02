@@ -27,7 +27,7 @@ function delay (ms) {
 
 /**
  * Strips query string and hash from a URL, returning just the origin + pathname.
- * e.g. https://artist.bandcamp.com/?label=123&tab=artists → https://artist.bandcamp.com/
+ * Also normalises double slashes in the path.
  */
 function cleanUrl (rawUrl) {
   try {
@@ -137,9 +137,10 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     }
 
     // Merge: use full album URL list, fall back to artist page if empty
-    const albumUrlsToScrape = fullAlbumUrls.length > 0
+    const albumUrlsToScrape = (fullAlbumUrls.length > 0
       ? fullAlbumUrls
       : (artistInfo.albums || []).map(a => a.url)
+    ).map(u => u.replace(/([^:])\/\/+/g, '$1/'))
 
     const albums = []
     for (const albumUrl of albumUrlsToScrape) {
