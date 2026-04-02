@@ -131,6 +131,9 @@ async function loadContent(contentDir) {
       const notesPath = path.join(albumDir, 'notes.md');
       if (await exists(notesPath)) album.notesPath = notesPath;
 
+      const reviewsPath = path.join(albumDir, 'reviews.md');
+      if (await exists(reviewsPath)) album.reviewsPath = reviewsPath;
+
       const artworkPath = await findFirstFile(albumDir, IMAGE_EXTS.map(e => `artwork${e}`));
       if (artworkPath) album.artworkPath = artworkPath;
 

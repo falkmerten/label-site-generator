@@ -6,6 +6,14 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.2.0 — 2026-04-02
+
+**New features**
+- Album reviews/press quotes via `content/{artist}/{album}/reviews.md` — rendered as styled blockquotes under a "Press" heading on album pages
+- Video grid now shows two videos per row (wider layout)
+
+---
+
 ### v2.1.2 — 2026-04-02
 
 **Bug fixes**

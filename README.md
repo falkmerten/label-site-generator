@@ -188,6 +188,8 @@ content/
       notes.md               # Liner notes
       artwork.jpg            # Album artwork
       videos.json            # YouTube video links (see format below)
+      stores.json            # Custom physical store links (see format below)
+      reviews.md             # Press quotes / review excerpts (Markdown)
 ```
 
 ### Album videos (`videos.json`)
@@ -207,6 +209,26 @@ Format:
 ```
 
 Both `youtube.com/watch?v=` and `youtu.be/` URL formats are supported. The `title` field is optional but recommended.
+
+### Album reviews (`reviews.md`)
+
+To add press quotes or review excerpts to an album page, create a `reviews.md` file:
+
+```
+content/{artist-slug}/{album-slug}/reviews.md
+```
+
+Use Markdown blockquotes for review excerpts:
+
+```markdown
+> "A stunning debut that blends post-punk energy with darkwave atmospherics."
+> — *Some Music Magazine*
+
+> "One of the most compelling releases of the year."
+> — *Another Blog, January 2025*
+```
+
+Reviews appear at the bottom of the album page under a "Press" heading.
 
 ### Custom store links (`stores.json`)
 
