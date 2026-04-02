@@ -593,6 +593,9 @@ main { min-height: 60vh; }
 }
   gap: 1.25rem;
 }
+.video-item {
+  width: 100%;
+}
 .video-item iframe {
   width: 100%;
   aspect-ratio: 16 / 9;

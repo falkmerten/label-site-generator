@@ -26,26 +26,43 @@ function httpsGet (url) {
 
 /**
  * Searches YouTube for videos matching artist + album title.
+ * Filters out "Topic" auto-generated channels and verifies results match the artist.
  * Returns array of { url, title } objects.
  *
  * @param {string} apiKey - YouTube Data API v3 key
- * @param {string} query - search query
- * @param {number} maxResults - max results (default 3)
+ * @param {string} artistName - artist name for verification
+ * @param {string} albumTitle - album/track title
+ * @param {number} maxResults - max results to return (default 2)
  * @returns {Promise<Array<{url: string, title: string}>>}
  */
-async function searchYouTube (apiKey, query, maxResults = 3) {
+async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
+  const query = `${artistName} "${albumTitle}" official video`
   const params = new URLSearchParams({
     part: 'snippet',
     q: query,
     type: 'video',
-    maxResults: String(maxResults),
+    videoCategoryId: '10', // Music category
+    maxResults: String(maxResults + 3), // fetch extra to filter
     key: apiKey
   })
   const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?${params}`)
   if (!data || !data.items) return []
 
+  const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const targetArtist = normalise(artistName)
+
   return data.items
-    .filter(item => item.id && item.id.videoId)
+    .filter(item => {
+      if (!item.id || !item.id.videoId) return false
+      const snippet = item.snippet || {}
+      // Skip "Topic" auto-generated channels
+      if ((snippet.channelTitle || '').includes('- Topic')) return false
+      // Verify the video title or channel contains the artist name
+      const vidTitle = normalise(snippet.title || '')
+      const channel = normalise(snippet.channelTitle || '')
+      return vidTitle.includes(targetArtist) || channel.includes(targetArtist)
+    })
+    .slice(0, maxResults)
     .map(item => ({
       url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
       title: item.snippet.title || ''
@@ -93,8 +110,7 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       }
 
       await delay(DELAY_MS)
-      const query = `${artist.name} ${album.title} official`
-      const results = await searchYouTube(apiKey, query, maxResults)
+      const results = await searchYouTube(apiKey, artist.name, album.title, maxResults)
       searched++
 
       if (results.length > 0) {
