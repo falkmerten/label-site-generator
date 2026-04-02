@@ -6,7 +6,9 @@ const path = require('path')
 
 /**
  * Fetches the ElasticStage label page and extracts release slugs and URLs.
- * Returns array of { slug, url, title } objects.
+ * NOTE: ElasticStage is a JavaScript-rendered app. This function attempts
+ * to extract release URLs from the HTML but may return empty if the page
+ * requires JS rendering. In that case, use stores.json files manually.
  *
  * @param {string} labelUrl - e.g. https://elasticstage.com/aenaos
  * @returns {Promise<Array<{slug: string, url: string}>>}
@@ -14,12 +16,11 @@ const path = require('path')
 function fetchElasticStageReleases (labelUrl) {
   return new Promise((resolve) => {
     https.get(labelUrl, {
-      headers: { 'User-Agent': 'LabelSiteGenerator/2.1' }
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; LabelSiteGenerator/2.1)' }
     }, (res) => {
       let raw = ''
       res.on('data', c => { raw += c })
       res.on('end', () => {
-        // Extract release URLs from href attributes
         const matches = raw.match(/href="(https:\/\/elasticstage\.com\/[^"]+\/releases\/[^"]+)"/g) || []
         const releases = [...new Set(matches.map(m => m.replace(/^href="|"$/g, '')))]
           .map(url => ({
@@ -42,19 +43,45 @@ function fetchElasticStageReleases (labelUrl) {
  * @param {string} contentDir - path to content directory
  */
 async function syncElasticStage (labelUrl, cachePath, contentDir) {
+  // Load cache first
+  let cache = null
+  try { cache = JSON.parse(fs.readFileSync(cachePath, 'utf8')) } catch { /* no cache */ }
+
   console.log(`Fetching ElasticStage releases from ${labelUrl}...`)
   const releases = await fetchElasticStageReleases(labelUrl)
 
   if (releases.length === 0) {
-    console.warn('[elasticstage] No releases found — page may require JavaScript rendering')
+    console.warn('[elasticstage] No releases found via scraping (page requires JavaScript rendering)')
+    console.log('[elasticstage] Checking existing stores.json files instead...')
+
+    // Report existing stores.json files with elasticstage entries
+    let found = 0
+    if (cache) {
+      for (const artist of cache.artists || []) {
+        const artistSlug = artist.name.toLowerCase().normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
+        for (const album of artist.albums || []) {
+          const albumSlug = album.slug || ''
+          const storesPath = path.join(contentDir, artistSlug, albumSlug, 'stores.json')
+          if (fs.existsSync(storesPath)) {
+            try {
+              const stores = JSON.parse(fs.readFileSync(storesPath, 'utf8'))
+              const es = stores.find(s => s.store === 'elasticstage')
+              if (es) {
+                console.log(`  ✓ ${artistSlug}/${albumSlug} → ${es.url}`)
+                found++
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+    }
+    console.log(`[elasticstage] ${found} existing ElasticStage link(s) found in stores.json files`)
+    console.log('[elasticstage] To add new releases, create stores.json manually in content/{artist}/{album}/')
     return
   }
 
   console.log(`Found ${releases.length} release(s) on ElasticStage`)
-
-  // Load cache to match slugs to artists
-  let cache = null
-  try { cache = JSON.parse(fs.readFileSync(cachePath, 'utf8')) } catch { /* no cache */ }
 
   const storeEntry = (url) => JSON.stringify([{
     store: 'elasticstage',

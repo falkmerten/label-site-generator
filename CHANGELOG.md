@@ -6,6 +6,18 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.1.1 — 2026-04-02
+
+**Bug fixes**
+- Fixed double slash in Bandcamp album URLs (e.g. `bandcamp.com//album/`)
+- Scraper now normalises URLs to prevent double slashes in future scrapes
+- ElasticStage sync gracefully handles JS-rendered pages, reports existing stores.json links
+
+**UI**
+- Artist bios and album descriptions now use justified text alignment
+
+---
+
 ### v2.1.0 — 2026-04-02
 
 **Custom physical store links**
