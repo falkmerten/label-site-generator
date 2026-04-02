@@ -74,7 +74,65 @@
       <h2>News</h2>
       {% if newsHtml %}
         <div class="prose">{{ newsHtml | safe }}</div>
-      {% else %}
+      {% endif %}
+      {% if newsletter.actionUrl %}
+        <div class="newsletter-form">
+          <h3>Stay in the loop</h3>
+          <form id="newsletter-form" class="newsletter">
+            <div class="newsletter-fields">
+              <div class="newsletter-field">
+                <label for="nl-name">Name</label>
+                <input type="text" name="name" id="nl-name" placeholder="Your name">
+              </div>
+              <div class="newsletter-field">
+                <label for="nl-email">Email</label>
+                <input type="email" name="email" id="nl-email" placeholder="Your email" required>
+              </div>
+              <button type="submit" class="btn newsletter-btn">Subscribe</button>
+            </div>
+            <div class="newsletter-consent">
+              <label>
+                <input type="checkbox" name="gdpr" id="nl-gdpr" required>
+                <span>I consent to receiving email updates from {{ labelName }}. You can unsubscribe at any time.</span>
+              </label>
+            </div>
+            <div style="display:none">
+              <input type="text" name="hp" id="nl-hp">
+            </div>
+            <div id="newsletter-msg" class="newsletter-msg" style="display:none"></div>
+          </form>
+          <script>
+            document.getElementById('newsletter-form').addEventListener('submit', function(e) {
+              e.preventDefault();
+              var form = this;
+              var msg = document.getElementById('newsletter-msg');
+              var data = new FormData();
+              data.append('name', document.getElementById('nl-name').value);
+              data.append('email', document.getElementById('nl-email').value);
+              data.append('gdpr', document.getElementById('nl-gdpr').checked ? 'on' : '');
+              data.append('hp', document.getElementById('nl-hp').value);
+              {% if newsletter.listId %}data.append('list', '{{ newsletter.listId }}');{% endif %}
+              data.append('subform', 'yes');
+              fetch('{{ newsletter.actionUrl }}', { method: 'POST', body: data, mode: 'no-cors' })
+                .then(function() {
+                  form.style.display = 'none';
+                  msg.style.display = 'block';
+                  {% if newsletter.doubleOptIn %}
+                  msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+                  {% else %}
+                  msg.textContent = 'Successfully subscribed!';
+                  {% endif %}
+                  msg.className = 'newsletter-msg newsletter-success';
+                })
+                .catch(function() {
+                  msg.style.display = 'block';
+                  msg.textContent = 'Something went wrong. Please try again.';
+                  msg.className = 'newsletter-msg newsletter-error';
+                });
+            });
+          </script>
+        </div>
+      {% elif not newsHtml %}
         <div class="news-placeholder">
           <p>Join our mailing list for the latest news</p>
           <a href="{{ rootPath }}contact/" class="btn">Sign Up</a>

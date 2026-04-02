@@ -6,6 +6,20 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.4.0 — 2026-04-02
+
+**New features**
+- Newsletter subscription form on homepage (News section)
+  - Inline AJAX submission — no page redirect
+  - Configurable via `NEWSLETTER_ACTION_URL`, `NEWSLETTER_LIST_ID`
+  - Double opt-in support (`NEWSLETTER_DOUBLE_OPTIN=true`) — shows confirmation email message
+  - Honeypot spam protection
+  - GDPR consent checkbox
+  - Responsive layout (stacks on mobile)
+- Compatible with Sendy, Listmonk, and similar subscribe endpoints
+
+---
+
 ### v2.3.1 — 2026-04-02
 
 **Bug fixes**
