@@ -71,6 +71,16 @@ async function mergeData (rawData, content) {
             const rawReleaseDate = (current && current.release_date) ||
               (album.raw && album.raw.album_release_date) ||
               (current && current.new_date)
+            // Extract physical package types from raw Bandcamp data
+            const packages = (album.raw && album.raw.packages) || []
+            const bandcampPhysicalFormats = [...new Set(packages.map(p => {
+              const t = (p.type_name || '').toLowerCase()
+              if (t.includes('vinyl') || t.includes('lp')) return 'Vinyl'
+              if (t.includes('cd') || t.includes('compact disc')) return 'CD'
+              if (t.includes('cass') || t.includes('tape')) return 'Cassette'
+              if (t.includes('box')) return 'Box Set'
+              return null
+            }).filter(Boolean))]
             return {
               url: album.url,
               title: album.title,
@@ -85,7 +95,8 @@ async function mergeData (rawData, content) {
               credits: (current && current.credits) ? current.credits : null,
               streamingLinks: album.streamingLinks || null,
               upc: album.upc || null,
-              physicalFormats: album.physicalFormats || null,
+              physicalFormats: album.physicalFormats || (bandcampPhysicalFormats.length ? bandcampPhysicalFormats : null),
+              bandcampPhysicalFormats: bandcampPhysicalFormats.length ? bandcampPhysicalFormats : null,
               discogsUrl: album.discogsUrl || null,
               discogsSellUrl: album.discogsSellUrl || null,
               discogsSellUrlVinyl: album.discogsSellUrlVinyl || null,
@@ -149,6 +160,15 @@ async function mergeData (rawData, content) {
           const rawReleaseDate2 = (rawCurrent && rawCurrent.release_date) ||
             (album.raw && album.raw.album_release_date) ||
             (rawCurrent && rawCurrent.new_date)
+          const packages2 = (album.raw && album.raw.packages) || []
+          const bandcampPhysicalFormats2 = [...new Set(packages2.map(p => {
+            const t = (p.type_name || '').toLowerCase()
+            if (t.includes('vinyl') || t.includes('lp')) return 'Vinyl'
+            if (t.includes('cd') || t.includes('compact disc')) return 'CD'
+            if (t.includes('cass') || t.includes('tape')) return 'Cassette'
+            if (t.includes('box')) return 'Box Set'
+            return null
+          }).filter(Boolean))]
           const mergedAlbum = {
             url: album.url,
             title: album.title,
@@ -163,7 +183,8 @@ async function mergeData (rawData, content) {
             credits: (rawCurrent && rawCurrent.credits) ? rawCurrent.credits : null,
             streamingLinks: album.streamingLinks || null,
             upc: album.upc || null,
-            physicalFormats: album.physicalFormats || null,
+            physicalFormats: album.physicalFormats || (bandcampPhysicalFormats2.length ? bandcampPhysicalFormats2 : null),
+            bandcampPhysicalFormats: bandcampPhysicalFormats2.length ? bandcampPhysicalFormats2 : null,
             discogsUrl: album.discogsUrl || null,
             discogsSellUrl: album.discogsSellUrl || null,
             discogsSellUrlVinyl: album.discogsSellUrlVinyl || null,
@@ -179,6 +200,10 @@ async function mergeData (rawData, content) {
 
           if (albumContent && albumContent.videos) {
             mergedAlbum.videos = albumContent.videos
+          }
+
+          if (albumContent && albumContent.customStores) {
+            mergedAlbum.customStores = albumContent.customStores
           }
 
           return mergedAlbum

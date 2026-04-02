@@ -145,6 +145,17 @@ async function loadContent(contentDir) {
         }
       }
 
+      // stores.json — custom physical store links
+      const storesPath = path.join(albumDir, 'stores.json');
+      if (await exists(storesPath)) {
+        try {
+          const raw = await fs.readFile(storesPath, 'utf8');
+          album.customStores = JSON.parse(raw);
+        } catch {
+          console.warn(`[content] Failed to parse ${storesPath}, skipping.`);
+        }
+      }
+
       artist.albums[albumSlug] = album;
     }
 

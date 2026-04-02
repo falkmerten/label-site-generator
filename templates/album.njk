@@ -141,7 +141,7 @@
       </section>
     {% endif %}
 
-    {% if (album.physicalFormats and album.physicalFormats.length) and (album.discogsSellUrl or album.discogsSellUrlVinyl or album.discogsSellUrlCd or album.discogsSellUrlCassette) %}
+    {% if (album.physicalFormats and album.physicalFormats.length) and (album.discogsSellUrl or album.discogsSellUrlVinyl or album.discogsSellUrlCd or album.discogsSellUrlCassette or (album.bandcampPhysicalFormats and album.bandcampPhysicalFormats.length)) %}
       <section class="physical-release">
         <h2>Physical Release</h2>
         {% if album.physicalFormats and album.physicalFormats.length %}
@@ -162,17 +162,29 @@
         </div>
         {% endif %}
         <ul class="physical-links">
-          {% if album.discogsSellUrlVinyl %}
-            <li><a href="{{ album.discogsSellUrlVinyl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy Vinyl on Discogs</a></li>
+          {% if album.bandcampPhysicalFormats and album.bandcampPhysicalFormats.length and album.url %}
+            {% if 'bandcamp' in physicalStores %}
+              <li><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Buy on Bandcamp</a></li>
+            {% endif %}
           {% endif %}
-          {% if album.discogsSellUrlCd %}
-            <li><a href="{{ album.discogsSellUrlCd }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-compact-disc"></i> Buy CD on Discogs</a></li>
+          {% if 'discogs' in physicalStores %}
+            {% if album.discogsSellUrlVinyl %}
+              <li><a href="{{ album.discogsSellUrlVinyl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy Vinyl on Discogs</a></li>
+            {% endif %}
+            {% if album.discogsSellUrlCd %}
+              <li><a href="{{ album.discogsSellUrlCd }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-compact-disc"></i> Buy CD on Discogs</a></li>
+            {% endif %}
+            {% if album.discogsSellUrlCassette %}
+              <li><a href="{{ album.discogsSellUrlCassette }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
+            {% endif %}
+            {% if not album.discogsSellUrlVinyl and not album.discogsSellUrlCd and not album.discogsSellUrlCassette and album.discogsSellUrl %}
+              <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
+            {% endif %}
           {% endif %}
-          {% if album.discogsSellUrlCassette %}
-            <li><a href="{{ album.discogsSellUrlCassette }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
-          {% endif %}
-          {% if not album.discogsSellUrlVinyl and not album.discogsSellUrlCd and not album.discogsSellUrlCassette and album.discogsSellUrl %}
-            <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
+          {% if album.customStores %}
+            {% for store in album.customStores %}
+              <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="{{ store.icon or 'fa-solid fa-store' }}"></i> {{ store.label }}</a></li>
+            {% endfor %}
           {% endif %}
           {% if album.upc or (artist.name and album.title) %}
             <li><a href="https://www.amazon.com/s?k={{ (artist.name + ' ' + album.title) | urlencode }}&i=popular" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-amazon"></i> Search on Amazon</a></li>

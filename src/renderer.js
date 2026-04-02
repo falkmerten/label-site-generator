@@ -16,6 +16,7 @@ async function renderSite(data, pages, outputDir, labelName) {
   labelName = labelName || process.env.LABEL_NAME || 'My Label';
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
   const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
+  const physicalStores = (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const templatesDir = path.join(__dirname, '..', 'templates');
   const env = nunjucks.configure(templatesDir, { autoescape: true });
 
@@ -125,6 +126,7 @@ async function renderSite(data, pages, outputDir, labelName) {
     labelName,
     siteUrl,
     gaMeasurementId,
+    physicalStores,
     currentYear: new Date().getFullYear(),
     latestReleases: allAlbums.slice(0, 12),
     totalReleases: allAlbums.length,
