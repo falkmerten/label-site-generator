@@ -186,6 +186,14 @@
               <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="{{ store.icon or 'fa-solid fa-store' }}"></i> {{ store.label }}</a></li>
             {% endfor %}
           {% endif %}
+          {% for storeId in physicalStores %}
+            {% if storeId != 'bandcamp' and storeId != 'discogs' %}
+              {% if customStoreDefs[storeId] %}
+                {% set storeDef = customStoreDefs[storeId] %}
+                <li><a href="{{ storeDef.url | storeUrl(artist.name, album.title) }}" target="_blank" rel="noopener noreferrer"><i class="{{ storeDef.icon }}"></i> {{ storeDef.label }}</a></li>
+              {% endif %}
+            {% endif %}
+          {% endfor %}
           {% if album.upc or (artist.name and album.title) %}
             <li><a href="https://www.amazon.com/s?k={{ (artist.name + ' ' + album.title) | urlencode }}&i=popular" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-amazon"></i> Search on Amazon</a></li>
           {% endif %}
