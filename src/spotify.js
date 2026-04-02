@@ -405,12 +405,22 @@ async function enrichSpotifyOnlyAlbums (albums, token) {
       if (!album.description && data.label) {
         album.description = `Label: ${data.label}`
       }
-      // Label name from Spotify
-      if (data.label) {
-        album.spotifyLabel = data.label // always store for comparison
-        if (!album.labelName) {
-          album.labelName = data.label
-          console.log(`    ✓ Spotify label: "${album.title}" → ${data.label}`)
+      // Label name from Spotify (copyright P-line since label field was removed in Feb 2026)
+      if (data.label || data.copyrights) {
+        let spotifyLabelName = data.label
+        if (!spotifyLabelName && data.copyrights) {
+          const pLine = data.copyrights.find(c => c.type === 'P')
+          const line = pLine || data.copyrights[0]
+          if (line && line.text) {
+            spotifyLabelName = line.text.replace(/^[©℗(CP)]*\s*\d{4}\s*/i, '').replace(/^\d{3,4}\s+/, '').trim()
+          }
+        }
+        if (spotifyLabelName) {
+          album.spotifyLabel = spotifyLabelName
+          if (!album.labelName) {
+            album.labelName = spotifyLabelName
+            console.log(`    ✓ Spotify label: "${album.title}" → ${spotifyLabelName}`)
+          }
         }
       }
       // Tracks

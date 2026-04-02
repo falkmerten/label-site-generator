@@ -17,6 +17,7 @@ async function renderSite(data, pages, outputDir, labelName) {
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
   const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
   const physicalStores = (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const homepageLabels = (process.env.HOMEPAGE_LABELS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
   // Build custom store definitions from env vars: STORE_{ID}_URL, STORE_{ID}_LABEL, STORE_{ID}_ICON
   const customStoreDefs = {}
@@ -141,6 +142,15 @@ async function renderSite(data, pages, outputDir, labelName) {
     return new Date(b.releaseDate) - new Date(a.releaseDate);
   });
 
+  // Filter albums for homepage/releases page by label if configured
+  const homepageAlbums = homepageLabels.length > 0
+    ? allAlbums.filter(al => {
+        if (!al.labelName) return true // show albums without label (benefit of doubt)
+        const labels = al.labelName.toLowerCase().split('/').map(s => s.trim())
+        return labels.some(l => homepageLabels.includes(l))
+      })
+    : allAlbums;
+
   // Sort artists alphabetically
   const sortedArtists = [...(data.artists || [])].sort((a, b) =>
     a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
@@ -159,8 +169,8 @@ async function renderSite(data, pages, outputDir, labelName) {
       listId: process.env.NEWSLETTER_LIST_ID || '',
       doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
     },
-    latestReleases: allAlbums.slice(0, 12),
-    totalReleases: allAlbums.length,
+    latestReleases: homepageAlbums.slice(0, 12),
+    totalReleases: homepageAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
     labelEmail: process.env.LABEL_EMAIL || '',
     labelAddress: process.env.LABEL_ADDRESS || '',
@@ -186,7 +196,7 @@ async function renderSite(data, pages, outputDir, labelName) {
   const sitemapUrls = [];
   const indexHtml = nunjucks.render('index.njk', {
     ...baseCtx,
-    allAlbums,
+    allAlbums: homepageAlbums,
     newsHtml,
     aboutHtml,
     rootPath: './',
@@ -244,7 +254,7 @@ async function renderSite(data, pages, outputDir, labelName) {
   const releasesUrl = siteUrl ? `${siteUrl}releases/` : null;
   const releasesHtml = nunjucks.render('releases.njk', {
     ...baseCtx,
-    allAlbums,
+    allAlbums: homepageAlbums,
     rootPath: '../',
     canonicalUrl: releasesUrl,
   });

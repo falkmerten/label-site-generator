@@ -316,7 +316,7 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
  * Mutates each album in place.
  */
 async function enrichAlbumsWithDiscogs (albums, artistName, token) {
-  const pending = albums.filter(al => !al.discogsUrl)
+  const pending = albums.filter(al => !al.discogsUrl && !al.discogsChecked)
   for (const album of pending) {
     try {
       await throttle()

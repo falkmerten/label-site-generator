@@ -6,6 +6,21 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.6.0 — 2026-04-03
+
+**Label enrichment**
+- Spotify label extraction from copyright P-line (label field removed in Spotify Feb 2026 API changes)
+- 172 of 181 albums now have label names
+- Copyright prefix cleanup: strips `(C)`, `(P)`, `©`, `℗`, year, catalog numbers
+- `HOMEPAGE_LABELS` env var — filter which labels' releases appear on homepage and releases page
+- Albums without a label still shown (benefit of doubt)
+
+**Bug fixes**
+- Fixed wrong Discogs matches for short artist names — marked as checked to prevent re-fetch
+- Discogs enricher skips albums marked as `discogsChecked`
+
+---
+
 ### v2.5.2 — 2026-04-03
 
 **SEO improvements**
