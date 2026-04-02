@@ -462,6 +462,26 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         await enrichAlbumsWithDiscogs(needsDiscogs, artist.name, discogsToken)
       }
     }
+
+    // ── Step 6: Spotify label fallback — fill missing labelName from Spotify ──
+    if (hasSpotify && spotifyToken && !options.tidalOnly) {
+      const needsLabel = (artist.albums || []).filter(al =>
+        !al.labelName && al.streamingLinks && al.streamingLinks.spotify
+      )
+      if (needsLabel.length > 0) {
+        console.log(`  → Spotify label fallback for ${needsLabel.length} album(s)...`)
+        // Refresh token
+        try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
+        await enrichSpotifyOnlyAlbums(needsLabel, spotifyToken)
+      }
+
+      // Compare Discogs vs Spotify labels and warn if different
+      for (const al of artist.albums || []) {
+        if (al.labelName && al.spotifyLabel && al.labelName !== al.spotifyLabel) {
+          console.warn(`    ⚠ Label mismatch: "${al.title}" — Discogs: "${al.labelName}", Spotify: "${al.spotifyLabel}"`)
+        }
+      }
+    }
   }
 
   await writeCache(cachePath, data)

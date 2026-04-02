@@ -50,6 +50,7 @@ async function renderSite(data, pages, outputDir, labelName) {
 
   // Custom filter: compute available format labels for an album card
   // Digital is always included. Physical formats (Vinyl, CD etc.) are prepended if available.
+  // Label name is appended if present.
   env.addFilter('availableFormats', (album) => {
     const physical = album.physicalFormats || []
     const formats = []
@@ -58,7 +59,9 @@ async function renderSite(data, pages, outputDir, labelName) {
     if (physical.includes('Cassette')) formats.push('Cassette')
     if (physical.includes('Box Set')) formats.push('Box Set')
     formats.push('Digital')
-    return formats.join(', ')
+    let result = formats.join(', ')
+    if (album.labelName) result += ' — ' + album.labelName
+    return result
   });
   env.addFilter('youtubeId', (url) => {
     if (!url) return ''

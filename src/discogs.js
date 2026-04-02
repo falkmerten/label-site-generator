@@ -214,12 +214,35 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     : `https://api.discogs.com/releases/${primaryResult.id}`
   const meta = await httpsGet(metaUrl, token)
 
-  const labelName = meta && meta.labels && meta.labels[0] ? meta.labels[0].name : null
+  const rawLabel = meta && meta.labels && meta.labels[0] ? meta.labels[0] : null
+  const rawLabelName = rawLabel ? rawLabel.name : null
+  // Strip Discogs disambiguation numbers e.g. "Melodika (3)" → "Melodika"
+  const labelName = rawLabelName ? rawLabelName.replace(/\s*\(\d+\)\s*$/, '').trim() : null
+  // Skip "Not On Label" entries
+  const cleanLabelName = (labelName && labelName.startsWith('Not On Label')) ? null : labelName
+  // Build Discogs label URL from label ID
+  const labelUrl = rawLabel && rawLabel.id ? `https://www.discogs.com/label/${rawLabel.id}` : null
   const country = meta && !isMaster ? meta.country : null
   const notes = meta && meta.notes ? meta.notes : null
 
-  // If no physical formats found at all, skip
-  if (allFormats.size === 0 && Object.keys(sellLinks).length === 0) return null
+  // If no physical formats found, still return label info if available (for digital-only releases)
+  if (allFormats.size === 0 && Object.keys(sellLinks).length === 0) {
+    if (cleanLabelName) {
+      return {
+        discogsUrl: `https://www.discogs.com${primaryResult.uri}`,
+        discogsSellUrl: null,
+        discogsSellUrlVinyl: null,
+        discogsSellUrlCd: null,
+        discogsSellUrlCassette: null,
+        formats: [],
+        labelName: cleanLabelName,
+        labelUrl,
+        country,
+        notes
+      }
+    }
+    return null
+  }
 
   return {
     discogsUrl: `https://www.discogs.com${primaryResult.uri}`,
@@ -228,7 +251,8 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     discogsSellUrlCd: sellLinks.cd || null,
     discogsSellUrlCassette: sellLinks.cassette || null,
     formats: [...allFormats],
-    labelName,
+    labelName: cleanLabelName,
+    labelUrl,
     country,
     notes
   }
@@ -252,8 +276,9 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
         album.discogsSellUrlCd = result.discogsSellUrlCd
         album.discogsSellUrlCassette = result.discogsSellUrlCassette
         if (result.formats.length > 0) album.physicalFormats = result.formats
-        if (result.labelName) album.labelName = result.labelName
-        if (result.country) album.country = result.country
+        if (result.labelName && !album.labelName) album.labelName = result.labelName
+        if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
+        if (result.country && !album.country) album.country = result.country
         if (!album.description && result.notes) album.description = result.notes
         const method = album.upc ? 'UPC' : 'search'
         console.log(`    ✓ Discogs (${method}): "${album.title}"${result.formats.length ? ` → ${result.formats.join(', ')}` : ''}`)
