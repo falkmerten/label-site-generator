@@ -987,8 +987,8 @@ async function copyAssets (data, contentDir, outputDir) {
     await fs.writeFile(path.join(outputDir, 'style.css'), DEFAULT_CSS, 'utf8')
   }
 
-  // 3. Copy brand assets (logo, banner, placeholder) from ./assets/
-  const brandAssets = ['logo-round.png', 'banner.jpg', 'artwork-placeholder.svg']
+  // 3. Copy brand assets (logo, banner, placeholder, favicons) from ./assets/
+  const brandAssets = ['logo-round.png', 'banner.jpg', 'artwork-placeholder.svg', 'favicon.ico', 'favicon-32x32.png', 'favicon-16x16.png', 'apple-touch-icon.png']
   for (const file of brandAssets) {
     const src = path.join('assets', file)
     try {
