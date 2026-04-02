@@ -383,4 +383,4 @@ Old URL redirects are handled by static HTML pages in `dist/` (meta-refresh + JS
 
 ---
 
-MIT
+GPL-3.0 — see [LICENSE](LICENSE) for details. Original bandcamp-scraper library portions are MIT licensed — see [LICENSE-MIT](LICENSE-MIT).
