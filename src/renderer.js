@@ -151,6 +151,11 @@ async function renderSite(data, pages, outputDir, labelName) {
     physicalStores,
     customStoreDefs,
     currentYear: new Date().getFullYear(),
+    newsletter: {
+      actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
+      listId: process.env.NEWSLETTER_LIST_ID || '',
+      doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
+    },
     latestReleases: allAlbums.slice(0, 12),
     totalReleases: allAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',

@@ -86,6 +86,9 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `LABEL_FACEBOOK_URL` | Facebook page URL |
 | `LABEL_TIKTOK_URL` | TikTok profile URL |
 | `LABEL_TWITTER_URL` | X / Twitter profile URL |
+| `NEWSLETTER_ACTION_URL` | Newsletter subscribe endpoint URL (Sendy, Listmonk etc.) |
+| `NEWSLETTER_LIST_ID` | Mailing list ID for the subscribe form |
+| `NEWSLETTER_DOUBLE_OPTIN` | Set to `true` for GDPR double opt-in confirmation email |
 
 ---
 
