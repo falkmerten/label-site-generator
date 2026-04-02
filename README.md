@@ -208,6 +208,32 @@ Format:
 
 Both `youtube.com/watch?v=` and `youtu.be/` URL formats are supported. The `title` field is optional but recommended.
 
+### Custom store links (`stores.json`)
+
+To add custom physical store links to an album page, create a `stores.json` file in the album's content folder:
+
+```
+content/{artist-slug}/{album-slug}/stores.json
+```
+
+Format:
+```json
+[
+  { "store": "rough-trade", "label": "Buy at Rough Trade", "icon": "fa-solid fa-store", "url": "https://www.roughtrade.com/..." },
+  { "store": "jpc", "label": "Buy at JPC", "icon": "fa-solid fa-compact-disc", "url": "https://www.jpc.de/..." }
+]
+```
+
+The `icon` field accepts any [Font Awesome 6](https://fontawesome.com/icons) class string. The `store` field is an identifier (not displayed).
+
+Control which built-in stores appear and in what order via `PHYSICAL_STORES` in `.env`:
+
+```
+PHYSICAL_STORES=bandcamp,discogs
+```
+
+Built-in stores: `bandcamp`, `discogs`. Custom stores from `stores.json` always appear after built-in stores.
+
 ### Static pages
 
 Any `.md` or `.docx` file placed in `content/pages/` automatically becomes a page:
