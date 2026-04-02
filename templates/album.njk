@@ -181,9 +181,20 @@
               <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
             {% endif %}
           {% endif %}
+          {% if 'elasticstage' in physicalStores %}
+            {% if album.customStores %}
+              {% for store in album.customStores %}
+                {% if store.store == 'elasticstage' %}
+                  <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy on ElasticStage</a></li>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endif %}
           {% if album.customStores %}
             {% for store in album.customStores %}
-              <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="{{ store.icon or 'fa-solid fa-store' }}"></i> {{ store.label }}</a></li>
+              {% if store.store != 'elasticstage' %}
+                <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="{{ store.icon or 'fa-solid fa-store' }}"></i> {{ store.label }}</a></li>
+              {% endif %}
             {% endfor %}
           {% endif %}
           {% for storeId in physicalStores %}

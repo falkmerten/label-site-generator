@@ -10,6 +10,7 @@ const { initContent } = require('./src/initContent');
 const { convertAllDocs } = require('./src/convertDocs');
 const { refreshArtist } = require('./src/refreshArtist');
 const { downloadArtwork } = require('./src/downloadArtwork');
+const { syncElasticStage } = require('./src/elasticstage');
 
 function printUsage() {
   console.log(`Usage: node generate.js [options]
@@ -26,6 +27,7 @@ Options:
   --deploy             Sync dist/ to S3 and invalidate CloudFront after generating
   --tidal-only         Re-check Tidal links for all albums (skips Spotify/iTunes/Deezer)
   --download-artwork   Download remote artwork to content/ and update cache
+  --sync-elasticstage  Sync ElasticStage release links to stores.json files
   --help               Print this help message and exit
 `);
 }
@@ -72,6 +74,9 @@ function parseArgs(argv) {
       options.enrich = true; // implies enrich
     } else if (arg === '--download-artwork') {
       options.downloadArtwork = true;
+    } else if (arg === '--sync-elasticstage') {
+      options.syncElasticStage = true;
+    return options; // sync-only, don't generate
     }
   }
 
@@ -137,6 +142,16 @@ async function run() {
   if (options.downloadArtwork) {
     console.log('Downloading remote artwork to content/...');
     await downloadArtwork(options.cachePath, options.contentDir);
+  }
+  if (options.syncElasticStage) {
+    const esUrl = process.env.ELASTICSTAGE_LABEL_URL;
+    if (!esUrl) {
+      console.error('Error: ELASTICSTAGE_LABEL_URL is not set in .env');
+      process.exit(1);
+    }
+    console.log('Syncing ElasticStage releases...');
+    await syncElasticStage(esUrl, options.cachePath, options.contentDir);
+    return;
   }
   // Auto-convert any bio.docx files before generating
   await convertAllDocs(options.contentDir);
