@@ -86,7 +86,7 @@ async function mergeData (rawData, content) {
               title: album.title,
               artist: album.artist,
               artwork: album.imageUrl || (album.artwork ? path.basename(album.artwork) : null),
-              tracks: album.tracks,
+              tracks: (album.tracks || []).filter(t => (t.name || ``).trim().toLowerCase() !== `video`),
               tags: album.tags,
               albumId,
               itemType: (album.raw && album.raw.item_type) || album.itemType || 'album',
@@ -138,7 +138,8 @@ async function mergeData (rawData, content) {
           .filter(album => albumBelongsToArtist(album, artist.name))
           .map(async (album) => {
           const albumSlug = toSlug(album.title)
-          const albumContent = (artistContent.albums || {})[albumSlug]
+          // Try cache slug first (may be deduped like center-of-your-world-2), then title slug
+          const albumContent = (artistContent.albums || {})[album.slug] || (artistContent.albums || {})[albumSlug]
           const albumId = extractAlbumId(album.raw)
 
           let artwork
@@ -174,7 +175,7 @@ async function mergeData (rawData, content) {
             title: album.title,
             artist: album.artist,
             artwork,
-            tracks: album.tracks,
+            tracks: (album.tracks || []).filter(t => (t.name || ``).trim().toLowerCase() !== `video`),
             tags: album.tags,
             albumId,
             itemType: (album.raw && album.raw.item_type) || album.itemType || 'album',

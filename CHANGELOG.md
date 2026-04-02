@@ -6,6 +6,16 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.3.1 — 2026-04-02
+
+**Bug fixes**
+- Filtered out Bandcamp "video" entries from tracklists (36 removed from cache, merger now filters automatically)
+- Content folder matching now uses cache slug first, fixing duplicate-title albums getting wrong videos/stores
+- Responsive video grid: single video full width, 2+ videos in two columns
+- Video items now properly fill their grid cells
+
+---
+
 ### v2.3.0 — 2026-04-02
 
 **New features**
