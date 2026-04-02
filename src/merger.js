@@ -104,6 +104,11 @@ async function mergeData (rawData, content) {
               discogsSellUrlCassette: album.discogsSellUrlCassette || null,
               labelName: album.labelName || null,
               labelUrl: album.labelUrl || null,
+              labelUrls: album.labelUrls || (album.labelUrl
+                ? [album.labelUrl, ...Array(
+                    Math.max(0, (album.labelName || '').split(' / ').length - 1)
+                  ).fill(null)]
+                : null),
               slug: toSlug(album.title)
             }
           })
@@ -193,7 +198,12 @@ async function mergeData (rawData, content) {
             discogsSellUrlCd: album.discogsSellUrlCd || null,
             discogsSellUrlCassette: album.discogsSellUrlCassette || null,
             labelName: album.labelName || null,
-              labelUrl: album.labelUrl || null,
+            labelUrl: album.labelUrl || null,
+            labelUrls: album.labelUrls || (album.labelUrl
+              ? [album.labelUrl, ...Array(
+                  Math.max(0, (album.labelName || '').split(' / ').length - 1)
+                ).fill(null)]
+              : null),
             slug: albumSlug
           }
 

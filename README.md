@@ -156,7 +156,7 @@ Run `node generate.js --enrich`. Per artist, the pipeline is:
 2. **iTunes/Apple Music** — UPC lookup via iTunes API (free, no auth). Falls back to title search.
 3. **Deezer** — UPC lookup via Deezer API (free, no auth). Falls back to title search. Also sets artist-level Deezer link.
 4. **Tidal** — UPC lookup via Tidal API (requires `TIDAL_CLIENT_ID` + `TIDAL_CLIENT_SECRET`).
-5. **Discogs** — UPC lookup, then artist+title search fallback. Fetches physical formats, catalog number, label name, sell link, and YouTube videos. Fills missing release dates and descriptions.
+5. **Discogs** — UPC lookup, then artist+title search fallback. Fetches physical formats, catalog number, label names with per-label Discogs URLs, sell links, and YouTube videos. Collects labels from all versions of a master release. Fills missing release dates and descriptions.
 6. **MusicFetch** — optional, fills Amazon Music and other gaps (requires `MUSICFETCH_RAPIDAPI_KEY`).
 
 ---
@@ -338,7 +338,7 @@ Custom Nunjucks filters:
 | `src/itunes.js` | iTunes/Apple Music API: UPC lookup + title search |
 | `src/deezer.js` | Deezer API: UPC lookup + title search |
 | `src/tidal.js` | Tidal API: UPC lookup + title search |
-| `src/discogs.js` | Discogs API: physical formats, catalog number, videos, sell links |
+| `src/discogs.js` | Discogs API: physical formats, per-label URLs, catalog number, videos, sell links |
 | `src/enricher.js` | Orchestrates the full enrichment pipeline |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |

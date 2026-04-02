@@ -6,6 +6,20 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.7.0 — 2026-04-02
+
+**Multi-label support**
+- Each label on a release now links to its own Discogs page (previously all labels shared the first label's URL)
+- `labelUrls` array added to the data model — carries per-label Discogs URLs through enricher → cache → merger → templates
+- Album pages render each label as a separate link (or plain text when no URL exists), separated by ` / `
+- Merger normalizes old cache entries automatically — existing `labelUrl` string becomes `[url, null, …]` so no re-enrichment is required
+- Enricher collects labels from all versions of a master release, capturing co-releasing labels across pressings
+- Extracted `buildLabelData` as a pure function for testability
+- Property-based tests (fast-check) for enricher consistency, URL distinctness, dedup/exclusion, template rendering, format filter, and merger normalization
+- Unit tests for edge cases (single label, mixed null URLs, old/new cache formats, empty label name)
+
+---
+
 ### v2.6.0 — 2026-04-03
 
 **Label enrichment**

@@ -219,7 +219,7 @@
       </section>
     {% endif %}
     {% if album.releaseDate %}
-      <p class="album-release-date">Released: {{ album.releaseDate | formatDate }}{% if album.labelName %} · {% if album.labelUrl %}<a href="{{ album.labelUrl }}" target="_blank" rel="noopener noreferrer">{{ album.labelName }}</a>{% else %}{{ album.labelName }}{% endif %}{% endif %}</p>
+      <p class="album-release-date">Released: {{ album.releaseDate | formatDate }}{% if album.labelName %} · {% set labelParts = album.labelName.split(' / ') %}{% for part in labelParts %}{% if album.labelUrls and album.labelUrls[loop.index0] %}<a href="{{ album.labelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ part }}</a>{% else %}{{ part }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}{% endif %}</p>
     {% endif %}
 
     {% if album.tracks and album.tracks.length %}

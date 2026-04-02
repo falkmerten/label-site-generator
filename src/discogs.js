@@ -287,6 +287,7 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
         formats: [],
         labelName: cleanLabelName,
         labelUrl,
+        labelUrls: labelUrls.length > 0 ? [...labelUrls] : [],
         country,
         notes,
         matchedByUpc
@@ -304,6 +305,7 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     formats: [...allFormats],
     labelName: cleanLabelName,
     labelUrl,
+    labelUrls: labelUrls.length > 0 ? [...labelUrls] : [],
     country,
     notes,
     matchedByUpc
@@ -339,6 +341,7 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
         }
         if (result.labelName && !album.labelName) album.labelName = result.labelName
         if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
+        if (result.labelUrls && !album.labelUrls) album.labelUrls = result.labelUrls
         if (result.country && !album.country) album.country = result.country
         if (!album.description && result.notes) album.description = result.notes
         const method = album.upc && result.matchedByUpc ? 'UPC' : 'search'
@@ -350,4 +353,31 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
   }
 }
 
-module.exports = { enrichAlbumsWithDiscogs }
+/**
+ * Pure function that builds label data from raw Discogs label entries.
+ * Deduplicates by name, excludes "Not On Label" entries, cleans names,
+ * and returns { labelName, labelUrl, labelUrls }.
+ */
+function buildLabelData (rawLabels) {
+  const labelNames = []
+  const labelUrls = []
+
+  for (const l of rawLabels) {
+    const name = (l.name || '').replace(/\s*\(\d+\)\s*$/, '').trim()
+    if (name && !name.startsWith('Not On Label') && !labelNames.includes(name)) {
+      labelNames.push(name)
+      labelUrls.push(l.id ? `https://www.discogs.com/label/${l.id}` : null)
+    }
+  }
+
+  const labelName = labelNames.length > 0 ? labelNames.join(' / ') : null
+  const labelUrl = labelUrls[0] || null
+
+  return {
+    labelName,
+    labelUrl,
+    labelUrls: labelUrls.length > 0 ? [...labelUrls] : []
+  }
+}
+
+module.exports = { enrichAlbumsWithDiscogs, buildLabelData }

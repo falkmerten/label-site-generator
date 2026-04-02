@@ -145,7 +145,7 @@ async function renderSite(data, pages, outputDir, labelName) {
   // Filter albums for homepage/releases page by label if configured
   const homepageAlbums = homepageLabels.length > 0
     ? allAlbums.filter(al => {
-        if (!al.labelName) return true // show albums without label (benefit of doubt)
+        if (!al.labelName) return false // no label = exclude when filter is active
         const labels = al.labelName.toLowerCase().split('/').map(s => s.trim())
         return labels.some(l => homepageLabels.includes(l))
       })
