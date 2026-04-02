@@ -6,6 +6,24 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.5.0 — 2026-04-02
+
+**Label name enrichment**
+- Label names shown on album cards: `(CD, Digital — Label Name)`
+- Label names shown on album pages with Discogs link: `Released: 29 January 2021 · Label Name`
+- Discogs disambiguation numbers stripped from label names (e.g. `Label (3)` → `Label`)
+- "Not On Label" entries filtered out
+- Digital-only Discogs releases now contribute label name (without setting physical formats)
+- Spotify label fallback — fills `labelName` when Discogs has no data
+- Label mismatch warning when Discogs and Spotify report different labels
+- Additive enrichment — existing label data never overwritten
+
+**Other**
+- Newsletter subscription form with inline AJAX, double opt-in support
+- Bandcamp "video" track entries filtered from tracklists
+
+---
+
 ### v2.4.0 — 2026-04-02
 
 **New features**

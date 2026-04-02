@@ -405,6 +405,14 @@ async function enrichSpotifyOnlyAlbums (albums, token) {
       if (!album.description && data.label) {
         album.description = `Label: ${data.label}`
       }
+      // Label name from Spotify
+      if (data.label) {
+        album.spotifyLabel = data.label // always store for comparison
+        if (!album.labelName) {
+          album.labelName = data.label
+          console.log(`    ✓ Spotify label: "${album.title}" → ${data.label}`)
+        }
+      }
       // Tracks
       if ((!album.tracks || album.tracks.length === 0) && data.tracks && data.tracks.items) {
         album.tracks = data.tracks.items.map(t => ({

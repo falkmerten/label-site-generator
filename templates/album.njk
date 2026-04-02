@@ -219,7 +219,7 @@
       </section>
     {% endif %}
     {% if album.releaseDate %}
-      <p class="album-release-date">Released: {{ album.releaseDate | formatDate }}{% if album.labelName %} · {{ album.labelName }}{% endif %}</p>
+      <p class="album-release-date">Released: {{ album.releaseDate | formatDate }}{% if album.labelName %} · {% if album.labelUrl %}<a href="{{ album.labelUrl }}" target="_blank" rel="noopener noreferrer">{{ album.labelName }}</a>{% else %}{{ album.labelName }}{% endif %}{% endif %}</p>
     {% endif %}
 
     {% if album.tracks and album.tracks.length %}
