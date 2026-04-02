@@ -11,6 +11,7 @@ const { convertAllDocs } = require('./src/convertDocs');
 const { refreshArtist } = require('./src/refreshArtist');
 const { downloadArtwork } = require('./src/downloadArtwork');
 const { syncElasticStage } = require('./src/elasticstage');
+const { syncYouTube } = require('./src/youtube');
 
 function printUsage() {
   console.log(`Usage: node generate.js [options]
@@ -28,6 +29,7 @@ Options:
   --tidal-only         Re-check Tidal links for all albums (skips Spotify/iTunes/Deezer)
   --download-artwork   Download remote artwork to content/ and update cache
   --sync-elasticstage  Sync ElasticStage release links to stores.json files
+  --sync-youtube       Search YouTube and create videos.json for albums without one
   --help               Print this help message and exit
 `);
 }
@@ -76,7 +78,10 @@ function parseArgs(argv) {
       options.downloadArtwork = true;
     } else if (arg === '--sync-elasticstage') {
       options.syncElasticStage = true;
-    return options; // sync-only, don't generate
+      return options;
+    } else if (arg === '--sync-youtube') {
+      options.syncYouTube = true;
+      return options;
     }
   }
 
@@ -151,6 +156,16 @@ async function run() {
     }
     console.log('Syncing ElasticStage releases...');
     await syncElasticStage(esUrl, options.cachePath, options.contentDir);
+    return;
+  }
+  if (options.syncYouTube) {
+    const ytKey = process.env.YOUTUBE_API_KEY;
+    if (!ytKey) {
+      console.error('Error: YOUTUBE_API_KEY is not set in .env');
+      process.exit(1);
+    }
+    console.log('Syncing YouTube videos...');
+    await syncYouTube(ytKey, options.cachePath, options.contentDir);
     return;
   }
   // Auto-convert any bio.docx files before generating

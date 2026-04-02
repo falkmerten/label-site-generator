@@ -6,6 +6,15 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.3.0 — 2026-04-02
+
+**New features**
+- YouTube video sync (`--sync-youtube`) — searches YouTube Data API v3 for each album and creates `videos.json` files automatically
+- Responsive video grid — single video shows full width, 2+ videos show in two columns
+- `API-SETUP.md` — comprehensive setup guide for all external APIs (Bandcamp, Spotify, Tidal, Discogs, YouTube, MusicFetch, Google Analytics, AWS, ElasticStage)
+
+---
+
 ### v2.2.0 — 2026-04-02
 
 **New features**

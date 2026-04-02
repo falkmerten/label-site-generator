@@ -585,7 +585,12 @@ main { min-height: 60vh; }
 }
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+.video-grid-single {
+  grid-template-columns: 1fr;
+}
   gap: 1.25rem;
 }
 .video-item iframe {
