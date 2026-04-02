@@ -691,7 +691,7 @@ main { min-height: 60vh; }
 }
 .streaming-list li a i { font-size: 0.95rem; }
 
-.album-description { margin-bottom: 1.5rem; }
+.album-description { margin-bottom: 1.5rem; text-align: justify; }
 
 .album-release-date {
   font-size: 0.8rem;
@@ -757,7 +757,7 @@ main { min-height: 60vh; }
 }
 
 /* ── Prose ── */
-.prose { max-width: 100%; color: var(--text); }
+.prose { max-width: 100%; color: var(--text); text-align: justify; }
 .prose p { margin-bottom: 1rem; }
 .prose h2, .prose h3 { margin: 1.5rem 0 0.75rem; font-weight: 700; }
 .prose ul, .prose ol { padding-left: 1.5rem; margin-bottom: 1rem; }
