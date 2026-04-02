@@ -241,7 +241,7 @@
     {% if album.videos and album.videos.length %}
       <section class="album-videos">
         <h2>Videos</h2>
-        <div class="video-grid">
+        <div class="video-grid{% if album.videos.length == 1 %} video-grid-single{% endif %}">
           {% for video in album.videos %}
             {% set videoId = video.url | youtubeId %}
             {% if videoId %}
