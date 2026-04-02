@@ -233,7 +233,7 @@ async function renderSite(data, pages, outputDir, labelName) {
         canonicalUrl: albumUrl,
       });
       await fs.writeFile(path.join(albumDir, 'index.html'), albumHtml, 'utf8');
-      if (albumUrl) sitemapUrls.push({ url: albumUrl, priority: '0.7' });
+      if (albumUrl) sitemapUrls.push({ url: albumUrl, priority: '0.7', videos: album.videos || [] });
       count++;
     }
   }
@@ -282,12 +282,31 @@ async function renderSite(data, pages, outputDir, labelName) {
   // --- sitemap.xml ---
   if (siteUrl && sitemapUrls.length) {
     const today = new Date().toISOString().slice(0, 10);
+
+    // Helper to extract YouTube video ID
+    const ytId = (url) => { const m = (url || '').match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/); return m ? m[1] : null }
+
     const sitemap = [
       '<?xml version="1.0" encoding="UTF-8"?>',
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-      ...sitemapUrls.map(({ url, priority }) =>
-        `  <url>\n    <loc>${url}</loc>\n    <lastmod>${today}</lastmod>\n    <priority>${priority}</priority>\n  </url>`
-      ),
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">',
+      ...sitemapUrls.map(({ url, priority, videos }) => {
+        let entry = `  <url>\n    <loc>${url}</loc>\n    <lastmod>${today}</lastmod>\n    <priority>${priority}</priority>`
+        if (videos && videos.length) {
+          for (const v of videos) {
+            const vid = ytId(v.url)
+            if (vid) {
+              entry += `\n    <video:video>`
+              entry += `\n      <video:thumbnail_loc>https://img.youtube.com/vi/${vid}/hqdefault.jpg</video:thumbnail_loc>`
+              entry += `\n      <video:title>${(v.title || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</video:title>`
+              entry += `\n      <video:content_loc>https://www.youtube.com/watch?v=${vid}</video:content_loc>`
+              entry += `\n      <video:player_loc>https://www.youtube.com/embed/${vid}</video:player_loc>`
+              entry += `\n    </video:video>`
+            }
+          }
+        }
+        entry += `\n  </url>`
+        return entry
+      }),
       '</urlset>',
     ].join('\n');
     await fs.writeFile(path.join(outputDir, 'sitemap.xml'), sitemap, 'utf8');

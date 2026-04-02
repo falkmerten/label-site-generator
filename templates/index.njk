@@ -5,6 +5,18 @@
 {% block ogDescription %}{{ labelName }} — independent music label. Artists, releases and more.{% endblock %}
 {% block twitterDescription %}{{ labelName }} — independent music label. Artists, releases and more.{% endblock %}
 
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": {{ labelName | dump | safe }},
+  {% if canonicalUrl %}"url": {{ canonicalUrl | dump | safe }},{% endif %}
+  "description": "{{ labelName }} — independent music label"
+}
+</script>
+{% endblock %}
+
 {% block content %}
 
   <section id="artists" class="section artists-section">
@@ -76,9 +88,9 @@
         <div class="prose">{{ newsHtml | safe }}</div>
       {% endif %}
       {% if newsletter.actionUrl %}
-        <div class="newsletter-form">
-          <h3>Stay in the loop</h3>
+        <div class="newsletter-form" id="newsletter-wrapper">
           <form id="newsletter-form" class="newsletter">
+            <h3>Stay in the loop</h3>
             <div class="newsletter-fields">
               <div class="newsletter-field">
                 <label for="nl-name">Name</label>
@@ -99,8 +111,8 @@
             <div style="display:none">
               <input type="text" name="hp" id="nl-hp">
             </div>
-            <div id="newsletter-msg" class="newsletter-msg" style="display:none"></div>
           </form>
+          <div id="newsletter-msg" class="newsletter-msg" style="display:none"></div>
           <script>
             document.getElementById('newsletter-form').addEventListener('submit', function(e) {
               e.preventDefault();
@@ -115,7 +127,7 @@
               data.append('subform', 'yes');
               fetch('{{ newsletter.actionUrl }}', { method: 'POST', body: data, mode: 'no-cors' })
                 .then(function() {
-                  form.style.display = 'none';
+                  document.getElementById('newsletter-form').style.display = 'none';
                   msg.style.display = 'block';
                   {% if newsletter.doubleOptIn %}
                   msg.textContent = 'Almost there! Please check your email and confirm your subscription.';

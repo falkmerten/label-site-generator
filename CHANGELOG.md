@@ -6,6 +6,30 @@ This project extends the original `bandcamp-scraper` library into a full static 
 
 ---
 
+### v2.5.2 — 2026-04-03
+
+**SEO improvements**
+- JSON-LD on all pages: `WebSite` (index), `CollectionPage` (releases), `WebPage` (static pages), `MusicGroup` (artists), `MusicAlbum` (albums)
+- Video sitemap entries with YouTube thumbnails, titles, and player URLs
+- Sitemap namespace extended with `video:` schema
+
+**Bug fixes**
+- Newsletter form: "Stay in the loop" heading now hides after submission, only success message shown
+- Discogs title search re-enabled as fallback for label names (physical formats still UPC-only)
+- Short artist names (e.g. very short names) require exact match in Discogs results
+
+---
+
+### v2.5.1 — 2026-04-03
+
+**Bug fixes**
+- Fixed wrong Discogs matches for short artist names — short artist names (1-2 chars after normalisation) now require exact match
+- Label names now sourced from the physical release itself (not the master) when physical sell links exist
+- Multiple labels on a release shown as `Label 1 / Label 2` instead of just the first one
+- Cleared wrong Discogs matches for specific albums
+
+---
+
 ### v2.5.0 — 2026-04-02
 
 **Label name enrichment**

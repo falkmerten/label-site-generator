@@ -7,6 +7,18 @@
 {% block twitterTitle %}Releases — {{ labelName }}{% endblock %}
 {% block twitterDescription %}All releases on {{ labelName }} — browse the full discography.{% endblock %}
 
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Releases",
+  "description": "All releases on {{ labelName }}"{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}
+}
+</script>
+{% endblock %}
+
 {% block content %}
   <div class="releases-page">
     <div class="releases-page-inner">

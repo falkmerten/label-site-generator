@@ -139,15 +139,15 @@ async function getMasterVersionSellLinks (token, masterId) {
  */
 async function lookupRelease (token, upc, artistName, albumTitle) {
   let results = null
+  let matchedByUpc = false
 
   if (upc) {
     results = await searchDiscogs(token, { barcode: upc })
+    if (results) matchedByUpc = true
   }
 
-  // Only fall back to title search if we have no UPC at all
-  // With a UPC that returns no results, skip — title search is too unreliable
-  // for physical format detection (can match wrong release with same title)
-  if (!results && !upc && artistName && albumTitle) {
+  // Title search fallback — always try if UPC returned nothing
+  if (!results && artistName && albumTitle) {
     await throttle()
     results = await searchDiscogs(token, { artist: artistName, release_title: albumTitle })
   }
@@ -166,7 +166,10 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     const rArtist = normalise(parts.length > 1 ? parts[0] : '')
     const rAlbum = normalise(parts.length > 1 ? parts.slice(1).join(' - ') : r.title || '')
 
-    const artistMatch = !rArtist || rArtist.includes(targetArtist) || targetArtist.includes(rArtist)
+    // For very short artist names (e.g. "S" from "(((S)))"), require exact artist match
+    const artistMatch = targetArtist.length <= 2
+      ? rArtist === targetArtist
+      : (!rArtist || rArtist.includes(targetArtist) || targetArtist.includes(rArtist))
     const titleMatch = rAlbum.includes(targetTitle) || targetTitle.includes(rAlbum) || rTitle.includes(targetTitle)
     return artistMatch && titleMatch
   })
@@ -214,14 +217,61 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     : `https://api.discogs.com/releases/${primaryResult.id}`
   const meta = await httpsGet(metaUrl, token)
 
-  const rawLabel = meta && meta.labels && meta.labels[0] ? meta.labels[0] : null
-  const rawLabelName = rawLabel ? rawLabel.name : null
-  // Strip Discogs disambiguation numbers e.g. "Melodika (3)" → "Melodika"
-  const labelName = rawLabelName ? rawLabelName.replace(/\s*\(\d+\)\s*$/, '').trim() : null
-  // Skip "Not On Label" entries
-  const cleanLabelName = (labelName && labelName.startsWith('Not On Label')) ? null : labelName
-  // Build Discogs label URL from label ID
-  const labelUrl = rawLabel && rawLabel.id ? `https://www.discogs.com/label/${rawLabel.id}` : null
+  // Label extraction strategy:
+  // - For physical releases: get label from the physical release itself (via sell link release ID)
+  // - For digital-only: collect all unique labels from the master's versions
+  // - Fallback: use the primary result's label
+  let labelNames = []
+  let labelUrls = []
+
+  // If we have physical sell links, get label from those specific releases
+  const physicalReleaseId = (sellLinks.vinyl || sellLinks.cd || sellLinks.cassette || '').match(/release\/(\d+)/)
+  if (physicalReleaseId) {
+    await throttle()
+    const physRelease = await httpsGet(`https://api.discogs.com/releases/${physicalReleaseId[1]}`, token)
+    if (physRelease && physRelease.labels) {
+      for (const l of physRelease.labels) {
+        const name = (l.name || '').replace(/\s*\(\d+\)\s*$/, '').trim()
+        if (name && !name.startsWith('Not On Label') && !labelNames.includes(name)) {
+          labelNames.push(name)
+          labelUrls.push(l.id ? `https://www.discogs.com/label/${l.id}` : null)
+        }
+      }
+    }
+  }
+
+  // Fallback: use primary result's labels
+  if (labelNames.length === 0 && meta && meta.labels) {
+    for (const l of meta.labels) {
+      const name = (l.name || '').replace(/\s*\(\d+\)\s*$/, '').trim()
+      if (name && !name.startsWith('Not On Label') && !labelNames.includes(name)) {
+        labelNames.push(name)
+        labelUrls.push(l.id ? `https://www.discogs.com/label/${l.id}` : null)
+      }
+    }
+  }
+
+  // If primary was a master with no labels, fetch first version to get label
+  if (labelNames.length === 0 && isMaster) {
+    await throttle()
+    const versions = await httpsGet(`https://api.discogs.com/masters/${primaryResult.id}/versions?per_page=1`, token)
+    if (versions && versions.versions && versions.versions[0]) {
+      await throttle()
+      const verRelease = await httpsGet(`https://api.discogs.com/releases/${versions.versions[0].id}`, token)
+      if (verRelease && verRelease.labels) {
+        for (const l of verRelease.labels) {
+          const name = (l.name || '').replace(/\s*\(\d+\)\s*$/, '').trim()
+          if (name && !name.startsWith('Not On Label') && !labelNames.includes(name)) {
+            labelNames.push(name)
+            labelUrls.push(l.id ? `https://www.discogs.com/label/${l.id}` : null)
+          }
+        }
+      }
+    }
+  }
+
+  const cleanLabelName = labelNames.length > 0 ? labelNames.join(' / ') : null
+  const labelUrl = labelUrls[0] || null
   const country = meta && !isMaster ? meta.country : null
   const notes = meta && meta.notes ? meta.notes : null
 
@@ -238,7 +288,8 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
         labelName: cleanLabelName,
         labelUrl,
         country,
-        notes
+        notes,
+        matchedByUpc
       }
     }
     return null
@@ -254,7 +305,8 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     labelName: cleanLabelName,
     labelUrl,
     country,
-    notes
+    notes,
+    matchedByUpc
   }
 }
 
@@ -275,13 +327,22 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
         album.discogsSellUrlVinyl = result.discogsSellUrlVinyl
         album.discogsSellUrlCd = result.discogsSellUrlCd
         album.discogsSellUrlCassette = result.discogsSellUrlCassette
-        if (result.formats.length > 0) album.physicalFormats = result.formats
+        // Only set physical formats and sell links from UPC matches (title search may match wrong edition)
+        if (result.matchedByUpc && result.formats.length > 0) album.physicalFormats = result.formats
+        if (!result.matchedByUpc && result.formats.length > 0) {
+          // Title search found physicals but we can't be sure they're the right edition
+          console.log(`    ⚠ Physical formats found via title search (not UPC) — skipping format data for safety`)
+          album.discogsSellUrl = null
+          album.discogsSellUrlVinyl = null
+          album.discogsSellUrlCd = null
+          album.discogsSellUrlCassette = null
+        }
         if (result.labelName && !album.labelName) album.labelName = result.labelName
         if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
         if (result.country && !album.country) album.country = result.country
         if (!album.description && result.notes) album.description = result.notes
-        const method = album.upc ? 'UPC' : 'search'
-        console.log(`    ✓ Discogs (${method}): "${album.title}"${result.formats.length ? ` → ${result.formats.join(', ')}` : ''}`)
+        const method = album.upc && result.matchedByUpc ? 'UPC' : 'search'
+        console.log(`    ✓ Discogs (${method}): "${album.title}"${result.formats.length && result.matchedByUpc ? ` → ${result.formats.join(', ')}` : ''}${result.labelName ? ` [${result.labelName}]` : ''}`)
       }
     } catch (err) {
       console.warn(`    ⚠ Discogs failed for "${album.title}": ${err.message}`)

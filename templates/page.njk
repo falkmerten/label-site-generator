@@ -7,6 +7,17 @@
 {% block twitterTitle %}{{ title }} — {{ labelName }}{% endblock %}
 {% block twitterDescription %}{{ title }} — {{ labelName }}{% endblock %}
 
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": {{ title | dump | safe }}{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}
+}
+</script>
+{% endblock %}
+
 {% block content %}
   <article class="text-page">
     <h1>{{ title }}</h1>
