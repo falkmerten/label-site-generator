@@ -115,8 +115,8 @@ a.nav-item {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   color: #ffffff;
@@ -1009,7 +1009,7 @@ main { min-height: 60vh; }
 .footer-social a:hover { color: #fff; opacity: 1; text-decoration: none; }
 
 .footer-nav { display: flex; gap: 1.5rem; }
-.footer-nav a { color: var(--brand-light); opacity: 0.7; font-size: 0.8rem; }
+.footer-nav a { color: var(--brand-light); opacity: 0.7; font-size: 0.9rem; }
 .footer-nav a:hover { color: #fff; opacity: 1; text-decoration: none; }
 
 /* ── Responsive ── */
