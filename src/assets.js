@@ -29,8 +29,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 16px;
-  line-height: 1.65;
+  font-size: 17px;
+  line-height: 1.7;
 }
 
 a { color: inherit; text-decoration: none; }
