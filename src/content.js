@@ -23,7 +23,7 @@ async function findFirstFile(dir, basenames) {
 }
 
 async function loadContent(contentDir) {
-  const store = { global: {}, artists: {}, pages: {} };
+  const store = { global: {}, artists: {}, pages: {}, _contentDir: contentDir };
 
   if (!(await exists(contentDir))) {
     return store;

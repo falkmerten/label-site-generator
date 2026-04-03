@@ -52,6 +52,16 @@ function albumBelongsToArtist (album, artistName) {
 async function mergeData (rawData, content) {
   const hasContentArtists = Object.keys(content.artists || {}).length > 0
 
+  // Load youtube.json for channel URL merging
+  let youtubeConfig = {}
+  if (content._contentDir) {
+    try {
+      const ytRaw = await fs.readFile(path.join(content._contentDir, 'youtube.json'), 'utf8')
+      const ytData = JSON.parse(ytRaw)
+      youtubeConfig = ytData.artists || ytData // support both new and old format
+    } catch { /* no youtube.json */ }
+  }
+
   const mergedArtists = await Promise.all(
     (rawData.artists || []).map(async (artist) => {
       const artistSlug = toSlug(artist.name)
@@ -335,6 +345,15 @@ async function mergeData (rawData, content) {
           album.labelUrl = urls[0]
         }
       }
+    }
+  }
+
+  // ── Post-merge: fill YouTube channel URLs from youtube.json ────────────────
+  for (const artist of mergedArtists) {
+    const ytUrl = youtubeConfig[artist.slug]
+    if (ytUrl && !(artist.streamingLinks && artist.streamingLinks.youtube)) {
+      artist.streamingLinks = artist.streamingLinks || {}
+      artist.streamingLinks.youtube = ytUrl
     }
   }
 

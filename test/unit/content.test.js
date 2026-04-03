@@ -25,13 +25,14 @@ async function withTmpDir(fn) {
 describe('loadContent', () => {
   test('returns empty store when contentDir does not exist', async () => {
     const result = await loadContent('/nonexistent/path/xyz');
-    expect(result).toEqual({ global: {}, artists: {}, pages: {} });
+    expect(result).toEqual(expect.objectContaining({ global: {}, artists: {}, pages: {} }));
   });
 
   test('returns empty store for empty contentDir', async () => {
     await withTmpDir(async (tmp) => {
       const result = await loadContent(tmp);
-      expect(result).toEqual({ global: {}, artists: {}, pages: {} });
+      expect(result).toEqual(expect.objectContaining({ global: {}, artists: {}, pages: {} }));
+      expect(result._contentDir).toBe(tmp);
     });
   });
 
