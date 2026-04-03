@@ -13,6 +13,11 @@ const { enrichAlbumsWithMusicFetch, enrichArtistWithMusicFetch } = require('./mu
 const { enrichAlbumsWithDiscogs } = require('./discogs')
 const { toSlug } = require('./slugs')
 const { extractAlbumId } = require('./merger')
+
+function delay (ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 const {
   getArtistBySpotifyId,
   getArtistIdentifiers,
