@@ -989,7 +989,7 @@ main { min-height: 60vh; }
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   font-size: 0.8rem;
   color: var(--brand-light);
   flex-wrap: wrap;
@@ -1008,7 +1008,7 @@ main { min-height: 60vh; }
 .footer-social a { color: var(--brand-light); font-size: 1.2rem; opacity: 0.8; }
 .footer-social a:hover { color: #fff; opacity: 1; text-decoration: none; }
 
-.footer-nav { display: flex; gap: 1.5rem; }
+.footer-nav { display: flex; gap: 1.5rem; justify-content: center; }
 .footer-nav a { color: var(--brand-light); opacity: 0.7; font-size: 0.9rem; }
 .footer-nav a:hover { color: #fff; opacity: 1; text-decoration: none; }
 

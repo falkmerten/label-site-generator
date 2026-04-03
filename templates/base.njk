@@ -101,6 +101,11 @@
         <p>&copy; {{ currentYear }} {{ labelName }}</p>
         <p class="footer-credit">Built with <a href="https://github.com/falkmerten/label-site-generator" target="_blank" rel="noopener noreferrer">Label Site Generator</a></p>
       </div>
+      <nav class="footer-nav">
+        {% for p in footerNavPages %}
+          <a href="{{ rootPath }}{{ p.slug }}/">{{ p.title }}</a>
+        {% endfor %}
+      </nav>
       <div class="footer-right">
         <nav class="footer-social">
           {% if social.bandcamp %}<a href="{{ social.bandcamp }}" target="_blank" rel="noopener noreferrer" aria-label="Bandcamp"><i class="fa-brands fa-bandcamp"></i></a>{% endif %}
@@ -111,11 +116,6 @@
           {% if social.facebook %}<a href="{{ social.facebook }}" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><i class="fa-brands fa-facebook"></i></a>{% endif %}
           {% if social.tiktok %}<a href="{{ social.tiktok }}" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>{% endif %}
           {% if social.twitter %}<a href="{{ social.twitter }}" target="_blank" rel="noopener noreferrer" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a>{% endif %}
-        </nav>
-        <nav class="footer-nav">
-          {% for p in footerNavPages %}
-            <a href="{{ rootPath }}{{ p.slug }}/">{{ p.title }}</a>
-          {% endfor %}
         </nav>
       </div>
     </div>
