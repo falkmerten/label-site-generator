@@ -95,7 +95,9 @@ async function mergeData (rawData, content) {
               url: album.url,
               title: album.title,
               artist: album.artist,
-              artwork: album.imageUrl || (album.artwork ? path.basename(album.artwork) : null),
+              artwork: album.imageUrl || (album.artwork
+                ? (album.artwork.startsWith('http') ? album.artwork : path.basename(album.artwork))
+                : null),
               tracks: (album.tracks || []).filter(t => (t.name || ``).trim().toLowerCase() !== `video`),
               tags: album.tags,
               albumId,
@@ -188,7 +190,9 @@ async function mergeData (rawData, content) {
             artwork = path.basename(albumContent.artworkPath)
           } else {
             // Use imageUrl (remote) or local artwork path — store basename for template
-            artwork = album.imageUrl || (album.artwork ? path.basename(album.artwork) : null)
+            artwork = album.imageUrl || (album.artwork
+              ? (album.artwork.startsWith('http') ? album.artwork : path.basename(album.artwork))
+              : null)
           }
 
           if (albumContent && albumContent.notesPath) {
