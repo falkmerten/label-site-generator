@@ -145,10 +145,31 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       const results = await searchYouTube(apiKey, artist.name, album.title, maxResults)
       searched++
 
-      if (results.length > 0) {
+      // If album-level search found nothing, try track-by-track for albums with tracks
+      let finalResults = results
+      if (results.length === 0 && album.tracks && album.tracks.length > 0) {
+        const trackResults = []
+        const seenVideoIds = new Set()
+        for (const track of album.tracks) {
+          if (!track.name || trackResults.length >= maxResults) break
+          await delay(DELAY_MS)
+          const tResults = await searchYouTube(apiKey, artist.name, track.name, 1)
+          searched++
+          for (const r of tResults) {
+            const vidId = r.url.split('v=')[1]
+            if (!seenVideoIds.has(vidId)) {
+              seenVideoIds.add(vidId)
+              trackResults.push(r)
+            }
+          }
+        }
+        finalResults = trackResults
+      }
+
+      if (finalResults.length > 0) {
         fs.mkdirSync(albumDir, { recursive: true })
-        fs.writeFileSync(videosPath, JSON.stringify(results, null, 2), 'utf8')
-        console.log(`  ✓ ${albumSlug} → ${results.length} video(s)`)
+        fs.writeFileSync(videosPath, JSON.stringify(finalResults, null, 2), 'utf8')
+        console.log(`  ✓ ${albumSlug} → ${finalResults.length} video(s)`)
         created++
       } else {
         console.log(`  – ${albumSlug} → no results`)
