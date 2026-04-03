@@ -101,17 +101,36 @@ async function searchChannel (apiKey, channelId, query, maxResults = 2) {
 }
 
 /**
- * Loads or creates content/youtube.json — maps artist slugs to YouTube channel URLs.
+ * Loads or creates content/youtube.json.
+ * Format:
+ * {
+ *   "labelChannel": "https://www.youtube.com/channel/UCxxxx",
+ *   "artists": {
+ *     "artist-slug": "https://www.youtube.com/channel/UCyyyy",
+ *     ...
+ *   }
+ * }
  * Merges Soundcharts-discovered channel URLs with existing entries.
  * @param {string} contentDir
  * @param {Array} artists - cache artists array
- * @returns {Object} slug → channelUrl map
+ * @returns {{ labelChannelId: string|null, artists: Object }}
  */
 function loadOrCreateYouTubeConfig (contentDir, artists) {
   const configPath = path.join(contentDir, 'youtube.json')
-  let config = {}
+  let config = { labelChannel: null, artists: {} }
   try {
-    config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+    // Support old flat format (slug → url) and new format ({ labelChannel, artists })
+    if (raw.artists && typeof raw.artists === 'object' && !Array.isArray(raw.artists)) {
+      config = raw
+    } else {
+      // Migrate old flat format
+      config.artists = {}
+      for (const [key, val] of Object.entries(raw)) {
+        if (key === 'labelChannel') config.labelChannel = val
+        else config.artists[key] = val
+      }
+    }
   } catch { /* doesn't exist yet */ }
 
   let updated = false
@@ -119,30 +138,29 @@ function loadOrCreateYouTubeConfig (contentDir, artists) {
     const slug = toSlug(artist.name)
     const scYoutube = (artist.streamingLinks || {}).youtube || null
 
-    if (!config[slug]) {
-      // New artist — add with Soundcharts URL or null
-      config[slug] = scYoutube
+    if (!(slug in config.artists)) {
+      config.artists[slug] = scYoutube
       updated = true
-    } else if (!config[slug] && scYoutube) {
-      // Existing entry with null — fill from Soundcharts
-      config[slug] = scYoutube
+    } else if (!config.artists[slug] && scYoutube) {
+      config.artists[slug] = scYoutube
       updated = true
     }
-    // Never overwrite manually set URLs
   }
 
   if (updated) {
-    // Sort by slug for readability
-    const sorted = {}
-    for (const key of Object.keys(config).sort()) {
-      sorted[key] = config[key]
+    const sorted = { labelChannel: config.labelChannel, artists: {} }
+    for (const key of Object.keys(config.artists).sort()) {
+      sorted.artists[key] = config.artists[key]
     }
     fs.mkdirSync(contentDir, { recursive: true })
     fs.writeFileSync(configPath, JSON.stringify(sorted, null, 2) + '\n', 'utf8')
     console.log(`[youtube] Updated ${configPath}`)
   }
 
-  return config
+  return {
+    labelChannelId: extractChannelId(config.labelChannel),
+    artists: config.artists
+  }
 }
 
 /**
@@ -184,6 +202,11 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
 
   // Load/create youtube.json config
   const ytConfig = loadOrCreateYouTubeConfig(contentDir, cache.artists || [])
+  const labelChannelId = ytConfig.labelChannelId
+
+  if (labelChannelId) {
+    console.log(`[youtube] Label channel: ${labelChannelId}`)
+  }
 
   let searched = 0
   let created = 0
@@ -194,16 +217,16 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
     if (_quotaExhausted) break
 
     const artistSlug = toSlug(artist.name)
-    const channelUrl = ytConfig[artistSlug] || null
-    const channelId = extractChannelId(channelUrl)
+    const channelUrl = ytConfig.artists[artistSlug] || null
+    const artistChannelId = extractChannelId(channelUrl)
 
-    if (!channelId) {
+    if (!artistChannelId && !labelChannelId) {
       console.log(`[${artist.name}] No YouTube channel configured — skipping (add to content/youtube.json)`)
       noChannel++
       continue
     }
 
-    console.log(`\n[${artist.name}] Channel: ${channelId}`)
+    console.log(`\n[${artist.name}]${artistChannelId ? ' Channel: ' + artistChannelId : ' (label channel only)'}`)
 
     for (const album of artist.albums || []) {
       if (_quotaExhausted) break
@@ -217,36 +240,59 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
         continue
       }
 
-      // Search within the artist's channel for the album title
-      await delay(DELAY_MS)
-      let results = await searchChannel(apiKey, channelId, album.title, maxResults)
-      searched++
+      const seenVideoIds = new Set()
+      let allResults = []
 
-      // Fallback: track-by-track search within the channel
-      if (results.length === 0 && album.tracks && album.tracks.length > 0) {
-        const trackResults = []
-        const seenVideoIds = new Set()
+      // Search label channel first (preferred)
+      if (labelChannelId) {
+        await delay(DELAY_MS)
+        const labelResults = await searchChannel(apiKey, labelChannelId, `${artist.name} ${album.title}`, maxResults)
+        searched++
+        for (const r of labelResults) {
+          const vidId = r.url.split('v=')[1]
+          if (!seenVideoIds.has(vidId)) {
+            seenVideoIds.add(vidId)
+            allResults.push(r)
+          }
+        }
+      }
+
+      // Then search artist channel for remaining slots
+      if (artistChannelId && allResults.length < maxResults) {
+        await delay(DELAY_MS)
+        const artistResults = await searchChannel(apiKey, artistChannelId, album.title, maxResults - allResults.length)
+        searched++
+        for (const r of artistResults) {
+          const vidId = r.url.split('v=')[1]
+          if (!seenVideoIds.has(vidId)) {
+            seenVideoIds.add(vidId)
+            allResults.push(r)
+          }
+        }
+      }
+
+      // Fallback: track-by-track within artist channel
+      if (allResults.length === 0 && artistChannelId && album.tracks && album.tracks.length > 0) {
         for (const track of album.tracks) {
           if (_quotaExhausted) break
-          if (!track.name || trackResults.length >= maxResults) break
+          if (!track.name || allResults.length >= maxResults) break
           await delay(DELAY_MS)
-          const tResults = await searchChannel(apiKey, channelId, track.name, 1)
+          const tResults = await searchChannel(apiKey, artistChannelId, track.name, 1)
           searched++
           for (const r of tResults) {
             const vidId = r.url.split('v=')[1]
             if (!seenVideoIds.has(vidId)) {
               seenVideoIds.add(vidId)
-              trackResults.push(r)
+              allResults.push(r)
             }
           }
         }
-        results = trackResults
       }
 
-      if (results.length > 0) {
+      if (allResults.length > 0) {
         fs.mkdirSync(albumDir, { recursive: true })
-        fs.writeFileSync(videosPath, JSON.stringify(results, null, 2), 'utf8')
-        console.log(`  ✓ ${albumSlug} → ${results.length} video(s)`)
+        fs.writeFileSync(videosPath, JSON.stringify(allResults, null, 2), 'utf8')
+        console.log(`  ✓ ${albumSlug} → ${allResults.length} video(s)`)
         created++
       } else {
         console.log(`  – ${albumSlug} → no results`)
