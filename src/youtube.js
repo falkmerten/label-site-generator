@@ -36,13 +36,13 @@ function httpsGet (url) {
  * @returns {Promise<Array<{url: string, title: string}>>}
  */
 async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
-  const query = `${artistName} "${albumTitle}" official video`
+  const query = `${artistName} "${albumTitle}"`
   const params = new URLSearchParams({
     part: 'snippet',
     q: query,
     type: 'video',
     videoCategoryId: '10', // Music category
-    maxResults: String(maxResults + 3), // fetch extra to filter
+    maxResults: String(maxResults + 5), // fetch extra to filter
     key: apiKey
   })
   const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?${params}`)
@@ -51,17 +51,32 @@ async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const targetArtist = normalise(artistName)
 
+  // Extract key words from album title for matching (strip parenthetical, feat., etc.)
+  const titleCore = albumTitle
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s*\[[^\]]*\]\s*/g, ' ')
+    .replace(/\s+(feat\.|ft\.|featuring)\s+.*/i, '')
+    .trim()
+  const titleWords = normalise(titleCore)
+
   return data.items
     .filter(item => {
       if (!item.id || !item.id.videoId) return false
       const snippet = item.snippet || {}
       // Skip "Topic" auto-generated channels
       if ((snippet.channelTitle || '').includes('- Topic')) return false
-      // Verify the video title, channel, or description contains the artist name
       const vidTitle = normalise(snippet.title || '')
       const channel = normalise(snippet.channelTitle || '')
       const desc = normalise(snippet.description || '')
-      return vidTitle.includes(targetArtist) || channel.includes(targetArtist) || desc.includes(targetArtist)
+      // Must match artist name
+      const hasArtist = vidTitle.includes(targetArtist) || channel.includes(targetArtist) || desc.includes(targetArtist)
+      if (!hasArtist) return false
+      // Must match album/track title (core words)
+      if (titleWords.length > 3) {
+        const hasTitle = vidTitle.includes(titleWords)
+        if (!hasTitle) return false
+      }
+      return true
     })
     .slice(0, maxResults)
     .map(item => ({
@@ -82,7 +97,7 @@ async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
  */
 async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
   const overwrite = options.overwrite || false
-  const maxResults = options.maxResults || 3
+  const maxResults = options.maxResults || 2
   const artistFilter = options.artistFilter || null
 
   let cache = null
