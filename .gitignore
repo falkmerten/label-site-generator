@@ -10,8 +10,7 @@ node_modules
 
 # Generated output — not part of source
 dist/
-cache.json
-cache.backup.*.json
+cache*.json
 
 # Content — label-specific, keep private
 content/
