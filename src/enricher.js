@@ -254,7 +254,7 @@ function checkQuota (isFirstCall, state) {
   // Stop at 0
   if (quota <= 0) {
     if (!state.quotaExhausted) {
-      console.error('  ✖ [soundcharts] Monthly quota exhausted (0 remaining) — stopping Soundcharts API calls')
+      console.error('  ✖ [soundcharts] Monthly quota exhausted (0 credits remaining). Soundcharts free tier resets on the 1st of each month. Continuing with gap-fill and Discogs only.')
       state.quotaExhausted = true
     }
     return true

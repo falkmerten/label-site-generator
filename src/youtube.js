@@ -17,11 +17,33 @@ function httpsGet (url) {
       let raw = ''
       res.on('data', c => { raw += c })
       res.on('end', () => {
+        if (res.statusCode === 403) {
+          try {
+            const err = JSON.parse(raw)
+            if (err.error && err.error.errors && err.error.errors[0] && err.error.errors[0].reason === 'quotaExceeded') {
+              console.error('[youtube] ✖ YouTube API daily quota exceeded. Quota resets at midnight Pacific Time (PT). Try again after ' + _nextResetTime() + '.')
+              return resolve({ quotaExceeded: true })
+            }
+          } catch { /* not JSON */ }
+          return resolve(null)
+        }
         if (res.statusCode !== 200) return resolve(null)
         try { resolve(JSON.parse(raw)) } catch { resolve(null) }
       })
     }).on('error', () => resolve(null))
   })
+}
+
+function _nextResetTime () {
+  // YouTube quota resets at midnight Pacific Time
+  const now = new Date()
+  const pt = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
+  const tomorrow = new Date(pt)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+  const diffMs = tomorrow - pt
+  const hours = Math.ceil(diffMs / 3600000)
+  return `~${hours} hour(s) from now`
 }
 
 /**
@@ -46,7 +68,7 @@ async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
     key: apiKey
   })
   const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?${params}`)
-  if (!data || !data.items) return []
+  if (!data || data.quotaExceeded || !data.items) return []
 
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const targetArtist = normalise(artistName)

@@ -302,7 +302,7 @@ async function fetchArtistAlbums (token, artistUrl) {
       if (result.statusCode === 429 || result.raw === 'Too many requests') {
         const retryAfter = parseInt(result.headers['retry-after'] || '1', 10)
         if (retryAfter > 60) {
-          console.warn(`[warn] fetchArtistAlbums: Spotify requests a ${retryAfter}s wait — quota likely exhausted. Check your app at developer.spotify.com`)
+          console.warn(`[warn] fetchArtistAlbums: Spotify requests a ${retryAfter}s wait — quota likely exhausted. Spotify rate limits reset after ~30 minutes of inactivity. Check your app at developer.spotify.com`)
           return null
         }
         // Exponential backoff: retryAfter * 2^attempt, capped at 30s

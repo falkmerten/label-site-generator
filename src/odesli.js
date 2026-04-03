@@ -43,7 +43,7 @@ async function fetchStreamingLinks (url) {
         }
         if (res.statusCode === 429) {
           // Back off: reset the timer so next call waits a full extra interval
-          console.warn('  [odesli] Rate limited (429) — backing off 30s...')
+          console.warn('  [odesli] Rate limited (429) — backing off 30s. Odesli allows ~20 requests/minute.')
           _lastRequestAt = Date.now() + 30000
           return resolve(null)
         }

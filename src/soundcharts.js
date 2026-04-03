@@ -138,7 +138,7 @@ async function scGetWithRetry (path, appId, apiKey, maxRetries = 3) {
 
     if (attempt < maxRetries) {
       const backoff = Math.min(5 * Math.pow(2, attempt), 30)
-      console.warn(`[warn] Soundcharts rate limited — waiting ${backoff}s (attempt ${attempt + 1}/${maxRetries})`)
+      console.warn(`[warn] Soundcharts rate limited — waiting ${backoff}s (attempt ${attempt + 1}/${maxRetries}). Soundcharts allows up to 10,000 calls/minute.`)
       await delay(backoff * 1000)
     }
   }
