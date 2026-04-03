@@ -72,6 +72,9 @@ Reports orphaned content folders that don't match any album in the cache. Dry-ru
 **How does Soundcharts album discovery work?**
 When enriching, the enricher fetches the artist's full album list from Soundcharts and adds any releases not already in the cache (matched by title, UPC, and Soundcharts UUID). This catches streaming-only releases not on Bandcamp.
 
+**How does Bandcamp URL verification work?**
+After Spotify adds releases to the catalog, the enricher checks each Spotify-only album (no Bandcamp URL) by constructing a Bandcamp URL from the title and verifying it exists with a HEAD request. This catches albums that exist on Bandcamp but weren't found by the scraper — for example, older releases not listed on the `/music` page. The verification uses Bandcamp-style slugs (apostrophes dropped, not hyphenated).
+
 **What's the difference between Soundcharts mode and legacy mode?**
 When `SOUNDCHARTS_APP_ID` and `SOUNDCHARTS_API_KEY` are set, the enricher uses Soundcharts as the primary source for streaming links, social media, events, and metadata. Missing links are filled by iTunes/Deezer/Tidal as needed. When Soundcharts credentials are absent, the full legacy pipeline (Spotify → iTunes → Deezer → Tidal → MusicFetch) runs instead. No CLI flags needed — the mode is automatic.
 

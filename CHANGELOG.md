@@ -4,6 +4,28 @@
 
 ---
 
+### v3.1.0 — 2026-04-03
+
+**Bandcamp URL verification**
+- Spotify-only albums are now automatically verified against Bandcamp by constructing URLs from the title and checking with HEAD requests
+- Catches albums the Bandcamp scraper misses due to `/music` page limitations (e.g. older releases not listed)
+- Bandcamp-style slug generation drops apostrophes (Heart's → hearts) matching Bandcamp's URL format
+
+**Bandcamp scraper improvements**
+- `/music` page now parses the `#pagedata` data-blob JSON for album URLs, with fallback to `<a>` tag parsing
+- Finds more albums on pages where Bandcamp embeds the catalog in JSON rather than HTML links
+
+**Enrichment pipeline restructured**
+- Pipeline order: Bandcamp → Spotify (album list) → Bandcamp verification → Soundcharts → gap-fill → Discogs
+- Spotify builds the album catalog with title matching, Soundcharts enriches without adding extra releases
+- Automatic cache backup before `--artist` re-scrape and `--enrich` operations
+
+**Documentation**
+- New "New release workflow" section in README
+- Updated enrichment pipeline documentation
+
+---
+
 ### v3.0.1 — 2026-04-03
 
 **Bug fixes**

@@ -2,6 +2,8 @@
 
 const fs = require('fs/promises')
 const path = require('path')
+const https = require('https')
+const http = require('http')
 const { readCache, writeCache } = require('./cache')
 const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums } = require('./spotify')
 const { enrichAlbumsWithItunes } = require('./itunes')
@@ -130,6 +132,82 @@ function albumHasChanged (album, prevAlbum) {
  * @param {Array} albums
  * @returns {Array} deduplicated albums
  */
+/**
+ * Generates a Bandcamp-style slug from a title.
+ * Bandcamp drops apostrophes entirely (Heart's → hearts), unlike toSlug which replaces with hyphens.
+ * @param {string} title
+ * @returns {string}
+ */
+function toBandcampSlug (title) {
+  if (!title) return ''
+  return title.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[''ʼ`]/g, '') // drop apostrophes
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+/**
+ * Makes an HTTP HEAD request to check if a URL exists.
+ * @param {string} url
+ * @returns {Promise<number>} HTTP status code (0 on error)
+ */
+function headRequest (url) {
+  return new Promise(resolve => {
+    const protocol = url.startsWith('https') ? https : http
+    const req = protocol.request(url, { method: 'HEAD' }, res => {
+      res.resume()
+      resolve(res.statusCode)
+    })
+    req.on('error', () => resolve(0))
+    req.setTimeout(5000, () => { req.destroy(); resolve(0) })
+    req.end()
+  })
+}
+
+/**
+ * For Spotify-only albums (no Bandcamp URL), tries to find them on Bandcamp
+ * by constructing URLs from the title slug and verifying with HEAD requests.
+ * @param {object} artist - artist object from cache
+ * @returns {Promise<number>} number of albums matched
+ */
+async function verifyBandcampUrls (artist) {
+  const noUrl = artist.albums.filter(a => !a.url)
+  if (noUrl.length === 0) return 0
+
+  // Find the Bandcamp base domain from existing albums
+  const bcAlbum = artist.albums.find(a => a.url && a.url.includes('bandcamp.com'))
+  if (!bcAlbum) return 0
+  let bcBase
+  try { bcBase = new URL(bcAlbum.url).origin } catch { return 0 }
+
+  let matched = 0
+  for (const album of noUrl) {
+    const slug = toBandcampSlug(album.title)
+    if (!slug) continue
+
+    await delay(400)
+    let status = await headRequest(`${bcBase}/album/${slug}`)
+    if (status === 200) {
+      album.url = `${bcBase}/album/${slug}`
+      matched++
+      console.log(`    ✓ BC verified: "${album.title}" → ${album.url}`)
+      continue
+    }
+
+    // Try track URL
+    await delay(300)
+    status = await headRequest(`${bcBase}/track/${slug}`)
+    if (status === 200) {
+      album.url = `${bcBase}/track/${slug}`
+      matched++
+      console.log(`    ✓ BC verified (track): "${album.title}" → ${album.url}`)
+    }
+  }
+  return matched
+}
+
 function deduplicateAlbumsByUpc (albums) {
   const seenUpcs = new Set()
   const result = []
@@ -335,107 +413,6 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
       } else {
         console.log('  – No upcoming events found')
       }
-    }
-  }
-
-  // ── Discover releases from Soundcharts not in Bandcamp ─────────────────
-  if (artist.soundchartsUuid && !quotaState.quotaExhausted) {
-    const scAlbums = await getArtistAlbums(artist.soundchartsUuid, appId, apiKey)
-    quotaState.callCount++
-    if (checkQuota(false, quotaState)) { /* quota exhausted */ }
-
-    if (scAlbums.length > 0) {
-      const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-      const existingTitles = new Set((artist.albums || []).map(a => normalise(a.title)))
-      const existingUpcs = new Set((artist.albums || []).filter(a => a.upc).map(a => a.upc))
-      const existingSCUuids = new Set((artist.albums || []).filter(a => a.soundchartsUuid).map(a => a.soundchartsUuid))
-
-      // Fuzzy title variants for matching — only strip suffixes that indicate
-      // the SAME content (not genuinely different editions like Deluxe, Expanded)
-      function titleVariants (title) {
-        const variants = new Set([normalise(title)])
-        // Strip "Single" suffix only: "Foo (Single)" → "Foo"
-        const noSingle = title.replace(/\s*\(\s*single\s*\)\s*$/i, '').trim()
-        if (noSingle && noSingle !== title) variants.add(normalise(noSingle))
-        // Strip "Remastered" suffix: "Foo (Remastered)" → "Foo"
-        const noRemaster = title.replace(/\s*\(\s*remastered[^)]*\)\s*$/i, '').trim()
-        if (noRemaster && noRemaster !== title) variants.add(normalise(noRemaster))
-        return variants
-        // NOTE: We intentionally do NOT strip (Remixes), (Deluxe), (Expanded),
-        // (EP), (Anniversary Edition) etc. — those are genuinely different releases
-      }
-
-      // Build fuzzy lookup from existing albums
-      const existingFuzzy = new Set()
-      for (const a of (artist.albums || [])) {
-        for (const v of titleVariants(a.title)) {
-          existingFuzzy.add(v)
-        }
-      }
-
-      const uniqueScAlbums = []
-      const seenScUuids = new Set()
-      for (const sca of scAlbums) {
-        // Skip if SC UUID already in cache
-        if (existingSCUuids.has(sca.uuid)) continue
-        // Skip SC duplicates within this batch
-        if (seenScUuids.has(sca.uuid)) continue
-        seenScUuids.add(sca.uuid)
-
-        // Check fuzzy title match against existing albums
-        const variants = titleVariants(sca.name)
-        let matched = false
-        for (const v of variants) {
-          if (existingFuzzy.has(v)) { matched = true; break }
-        }
-        if (!matched) {
-          uniqueScAlbums.push(sca)
-        }
-      }
-
-      let added = 0
-      for (const sca of uniqueScAlbums) {
-        if (quotaState.quotaExhausted) break
-
-        // Fetch metadata to get UPC for dedup check
-        const meta = await getAlbumBySpotifyId(sca.uuid, appId, apiKey)
-          .catch(() => null)
-        quotaState.callCount++
-        if (checkQuota(false, quotaState)) { /* quota exhausted */ }
-
-        // Skip if UPC already exists in cache
-        if (meta && meta.upc && existingUpcs.has(meta.upc)) continue
-
-        // Add as new release
-        const newAlbum = {
-          url: null,
-          title: sca.name,
-          artist: artist.name,
-          artwork: null,
-          tracks: [],
-          tags: [],
-          albumId: null,
-          itemType: sca.type === 'single' ? 'track' : 'album',
-          releaseDate: sca.releaseDate || null,
-          description: null,
-          credits: null,
-          streamingLinks: {},
-          upc: (meta && meta.upc) || null,
-          soundchartsUuid: (meta && meta.uuid) || sca.uuid,
-          soundchartsEnriched: false,
-          distributor: (meta && meta.distributor) || null,
-          copyright: (meta && meta.copyright) || null,
-          slug: toSlug(sca.name)
-        }
-
-        if (meta && meta.upc) existingUpcs.add(meta.upc)
-        existingTitles.add(normalise(sca.name))
-        artist.albums.push(newAlbum)
-        added++
-        console.log(`    + SC-discovered: "${sca.name}"${meta && meta.upc ? ` (UPC: ${meta.upc})` : ''}`)
-      }
-
-      if (added > 0) console.log(`  ✓ Soundcharts: discovered ${added} release(s) not on Bandcamp`)
     }
   }
 
@@ -757,7 +734,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   const gapFillCounts = { itunes: 0, deezer: 0, tidal: 0, musicfetch: 0 }
 
   let spotifyToken = null
-  if (!hasSoundcharts && hasSpotify) {
+  if (hasSpotify) {
     try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) }
     catch (err) { console.warn(`  [spotify] Auth failed: ${err.message}`) }
   }
@@ -772,7 +749,38 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     // ══════════════════════════════════════════════════════════════════════════
     if (hasSoundcharts && !options.tidalOnly) {
 
-      // ── Soundcharts enrichment (artist + albums) ──────────────────────────
+      // ── Step 1: Spotify album list (source of truth for album catalog) ────
+      if (hasSpotify && spotifyToken) {
+        // Artist-level Spotify URL
+        if (!(artist.streamingLinks && artist.streamingLinks.spotify)) {
+          if (config.spotifyArtistUrl) {
+            artist.streamingLinks = artist.streamingLinks || {}
+            artist.streamingLinks.spotify = config.spotifyArtistUrl
+          }
+        }
+
+        const artistSpotifyUrl = config.spotifyArtistUrl ||
+          (artist.streamingLinks && artist.streamingLinks.spotify)
+
+        if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
+          try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
+          console.log('  → Spotify album list (source of truth)...')
+          const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
+          if (spotifyAlbums.length > 0) {
+            artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+          }
+        }
+      }
+
+      // ── Step 1b: Verify Bandcamp URLs for Spotify-only albums ──────────────
+      const noUrlCount = (artist.albums || []).filter(a => !a.url).length
+      if (noUrlCount > 0) {
+        console.log(`  → Bandcamp URL verification for ${noUrlCount} Spotify-only album(s)...`)
+        const found = await verifyBandcampUrls(artist)
+        if (found > 0) console.log(`  ✓ Found ${found} album(s) on Bandcamp`)
+      }
+
+      // ── Step 2: Soundcharts enrichment (artist + albums) ──────────────────
       await soundchartsEnrichArtist(artist, config, scAppId, scApiKey, quotaState)
 
       // ── Gap-fill: iTunes/Deezer/Tidal/MusicFetch for albums still missing links ──

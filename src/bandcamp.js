@@ -137,15 +137,41 @@ async function getAlbumUrls (artistUrl) {
   const html = await fetchPage(url)
   const $ = cheerio.load(html)
   const albumUrls = []
-  $('a[href]').each((_, el) => {
-    const href = $(el).attr('href')
-    if (href && /^\/(track|album)\/(.+)$/.test(href)) {
-      const full = new urlHelper.URL(href, artistUrl).toString()
-      if (albumUrls.indexOf(full) === -1) {
-        albumUrls.push(full)
-      }
+
+  // Method 1: Parse the data-blob JSON (contains ALL albums, even those not in <a> tags)
+  const pageData = $('#pagedata')
+  if (pageData.length > 0) {
+    const blobRaw = pageData.attr('data-blob')
+    if (blobRaw) {
+      try {
+        const blob = JSON.parse(blobRaw)
+        if (blob.hub && blob.hub.tabs) {
+          for (const tab of blob.hub.tabs) {
+            for (const col of (tab.collections || [])) {
+              for (const item of (col.items || [])) {
+                if (item.page_url) {
+                  const full = new urlHelper.URL(item.page_url, artistUrl).toString()
+                  if (albumUrls.indexOf(full) === -1) albumUrls.push(full)
+                }
+              }
+            }
+          }
+        }
+      } catch { /* fall through to link parsing */ }
     }
-  })
+  }
+
+  // Method 2: Fallback to <a> tag parsing if data-blob didn't yield results
+  if (albumUrls.length === 0) {
+    $('a[href]').each((_, el) => {
+      const href = $(el).attr('href')
+      if (href && /^\/(track|album)\/(.+)$/.test(href)) {
+        const full = new urlHelper.URL(href, artistUrl).toString()
+        if (albumUrls.indexOf(full) === -1) albumUrls.push(full)
+      }
+    })
+  }
+
   return albumUrls
 }
 

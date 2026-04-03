@@ -144,6 +144,35 @@ node generate.js --cleanup
 
 Reports content folders that don't match any album in the cache. Dry-run only — doesn't delete anything.
 
+### New release workflow
+
+When a new album is released on Bandcamp and/or streaming platforms:
+
+```bash
+# 1. Re-scrape the artist to pick up the new Bandcamp release
+node generate.js --artist "Artist Name"
+
+# 2. Enrich the artist — Spotify adds streaming-only releases,
+#    Bandcamp verification catches mismatches, Soundcharts fills metadata
+node generate.js --enrich --artist "Artist Name"
+
+# 3. (Optional) Sync YouTube videos for the new release
+node generate.js --sync-youtube --artist "Artist Name"
+
+# 4. Regenerate the site
+node generate.js
+
+# 5. (Optional) Deploy
+node generate.js --deploy
+```
+
+The enrichment pipeline automatically:
+- Matches Spotify releases to Bandcamp albums by title
+- Verifies Bandcamp URLs for Spotify-only albums (catches scraper misses)
+- Fills streaming links, social media, events, and metadata from Soundcharts
+- Fills physical formats and sell links from Discogs
+- Backs up the cache before any destructive operation
+
 ### Typical ongoing workflow
 
 ```bash
@@ -163,9 +192,11 @@ Run `node generate.js --enrich`. The pipeline mode depends on which credentials 
 
 When `SOUNDCHARTS_APP_ID` and `SOUNDCHARTS_API_KEY` are set:
 
-1. **Soundcharts** — resolves artist by Spotify ID, fetches all streaming links (Spotify, Apple Music, Deezer, Tidal, Amazon, YouTube, SoundCloud), social media links, album metadata (UPC, label, distributor, copyright), and upcoming events — all in ~2 API calls per album. Also discovers releases from Soundcharts not on Bandcamp (streaming-only releases are automatically added).
-2. **Gap-fill** — iTunes, Deezer, Tidal, MusicFetch called only for links Soundcharts didn't return. Spotify API is never called.
-3. **Discogs** — physical formats, sell links, per-label URLs (unchanged).
+1. **Spotify** — builds the album catalog by matching Spotify releases to Bandcamp albums by title. Adds Spotify-only releases not on Bandcamp.
+2. **Bandcamp verification** — for Spotify-only albums (no Bandcamp URL), constructs Bandcamp URLs from the title and verifies they exist. Catches albums the scraper missed due to Bandcamp page limitations.
+3. **Soundcharts** — resolves artist by Spotify ID, fetches all streaming links (Spotify, Apple Music, Deezer, Tidal, Amazon, YouTube, SoundCloud), social media links, album metadata (UPC, label, distributor, copyright), and upcoming events — all in ~2 API calls per album. Does not add extra releases.
+4. **Gap-fill** — iTunes, Deezer, Tidal, MusicFetch called only for links Soundcharts didn't return. Spotify API is not called again.
+5. **Discogs** — physical formats, sell links, per-label URLs (unchanged).
 
 Budget: ~434 calls for 18 artists / 181 albums (initial run). Incremental runs only process new/changed albums.
 
