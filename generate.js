@@ -30,6 +30,7 @@ Options:
   --download-artwork   Download remote artwork to content/ and update cache
   --sync-elasticstage  Sync ElasticStage release links to stores.json files
   --sync-youtube       Search YouTube and create videos.json for albums without one
+  --cleanup            Report orphaned content folders not matching any album in cache
   --help               Print this help message and exit
 `);
 }
@@ -81,6 +82,9 @@ function parseArgs(argv) {
       return options;
     } else if (arg === '--sync-youtube') {
       options.syncYouTube = true;
+      return options;
+    } else if (arg === '--cleanup') {
+      options.cleanup = true;
       return options;
     }
   }
@@ -135,14 +139,18 @@ async function run() {
     await initContent(options.cachePath, options.contentDir);
     return;
   }
-  if (options.artistFilter) {
+  if (options.artistFilter && !options.enrich) {
     console.log(`Re-scraping artist: ${options.artistFilter}`);
     await refreshArtist(options.cachePath, options.artistFilter);
     return;
   }
   if (options.enrich) {
     console.log('Enriching cache with streaming links...');
-    await enrichCache(options.cachePath, options.contentDir, { tidalOnly: options.tidalOnly });
+    await enrichCache(options.cachePath, options.contentDir, {
+      tidalOnly: options.tidalOnly,
+      artistFilter: options.artistFilter || null,
+      refresh: options.refresh || false
+    });
   }
   if (options.downloadArtwork) {
     console.log('Downloading remote artwork to content/...');
@@ -168,9 +176,20 @@ async function run() {
     await syncYouTube(ytKey, options.cachePath, options.contentDir);
     return;
   }
+  if (options.cleanup) {
+    const { reportOrphanedContent } = require('./src/cleanup');
+    await reportOrphanedContent(options.cachePath, options.contentDir);
+    return;
+  }
   // Auto-convert any bio.docx files before generating
   await convertAllDocs(options.contentDir);
-  const { pageCount, outputDir } = await generate(options);
+  // When --refresh is used with --enrich, don't pass refresh to the generator
+  // (refresh in that context means "re-enrich", not "re-scrape from Bandcamp")
+  const generateOptions = { ...options }
+  if (options.enrich && options.refresh) {
+    generateOptions.refresh = false
+  }
+  const { pageCount, outputDir } = await generate(generateOptions);
   console.log(`Generated ${pageCount} pages to ${outputDir}`);
 
   if (options.deploy) {

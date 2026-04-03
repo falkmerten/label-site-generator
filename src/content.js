@@ -113,6 +113,17 @@ async function loadContent(contentDir) {
       }
     }
 
+    // links.json — manual social/streaming/website links override
+    const linksPath = path.join(artistDir, 'links.json');
+    if (await exists(linksPath)) {
+      try {
+        const raw = await fs.readFile(linksPath, 'utf8');
+        artist.links = JSON.parse(raw);
+      } catch {
+        console.warn(`[content] Failed to parse ${linksPath}, skipping.`);
+      }
+    }
+
     // albums
     let artistEntries;
     try {

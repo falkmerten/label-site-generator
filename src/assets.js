@@ -699,6 +699,83 @@ main { min-height: 60vh; }
 }
 .streaming-list li a i { font-size: 0.95rem; }
 
+/* Social icons */
+.social-links { margin-bottom: 1.5rem; }
+.social-icons {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0;
+}
+.social-icons li a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  text-decoration: none;
+}
+.social-icons li a i { font-size: 1rem; }
+.social-icons li a:hover {
+  background: var(--brand-dark);
+  color: var(--brand-light);
+  border-color: var(--brand-dark);
+}
+
+/* Upcoming shows */
+.upcoming-shows { margin-top: 2rem; }
+.events-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.event-row {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.event-date {
+  flex-shrink: 0;
+  min-width: 6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+.event-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+.event-name { font-weight: 600; }
+.festival-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15em 0.5em;
+  border-radius: 3px;
+  background: var(--brand-dark);
+  color: var(--brand-light);
+}
+.event-venue { color: var(--text-muted); }
+.event-venue::before { content: '— '; }
+.event-location { color: var(--text-muted); font-size: 0.9rem; }
+.event-more-links {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1.5rem;
+}
+.event-more-links a {
+  font-size: 0.85rem;
+  color: var(--brand-dark);
+  text-decoration: underline;
+}
+
 .album-description { margin-bottom: 1.5rem; text-align: justify; }
 
 .album-release-date {
@@ -920,6 +997,9 @@ main { min-height: 60vh; }
 }
 
 .footer-legal { display: flex; flex-direction: column; gap: 0.25rem; color: var(--brand-light); }
+.footer-credit { font-size: 0.7rem; opacity: 0.5; }
+.footer-credit a { color: inherit; text-decoration: underline; }
+.footer-credit a:hover { opacity: 1; }
 .footer-address { font-size: 0.75rem; opacity: 0.7; }
 
 .footer-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem; }
@@ -934,7 +1014,7 @@ main { min-height: 60vh; }
 
 /* ── Responsive ── */
 @media (max-width: 640px) {
-  .site-nav { display: none; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: var(--brand-dark); border-bottom: 1px solid var(--header-border); padding: 1rem; }
+  .site-nav { display: none; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: var(--brand-dark); border-bottom: 1px solid var(--header-border); padding: 1rem; max-height: calc(100vh - 56px); overflow-y: auto; z-index: 1000; }
   .site-nav.open { display: flex; }
   .nav-toggle { display: block; }
   .header-inner { position: relative; }

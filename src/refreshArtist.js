@@ -1,19 +1,10 @@
 'use strict'
 
-const bandcamp = require('../lib/index.js')
+const bandcamp = require('./bandcamp.js')
 const { readCache, writeCache } = require('./cache')
 const { toSlug } = require('./slugs')
 
 const DELAY_MS = 1500
-
-function promisify (fn, ...args) {
-  return new Promise((resolve, reject) => {
-    fn(...args, (err, result) => {
-      if (err) reject(err)
-      else resolve(result)
-    })
-  })
-}
 
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -51,7 +42,7 @@ async function refreshArtist (cachePath, artistFilter) {
   let artistInfo
   try {
     await delay(DELAY_MS)
-    artistInfo = await promisify(bandcamp.getArtistInfo.bind(bandcamp), artist.url)
+    artistInfo = await bandcamp.getArtistInfo(artist.url)
   } catch (err) {
     console.error(`  Error fetching artist info: ${err.message}`)
     return
@@ -61,7 +52,7 @@ async function refreshArtist (cachePath, artistFilter) {
   let albumUrls = []
   try {
     await delay(DELAY_MS)
-    albumUrls = await promisify(bandcamp.getAlbumUrls.bind(bandcamp), artist.url)
+    albumUrls = await bandcamp.getAlbumUrls(artist.url)
   } catch (err) {
     console.warn(`  Could not fetch full album list, using artist page albums`)
     albumUrls = (artistInfo.albums || []).map(a => a.url)
@@ -73,7 +64,7 @@ async function refreshArtist (cachePath, artistFilter) {
     try {
       console.log(`  → Album: ${albumUrl}`)
       await delay(DELAY_MS)
-      const albumInfo = await promisify(bandcamp.getAlbumInfo.bind(bandcamp), albumUrl)
+      const albumInfo = await bandcamp.getAlbumInfo(albumUrl)
       if (albumInfo) {
         // Preserve existing enrichment data (streamingLinks, upc, discogs etc.)
         const existing = artist.albums.find(a => a.url === albumUrl)

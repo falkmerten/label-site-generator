@@ -2,7 +2,48 @@
 
 ## Label Site Generator
 
-This project extends the original `bandcamp-scraper` library into a full static site generator for music labels.
+---
+
+### v3.0.0 — 2026-04-03
+
+**Soundcharts API integration**
+- Soundcharts replaces Spotify/iTunes/Deezer/Tidal as the primary enrichment source when credentials are configured
+- All streaming links (Spotify, Apple Music, Deezer, Tidal, Amazon Music, YouTube, SoundCloud) fetched in 1 API call per artist + 2 per album
+- Album metadata: UPC, label, distributor, copyright (P-line) from Soundcharts
+- Social media links auto-populated: Facebook, Instagram, TikTok, X/Twitter, Linktree
+- Discovery links: Genius, Last.fm, MusicBrainz
+- Upcoming shows/tour dates from Soundcharts events endpoint, rendered on artist pages
+- Bandsintown and Songkick "More dates" links on artist pages
+- Gap-fill: iTunes/Deezer/Tidal called only for links Soundcharts didn't return
+- Legacy mode: full existing pipeline runs when Soundcharts credentials are absent
+- Quota tracking: logs remaining credits, warns below 100, stops at 0
+- Incremental: skips already-enriched artists/albums, only processes new or changed data
+
+**Single-artist enrichment**
+- `--enrich --artist "Name"` enriches a single artist without processing the full roster
+- `--enrich --artist "Name" --refresh` forces re-enrichment (clears Soundcharts UUIDs)
+
+**Artist pages**
+- Unified links section: website + social media links with branded icons, then streaming links
+- "Upcoming Shows" section with date, venue, city, country, festival badges
+- Social links merged from both Bandcamp and Soundcharts (no duplicates)
+
+**Bandcamp scraper rewrite**
+- Replaced the original bandcamp-scraper library (MIT) with a native implementation (GPL-3.0)
+- New `src/bandcamp.js` using native `https` + `cheerio` with async/await
+- Removed `lib/`, `schemas/`, `spec/` directories and `LICENSE-MIT`
+- Dropped dependencies: `tinyreq`, `scrape-it`, `ajv`, `json5`, `linez`, `jasmine`
+- Codebase is now fully GPL-3.0
+
+**Content & enrichment tools**
+- `--cleanup` command to report orphaned content folders not matching any album in cache
+- `links.json` support for manual artist link overrides (social, streaming, websites)
+- Album discovery from Soundcharts — releases not on Bandcamp are automatically added (matched by title, UPC, and Soundcharts UUID)
+- Fuzzy title matching for dedup (strips Single/Remastered suffixes, preserves Deluxe/Remixes/EP)
+
+**UI fixes**
+- Mobile navigation scroll fix (max-height + overflow-y on mobile nav)
+- "Built with Label Site Generator" footer credit with GitHub link
 
 ---
 
@@ -233,7 +274,7 @@ This project extends the original `bandcamp-scraper` library into a full static 
 ### v1.0.0 — 2026 (Initial Label Site Generator release)
 
 **Core pipeline**
-- Static site generator built on top of `bandcamp-scraper`
+- Static site generator for Bandcamp music labels
 - Bandcamp API integration for label roster (OAuth2 client_credentials)
 - JSON cache (`cache.json`) — incremental scraping, skip Bandcamp on re-runs
 - Single-artist refresh (`--artist <name>`)
@@ -255,16 +296,3 @@ This project extends the original `bandcamp-scraper` library into a full static 
 - Hero banners, artist photo gallery with lightbox
 - Physical release badges, streaming links, YouTube video embeds
 - Font Awesome 6, responsive layout
-
----
-
-## Original bandcamp-scraper changelog
-
-### Version 1.0.1 (2016-07-28)
-
-- add property `artist` to album product
-- add property `url` to album info
-
-### Version 1.0.0 (2016-07-25)
-
-- rename resource properties (`image` → `imageUrl`, `link` → `url`, etc.)

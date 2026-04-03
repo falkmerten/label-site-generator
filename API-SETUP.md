@@ -22,9 +22,9 @@ Note: API access is only available to Bandcamp label accounts, not individual ar
 
 ---
 
-## Spotify (recommended)
+## Spotify (optional — legacy mode only)
 
-Used to enrich albums with streaming links, UPCs, and artwork for Spotify-only releases.
+Used as fallback enrichment when Soundcharts credentials are not configured. Not needed when using Soundcharts mode.
 
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
 2. Log in with your Spotify account
@@ -39,6 +39,23 @@ Used to enrich albums with streaming links, UPCs, and artwork for Spotify-only r
    ```
 
 Rate limits: Development Mode apps have a rolling 30-second window. The generator uses 200ms delays between requests. If you hit a long rate limit (hours), wait and retry.
+
+---
+
+## Soundcharts (recommended)
+
+Replaces Spotify/iTunes/Deezer/Tidal as the primary enrichment source. Provides all streaming links, social media links, album metadata (UPC, label, distributor, copyright), and upcoming events in fewer API calls.
+
+1. Go to [developers.soundcharts.com](https://developers.soundcharts.com)
+2. Create an account (free tier: 1,000 credits/month, no credit card required)
+3. Copy your **App ID** and **API Key** from the dashboard
+4. Add to `.env`:
+   ```
+   SOUNDCHARTS_APP_ID=your_app_id
+   SOUNDCHARTS_API_KEY=your_api_key
+   ```
+
+Budget: ~434 API calls for an initial full run (18 artists, 181 albums). Incremental runs only process new/changed albums. For sandbox testing, set both values to `soundcharts`.
 
 ---
 

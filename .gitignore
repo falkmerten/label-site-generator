@@ -21,6 +21,9 @@ assets/
 # Generated label copy — contains release metadata
 label-copy/
 
+# Product documentation — private business documents
+docs/
+
 # Label copy export scripts — side project, not part of main generator
 scripts/
 

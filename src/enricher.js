@@ -11,6 +11,20 @@ const { enrichAlbumsWithMusicFetch, enrichArtistWithMusicFetch } = require('./mu
 const { enrichAlbumsWithDiscogs } = require('./discogs')
 const { toSlug } = require('./slugs')
 const { extractAlbumId } = require('./merger')
+const {
+  getArtistBySpotifyId,
+  getArtistIdentifiers,
+  getArtistAlbums,
+  getAlbumBySpotifyId,
+  getAlbumByUpc,
+  getAlbumIdentifiers,
+  getQuotaRemaining,
+  getCallCount,
+  resetCallCount,
+  mapIdentifiersToLinks,
+  categorizeLinks,
+  getArtistEvents
+} = require('./soundcharts')
 
 /**
  * Runs async tasks with a maximum concurrency limit.
@@ -45,10 +59,475 @@ async function loadArtistConfig (contentDir) {
 }
 
 /**
- * Matches Spotify albums (from artist page) to cache albums by title.
- * Sets spotify URL + UPC on matched albums.
- * UPC-first: only falls back to name search for unmatched albums.
+ * Extracts a Spotify ID from a Spotify URL.
+ * e.g. "https://open.spotify.com/artist/5Bzyx4ZD9pXFRJPBuiv1HY" → "5Bzyx4ZD9pXFRJPBuiv1HY"
+ * @param {string} url
+ * @returns {string|null}
  */
+function extractSpotifyId (url) {
+  if (!url) return null
+  const match = url.match(/\/([A-Za-z0-9]+)$/)
+  return match ? match[1] : null
+}
+
+/**
+ * Checks whether all 5 album streaming link fields are populated.
+ * @param {object} album
+ * @returns {boolean}
+ */
+function hasAllAlbumLinks (album) {
+  const sl = album.streamingLinks || {}
+  return !!(sl.spotify && sl.appleMusic && sl.deezer && sl.tidal && sl.amazonMusic)
+}
+
+/**
+ * Checks whether all supported artist streaming link fields are populated.
+ * @param {object} artist
+ * @returns {boolean}
+ */
+function hasAllArtistLinks (artist) {
+  const sl = artist.streamingLinks || {}
+  return !!(sl.spotify && sl.appleMusic && sl.deezer && sl.tidal && sl.amazonMusic && sl.youtube && sl.soundcloud)
+}
+
+/**
+ * Determines whether an album needs Soundcharts enrichment.
+ * Albums are skipped if they already have a soundchartsUuid AND all 5 streaming links.
+ * Albums are flagged if they are new (no soundchartsUuid) or changed (title/track count differs).
+ * @param {object} album - current album from cache
+ * @param {object|null} prevAlbum - previous version of album (for change detection), or null if new
+ * @returns {boolean} true if album needs SC enrichment
+ */
+function albumNeedsSCEnrichment (album) {
+  // No UUID → needs enrichment (new or never enriched)
+  if (!album.soundchartsUuid) return true
+  // Has UUID and was already fully processed → skip
+  // (soundchartsEnriched flag means identifiers were already fetched;
+  // missing links at this point are genuinely unavailable on Soundcharts)
+  if (album.soundchartsEnriched) return false
+  // Has UUID but never completed identifiers fetch → needs enrichment
+  return true
+}
+
+/**
+ * Checks if an album has changed (title or track count differs from previous).
+ * @param {object} album
+ * @param {object} prevAlbum
+ * @returns {boolean}
+ */
+function albumHasChanged (album, prevAlbum) {
+  if (!prevAlbum) return true // new album
+  if (album.title !== prevAlbum.title) return true
+  const trackCount = (album.tracks || []).length
+  const prevTrackCount = (prevAlbum.tracks || []).length
+  if (trackCount !== prevTrackCount) return true
+  return false
+}
+
+/**
+ * Deduplicates albums by UPC, keeping the first occurrence.
+ * Albums without a UPC are always kept.
+ * @param {Array} albums
+ * @returns {Array} deduplicated albums
+ */
+function deduplicateAlbumsByUpc (albums) {
+  const seenUpcs = new Set()
+  const result = []
+  for (const album of albums) {
+    if (album.upc) {
+      if (seenUpcs.has(album.upc)) {
+        console.log(`    ⚠ Duplicate UPC ${album.upc}: "${album.title}" — skipping (keeping first occurrence)`)
+        continue
+      }
+      seenUpcs.add(album.upc)
+    }
+    result.push(album)
+  }
+  return result
+}
+
+/**
+ * Checks quota after a Soundcharts API call.
+ * Logs warnings/errors and returns whether SC calls should continue.
+ * @param {boolean} isFirstCall - whether this is the first SC call of the run
+ * @param {object} state - mutable state object { firstQuotaLogged, quotaExhausted }
+ * @returns {boolean} true if SC calls should stop
+ */
+function checkQuota (isFirstCall, state) {
+  const quota = getQuotaRemaining()
+  if (quota == null) return false
+
+  // Log after first call
+  if (isFirstCall && !state.firstQuotaLogged) {
+    console.log(`  [soundcharts] Quota remaining (start): ${quota}`)
+    state.firstQuotaLogged = true
+  }
+
+  // Warn below 100
+  if (quota < 100 && quota > 0) {
+    console.warn(`  ⚠ [soundcharts] Low quota remaining: ${quota}`)
+  }
+
+  // Stop at 0
+  if (quota <= 0) {
+    if (!state.quotaExhausted) {
+      console.error('  ✖ [soundcharts] Monthly quota exhausted (0 remaining) — stopping Soundcharts API calls')
+      state.quotaExhausted = true
+    }
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Runs Soundcharts enrichment for a single artist and their albums.
+ * Steps: artist resolution → artist identifiers → per-album metadata → per-album identifiers
+ *
+ * @param {object} artist - artist object from cache (mutated in place)
+ * @param {object} config - artist config from artists.json
+ * @param {string} appId - Soundcharts app ID
+ * @param {string} apiKey - Soundcharts API key
+ * @param {object} quotaState - mutable quota tracking state
+ * @returns {Promise<void>}
+ */
+async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaState) {
+  // ── Artist Resolution ─────────────────────────────────────────────────────
+  if (!artist.soundchartsUuid) {
+    const spotifyUrl = config.spotifyArtistUrl || (artist.streamingLinks && artist.streamingLinks.spotify)
+    const spotifyId = extractSpotifyId(spotifyUrl)
+    if (spotifyId) {
+      if (quotaState.quotaExhausted) {
+        console.log('  [soundcharts] Quota exhausted — skipping artist resolution')
+      } else {
+        const scArtist = await getArtistBySpotifyId(spotifyId, appId, apiKey)
+        const isFirst = quotaState.callCount === 0
+        quotaState.callCount++
+        if (checkQuota(isFirst, quotaState)) { /* quota exhausted, continue with gap-fill */ }
+        if (scArtist) {
+          artist.soundchartsUuid = scArtist.uuid
+          console.log(`  ✓ Soundcharts artist: ${scArtist.name} (${scArtist.uuid})`)
+        } else {
+          console.warn(`  ⚠ Soundcharts: artist not found for Spotify ID ${spotifyId}`)
+        }
+      }
+    } else {
+      console.warn('  ⚠ Soundcharts: no Spotify URL configured — skipping artist resolution')
+    }
+  } else {
+    console.log(`  ✓ Soundcharts artist UUID cached: ${artist.soundchartsUuid}`)
+  }
+
+  // ── Artist Identifiers ────────────────────────────────────────────────────
+  if (artist.soundchartsUuid && !hasAllArtistLinks(artist)) {
+    if (quotaState.quotaExhausted) {
+      console.log('  [soundcharts] Quota exhausted — skipping artist identifiers')
+    } else {
+      const links = await getArtistIdentifiers(artist.soundchartsUuid, appId, apiKey)
+      quotaState.callCount++
+      if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+      if (links) {
+        const categorized = categorizeLinks(links)
+
+        // Streaming links — fill missing only
+        artist.streamingLinks = artist.streamingLinks || {}
+        let filled = 0
+        for (const [key, url] of Object.entries(categorized.streamingLinks)) {
+          if (!artist.streamingLinks[key]) {
+            artist.streamingLinks[key] = url
+            filled++
+          }
+        }
+        if (filled > 0) console.log(`  ✓ Soundcharts artist identifiers: filled ${filled} streaming link(s)`)
+
+        // Social links — merge from both Soundcharts and bandLinks into artist.socialLinks
+        artist.socialLinks = artist.socialLinks || {}
+
+        // First, extract social links from bandLinks (Bandcamp-sourced)
+        const bandLinkMap = {
+          facebook: 'facebook',
+          instagram: 'instagram',
+          tiktok: 'tiktok',
+          'x.com': 'twitter',
+          twitter: 'twitter',
+          'linktr.ee': 'linktree'
+        }
+        for (const bl of (artist.bandLinks || [])) {
+          const blName = (bl.name || '').toLowerCase()
+          const socialKey = bandLinkMap[blName]
+          if (socialKey && !artist.socialLinks[socialKey]) {
+            artist.socialLinks[socialKey] = bl.url
+          }
+        }
+
+        // Then fill remaining from Soundcharts
+        let socialFilled = 0
+        for (const [key, url] of Object.entries(categorized.socialLinks)) {
+          if (!artist.socialLinks[key]) {
+            artist.socialLinks[key] = url
+            socialFilled++
+          }
+        }
+        if (socialFilled > 0) console.log(`  ✓ Soundcharts social links: filled ${socialFilled} link(s)`)
+
+        // Discovery links — fill missing
+        artist.discoveryLinks = artist.discoveryLinks || {}
+        let discoveryFilled = 0
+        for (const [key, url] of Object.entries(categorized.discoveryLinks)) {
+          if (!artist.discoveryLinks[key]) {
+            artist.discoveryLinks[key] = url
+            discoveryFilled++
+          }
+        }
+        if (discoveryFilled > 0) console.log(`  ✓ Soundcharts discovery links: filled ${discoveryFilled} link(s)`)
+
+        // Event links — fill missing
+        artist.eventLinks = artist.eventLinks || {}
+        let eventFilled = 0
+        for (const [key, url] of Object.entries(categorized.eventLinks)) {
+          if (!artist.eventLinks[key]) {
+            artist.eventLinks[key] = url
+            eventFilled++
+          }
+        }
+        if (eventFilled > 0) console.log(`  ✓ Soundcharts event links: filled ${eventFilled} link(s)`)
+      }
+    }
+  } else if (artist.soundchartsUuid) {
+    console.log('  ✓ Artist links already populated — skipping identifiers')
+  }
+
+  // ── Always merge bandLinks social platforms into artist.socialLinks ────────
+  // This runs regardless of whether SC identifiers were fetched, so that
+  // bandLinks from Bandcamp (Facebook, Instagram, etc.) are always available
+  // in the unified socialLinks object for the template.
+  {
+    artist.socialLinks = artist.socialLinks || {}
+    const bandLinkMap = {
+      facebook: 'facebook',
+      instagram: 'instagram',
+      tiktok: 'tiktok',
+      'x.com': 'twitter',
+      twitter: 'twitter',
+      'linktr.ee': 'linktree'
+    }
+    for (const bl of (artist.bandLinks || [])) {
+      const blName = (bl.name || '').toLowerCase()
+      const socialKey = bandLinkMap[blName]
+      if (socialKey && !artist.socialLinks[socialKey]) {
+        artist.socialLinks[socialKey] = bl.url
+      }
+    }
+  }
+
+  // ── Artist Events (always refresh — time-sensitive) ───────────────────────
+  if (artist.soundchartsUuid) {
+    if (quotaState.quotaExhausted) {
+      console.log('  [soundcharts] Quota exhausted — skipping events fetch')
+    } else {
+      const today = new Date().toISOString().slice(0, 10)
+      const events = await getArtistEvents(artist.soundchartsUuid, appId, apiKey, today)
+      quotaState.callCount++
+      if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+      artist.events = events
+      if (events.length > 0) {
+        console.log(`  ✓ Soundcharts events: ${events.length} upcoming event(s)`)
+      } else {
+        console.log('  – No upcoming events found')
+      }
+    }
+  }
+
+  // ── Discover releases from Soundcharts not in Bandcamp ─────────────────
+  if (artist.soundchartsUuid && !quotaState.quotaExhausted) {
+    const scAlbums = await getArtistAlbums(artist.soundchartsUuid, appId, apiKey)
+    quotaState.callCount++
+    if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+
+    if (scAlbums.length > 0) {
+      const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+      const existingTitles = new Set((artist.albums || []).map(a => normalise(a.title)))
+      const existingUpcs = new Set((artist.albums || []).filter(a => a.upc).map(a => a.upc))
+      const existingSCUuids = new Set((artist.albums || []).filter(a => a.soundchartsUuid).map(a => a.soundchartsUuid))
+
+      // Fuzzy title variants for matching — only strip suffixes that indicate
+      // the SAME content (not genuinely different editions like Deluxe, Expanded)
+      function titleVariants (title) {
+        const variants = new Set([normalise(title)])
+        // Strip "Single" suffix only: "Foo (Single)" → "Foo"
+        const noSingle = title.replace(/\s*\(\s*single\s*\)\s*$/i, '').trim()
+        if (noSingle && noSingle !== title) variants.add(normalise(noSingle))
+        // Strip "Remastered" suffix: "Foo (Remastered)" → "Foo"
+        const noRemaster = title.replace(/\s*\(\s*remastered[^)]*\)\s*$/i, '').trim()
+        if (noRemaster && noRemaster !== title) variants.add(normalise(noRemaster))
+        return variants
+        // NOTE: We intentionally do NOT strip (Remixes), (Deluxe), (Expanded),
+        // (EP), (Anniversary Edition) etc. — those are genuinely different releases
+      }
+
+      // Build fuzzy lookup from existing albums
+      const existingFuzzy = new Set()
+      for (const a of (artist.albums || [])) {
+        for (const v of titleVariants(a.title)) {
+          existingFuzzy.add(v)
+        }
+      }
+
+      const uniqueScAlbums = []
+      const seenScUuids = new Set()
+      for (const sca of scAlbums) {
+        // Skip if SC UUID already in cache
+        if (existingSCUuids.has(sca.uuid)) continue
+        // Skip SC duplicates within this batch
+        if (seenScUuids.has(sca.uuid)) continue
+        seenScUuids.add(sca.uuid)
+
+        // Check fuzzy title match against existing albums
+        const variants = titleVariants(sca.name)
+        let matched = false
+        for (const v of variants) {
+          if (existingFuzzy.has(v)) { matched = true; break }
+        }
+        if (!matched) {
+          uniqueScAlbums.push(sca)
+        }
+      }
+
+      let added = 0
+      for (const sca of uniqueScAlbums) {
+        if (quotaState.quotaExhausted) break
+
+        // Fetch metadata to get UPC for dedup check
+        const meta = await getAlbumBySpotifyId(sca.uuid, appId, apiKey)
+          .catch(() => null)
+        quotaState.callCount++
+        if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+
+        // Skip if UPC already exists in cache
+        if (meta && meta.upc && existingUpcs.has(meta.upc)) continue
+
+        // Add as new release
+        const newAlbum = {
+          url: null,
+          title: sca.name,
+          artist: artist.name,
+          artwork: null,
+          tracks: [],
+          tags: [],
+          albumId: null,
+          itemType: sca.type === 'single' ? 'track' : 'album',
+          releaseDate: sca.releaseDate || null,
+          description: null,
+          credits: null,
+          streamingLinks: {},
+          upc: (meta && meta.upc) || null,
+          soundchartsUuid: (meta && meta.uuid) || sca.uuid,
+          soundchartsEnriched: false,
+          distributor: (meta && meta.distributor) || null,
+          copyright: (meta && meta.copyright) || null,
+          slug: toSlug(sca.name)
+        }
+
+        if (meta && meta.upc) existingUpcs.add(meta.upc)
+        existingTitles.add(normalise(sca.name))
+        artist.albums.push(newAlbum)
+        added++
+        console.log(`    + SC-discovered: "${sca.name}"${meta && meta.upc ? ` (UPC: ${meta.upc})` : ''}`)
+      }
+
+      if (added > 0) console.log(`  ✓ Soundcharts: discovered ${added} release(s) not on Bandcamp`)
+    }
+  }
+
+  // ── Per-Album Processing ──────────────────────────────────────────────────
+  const albums = artist.albums || []
+
+  // Dedup by UPC
+  const dedupedAlbums = deduplicateAlbumsByUpc(albums)
+  if (dedupedAlbums.length < albums.length) {
+    artist.albums = dedupedAlbums
+  }
+
+  // Classify albums: skip vs queue
+  let skippedCount = 0
+  let queuedCount = 0
+  const albumsToEnrich = []
+  for (const album of dedupedAlbums) {
+    if (!albumNeedsSCEnrichment(album)) {
+      skippedCount++
+    } else {
+      queuedCount++
+      albumsToEnrich.push(album)
+    }
+  }
+  console.log(`  [soundcharts] Albums: ${queuedCount} queued, ${skippedCount} skipped (already enriched)`)
+
+  for (const album of albumsToEnrich) {
+    if (quotaState.quotaExhausted) {
+      console.log(`  [soundcharts] Quota exhausted — skipping remaining albums`)
+      break
+    }
+
+    // ── Album Metadata ────────────────────────────────────────────────────
+    if (!album.soundchartsUuid) {
+      const spotifyAlbumUrl = album.streamingLinks && album.streamingLinks.spotify
+      const spotifyAlbumId = extractSpotifyId(spotifyAlbumUrl)
+      let scAlbum = null
+
+      if (spotifyAlbumId) {
+        scAlbum = await getAlbumBySpotifyId(spotifyAlbumId, appId, apiKey)
+        quotaState.callCount++
+        if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+      }
+
+      // Fallback to UPC if no Spotify URL or Spotify lookup failed
+      if (!scAlbum && album.upc) {
+        if (!quotaState.quotaExhausted) {
+          scAlbum = await getAlbumByUpc(album.upc, appId, apiKey)
+          quotaState.callCount++
+          if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+        }
+      }
+
+      if (scAlbum) {
+        album.soundchartsUuid = scAlbum.uuid
+        if (scAlbum.distributor) album.distributor = scAlbum.distributor
+        if (scAlbum.copyright) album.copyright = scAlbum.copyright
+        if (scAlbum.upc && !album.upc) album.upc = scAlbum.upc
+        if (!album.labelName && scAlbum.labels && scAlbum.labels.length > 0) {
+          album.labelName = scAlbum.labels[0].name
+        }
+        console.log(`    ✓ SC album: "${album.title}" (${scAlbum.uuid})`)
+      } else {
+        console.log(`    – SC album not found: "${album.title}"`)
+      }
+    }
+
+    // ── Album Identifiers ─────────────────────────────────────────────────
+    if (album.soundchartsUuid && !hasAllAlbumLinks(album)) {
+      if (!quotaState.quotaExhausted) {
+        const links = await getAlbumIdentifiers(album.soundchartsUuid, appId, apiKey)
+        quotaState.callCount++
+        if (checkQuota(false, quotaState)) { /* quota exhausted */ }
+        if (links) {
+          album.streamingLinks = album.streamingLinks || {}
+          let filled = 0
+          for (const [key, url] of Object.entries(links)) {
+            if (!album.streamingLinks[key]) {
+              album.streamingLinks[key] = url
+              filled++
+            }
+          }
+          if (filled > 0) console.log(`    ✓ SC identifiers: "${album.title}" — filled ${filled} link(s)`)
+        }
+        album.soundchartsEnriched = true
+      }
+    } else if (album.soundchartsUuid) {
+      album.soundchartsEnriched = true
+    }
+  }
+}
+
 /**
  * For artists with a Spotify URL configured, rebuilds the album list using
  * Spotify as the source of truth. Bandcamp data (URL, albumId, artwork, tracks,
@@ -81,14 +560,12 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
   }
 
   const result = []
-
   const usedBandcamp = new Set()
 
   for (const sa of spotifyAlbums) {
     const sNorm = normalise(sa.title)
-    const sType = sa.albumType // 'album', 'single', 'ep'
+    const sType = sa.albumType
 
-    // Helper: does a Bandcamp album type match a Spotify album type?
     function typeMatches (ba) {
       const bcType = (ba.itemType || '').toLowerCase()
       if (!sType) return true
@@ -98,21 +575,16 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
       return true
     }
 
-    // Pass 1a: exact title + type match
     let bcMatch = bandcampAlbums.find(ba =>
       !usedBandcamp.has(ba) && normalise(ba.title) === sNorm && typeMatches(ba)
     )
-
-    // Pass 1b: exact title match ignoring type (fallback when type doesn't match)
     if (!bcMatch) {
       bcMatch = bandcampAlbums.find(ba => !usedBandcamp.has(ba) && normalise(ba.title) === sNorm)
     }
-
-    // Pass 2: fuzzy title match (stripped candidates) — only if no exact match found
     if (!bcMatch) {
       bcMatch = bandcampAlbums.find(ba => {
         if (usedBandcamp.has(ba)) return false
-        const cands = candidates(ba.title).map(normalise).slice(1) // skip index 0 (exact, already tried)
+        const cands = candidates(ba.title).map(normalise).slice(1)
         return cands.some(c => c === sNorm) && typeMatches(ba)
       })
     }
@@ -123,8 +595,6 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
         return cands.some(c => c === sNorm)
       })
     }
-
-    // Pass 3: match by UPC
     if (!bcMatch && sa.upc) {
       bcMatch = bandcampAlbums.find(ba => !usedBandcamp.has(ba) && ba.upc && ba.upc === sa.upc)
       if (bcMatch) {
@@ -134,14 +604,12 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
 
     if (bcMatch) {
       usedBandcamp.add(bcMatch)
-      // Compute releaseDate from raw if not already set (merger.js logic)
       let releaseDate = bcMatch.releaseDate
       if (!releaseDate && bcMatch.raw) {
         const cur = bcMatch.raw.current
         const rawDate = (cur && cur.release_date) || bcMatch.raw.album_release_date || (cur && cur.new_date)
         if (rawDate) releaseDate = new Date(rawDate).toISOString()
       }
-      // Merge: use Spotify title + UPC, keep all Bandcamp data including release date
       const merged = {
         ...bcMatch,
         title: sa.title,
@@ -149,13 +617,11 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
         upc: sa.upc || bcMatch.upc || null,
         slug: toSlug(sa.title),
         releaseDate: releaseDate || sa.releaseDate || null,
-        // Preserve artwork — use imageUrl from raw scrape if artwork not already set
         artwork: bcMatch.artwork || bcMatch.imageUrl || null
       }
       result.push(merged)
       console.log(`    ✓ Matched: "${bcMatch.title}" → "${sa.title}"${sa.upc ? ` (UPC: ${sa.upc})` : ''}`)
     } else {
-      // Spotify-only release — no Bandcamp data
       result.push({
         url: null,
         title: sa.title,
@@ -176,12 +642,10 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
     }
   }
 
-  // Keep Bandcamp-only albums that had no Spotify match — but only if they belong to this artist
   const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const resultTitles = new Set(result.map(a => normalise(a.title)))
   for (const ba of bandcampAlbums) {
     if (usedBandcamp.has(ba)) continue
-    // Skip albums that clearly belong to a different artist
     if (ba.artist && norm(ba.artist) !== 'various' && norm(ba.artist) !== norm(artistName)) {
       console.log(`    – Skipped (wrong artist "${ba.artist}"): "${ba.title}"`)
       continue
@@ -199,16 +663,22 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
 /**
  * Enrichment pipeline:
  *
- * 1. Spotify  → Spotify URL + UPC (via artist page config or name search)
- * 2. iTunes   → Apple Music URL  (UPC lookup → title search fallback)
- * 3. Deezer   → Deezer URL       (UPC lookup → title search fallback)
- * 4. Tidal    → Tidal URL        (UPC lookup → title search fallback)
- * 5. MusicFetch → Amazon/etc.    (optional, if key set)
+ * Soundcharts mode (when SOUNDCHARTS_APP_ID + SOUNDCHARTS_API_KEY set):
+ *   1. Soundcharts → artist resolution, identifiers, album metadata, album identifiers
+ *   2. Gap-fill    → iTunes/Deezer/Tidal/MusicFetch for albums still missing links (NO Spotify)
+ *   3. Discogs     → labels, physical formats (unchanged)
  *
- * UPC is always preferred. Text search is only used as a last resort.
+ * Legacy mode (no Soundcharts credentials):
+ *   1. Spotify   → Spotify URL + UPC (via artist page config or name search)
+ *   2. iTunes    → Apple Music URL
+ *   3. Deezer    → Deezer URL
+ *   4. Tidal     → Tidal URL
+ *   5. MusicFetch → Amazon/etc.
+ *   6. Discogs   → labels, physical formats
  *
  * @param {string} cachePath
  * @param {string} [contentDir]
+ * @param {object} [options] - { tidalOnly, artistFilter, refresh }
  */
 async function enrichCache (cachePath, contentDir = './content', options = {}) {
   const data = await readCache(cachePath)
@@ -216,6 +686,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     console.warn('[enricher] No cache found — run without --enrich first to build it.')
     return
   }
+
+  // ── Soundcharts credential detection (Task 3.1) ──────────────────────────
+  const scAppId = (process.env.SOUNDCHARTS_APP_ID || '').trim()
+  const scApiKey = (process.env.SOUNDCHARTS_API_KEY || '').trim()
+  const hasSoundcharts = !!(scAppId && scApiKey)
 
   const spotifyClientId = (process.env.SPOTIFY_CLIENT_ID || '').trim()
   const spotifyClientSecret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim()
@@ -233,83 +708,245 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
   const artistConfig = await loadArtistConfig(contentDir)
 
-  if (!hasSpotify) console.log('  (No SPOTIFY_CLIENT_ID/SECRET — skipping Spotify)')
-  if (!hasTidal)   console.log('  (No TIDAL_CLIENT_ID/SECRET — skipping Tidal)')
-  if (hasMusicFetch) console.log('  (MusicFetch active — will fill remaining gaps)')
+  // Log active mode
+  if (hasSoundcharts && !options.tidalOnly) {
+    console.log('  ✓ Soundcharts mode (SOUNDCHARTS_APP_ID + SOUNDCHARTS_API_KEY detected)')
+    resetCallCount()
+  } else if (options.tidalOnly) {
+    console.log('  → Tidal-only mode')
+  } else {
+    console.log('  → Legacy mode (Spotify + per-platform lookups)')
+    if (!hasSpotify) console.log('  (No SPOTIFY_CLIENT_ID/SECRET — skipping Spotify)')
+    if (!hasTidal)   console.log('  (No TIDAL_CLIENT_ID/SECRET — skipping Tidal)')
+    if (hasMusicFetch) console.log('  (MusicFetch active — will fill remaining gaps)')
+  }
+
+  // ── Artist filter (Task 6.2) ──────────────────────────────────────────────
+  let artists = data.artists || []
+  if (options.artistFilter) {
+    const filterSlug = toSlug(options.artistFilter)
+    const filterLower = options.artistFilter.toLowerCase()
+    const matched = artists.filter(a => {
+      const aSlug = toSlug(a.name)
+      return aSlug === filterSlug || a.name.toLowerCase() === filterLower
+    })
+    if (matched.length === 0) {
+      console.error(`[enricher] No artist matching "${options.artistFilter}" found in cache — aborting.`)
+      return
+    }
+    artists = matched
+    console.log(`  → Filtering to artist: ${artists[0].name}`)
+  }
+
+  // ── Refresh support (Task 6.3) ────────────────────────────────────────────
+  if (options.refresh && options.artistFilter) {
+    for (const artist of artists) {
+      console.log(`  ↻ Forced re-enrichment: clearing Soundcharts UUIDs for "${artist.name}"`)
+      delete artist.soundchartsUuid
+      for (const album of artist.albums || []) {
+        delete album.soundchartsUuid
+        delete album.soundchartsEnriched
+      }
+    }
+  }
+
+  // Quota tracking state (Task 4)
+  const quotaState = { firstQuotaLogged: false, quotaExhausted: false, callCount: 0 }
+
+  // Gap-fill call counting (Task 3.8)
+  const gapFillCounts = { itunes: 0, deezer: 0, tidal: 0, musicfetch: 0 }
 
   let spotifyToken = null
-  if (hasSpotify) {
+  if (!hasSoundcharts && hasSpotify) {
     try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) }
     catch (err) { console.warn(`  [spotify] Auth failed: ${err.message}`) }
   }
 
-  for (const artist of data.artists || []) {
+  for (const artist of artists) {
     console.log(`\n[${artist.name}]`)
     const slug = toSlug(artist.name)
     const config = artistConfig[slug] || {}
 
-    // ── Step 1: Spotify ───────────────────────────────────────────────────────
-    if (hasSpotify && spotifyToken && !options.tidalOnly) {
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOUNDCHARTS MODE
+    // ══════════════════════════════════════════════════════════════════════════
+    if (hasSoundcharts && !options.tidalOnly) {
 
-      // 1a. Artist-level Spotify URL
-      if (!(artist.streamingLinks && artist.streamingLinks.spotify)) {
-        if (config.spotifyArtistUrl) {
-          artist.streamingLinks = artist.streamingLinks || {}
-          artist.streamingLinks.spotify = config.spotifyArtistUrl
-          console.log(`  ✓ Spotify artist (config): ${config.spotifyArtistUrl}`)
-        } else {
-          await enrichArtistWithSpotify(artist, spotifyClientId, spotifyClientSecret)
+      // ── Soundcharts enrichment (artist + albums) ──────────────────────────
+      await soundchartsEnrichArtist(artist, config, scAppId, scApiKey, quotaState)
+
+      // ── Gap-fill: iTunes/Deezer/Tidal/MusicFetch for albums still missing links ──
+      // NO Spotify calls in Soundcharts mode (Task 3.7)
+      const albums = artist.albums || []
+      const needsGapFill = albums.filter(al =>
+        !(al.streamingLinks && al.streamingLinks.appleMusic) ||
+        !(al.streamingLinks && al.streamingLinks.deezer) ||
+        (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
+        (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+      )
+
+      if (needsGapFill.length > 0) {
+        console.log(`  → Gap-fill: ${needsGapFill.length} album(s) via iTunes/Deezer/Tidal/MusicFetch...`)
+
+        await pMap(needsGapFill, 3, async (album) => {
+          const tasks = []
+
+          if (!(album.streamingLinks && album.streamingLinks.appleMusic)) {
+            tasks.push(
+              (async () => {
+                const { lookupByUpc, searchAlbum } = require('./itunes')
+                let result = await searchAlbum(artist.name, album.title)
+                if (!result && album.upc) result = await lookupByUpc(album.upc)
+                if (result) {
+                  album.streamingLinks = album.streamingLinks || {}
+                  album.streamingLinks.appleMusic = result.albumUrl
+                  if (result.artistUrl && !(artist.streamingLinks && artist.streamingLinks.appleMusic)) {
+                    artist.streamingLinks = artist.streamingLinks || {}
+                    artist.streamingLinks.appleMusic = result.artistUrl
+                  }
+                  console.log(`    ✓ iTunes (gap-fill): "${album.title}"`)
+                  gapFillCounts.itunes++
+                }
+              })()
+            )
+          }
+
+          if (!(album.streamingLinks && album.streamingLinks.deezer)) {
+            tasks.push(
+              (async () => {
+                const { lookupByUpc, searchAlbum } = require('./deezer')
+                let result = await searchAlbum(artist.name, album.title)
+                if (!result && album.upc) result = await lookupByUpc(album.upc)
+                if (result) {
+                  album.streamingLinks = album.streamingLinks || {}
+                  album.streamingLinks.deezer = result.albumUrl
+                  if (result.artistUrl && !(artist.streamingLinks && artist.streamingLinks.deezer)) {
+                    artist.streamingLinks = artist.streamingLinks || {}
+                    artist.streamingLinks.deezer = result.artistUrl
+                  }
+                  console.log(`    ✓ Deezer (gap-fill): "${album.title}"`)
+                  gapFillCounts.deezer++
+                }
+              })()
+            )
+          }
+
+          if (hasTidal && !(album.streamingLinks && album.streamingLinks.tidal)) {
+            tasks.push(
+              (async () => {
+                const { lookupByUpc, searchAlbum, getAccessToken } = require('./tidal')
+                let token
+                try { token = await getAccessToken(tidalClientId, tidalClientSecret) } catch { return }
+                if (!token) return
+                let result = null
+                if (album.upc) result = await lookupByUpc(token, album.upc, album.title)
+                if (!result) result = await searchAlbum(token, artist.name, album.title)
+                if (result) {
+                  album.streamingLinks = album.streamingLinks || {}
+                  album.streamingLinks.tidal = result.albumUrl
+                  console.log(`    ✓ Tidal (gap-fill): "${album.title}"`)
+                  gapFillCounts.tidal++
+                  if (result.artistId && !(artist.streamingLinks && artist.streamingLinks.tidal)) {
+                    artist.streamingLinks = artist.streamingLinks || {}
+                    artist.streamingLinks.tidal = `https://tidal.com/browse/artist/${result.artistId}`
+                  }
+                }
+              })()
+            )
+          }
+
+          if (hasMusicFetch && !(album.streamingLinks && album.streamingLinks.amazonMusic)) {
+            tasks.push(
+              (async () => {
+                const { fetchLinksByUpc, fetchLinksByUrl } = require('./musicfetch')
+                const upc = album.upc
+                const spotifyUrl = album.streamingLinks && album.streamingLinks.spotify
+                if (!upc && !spotifyUrl) return
+                const links = upc
+                  ? await fetchLinksByUpc(musicFetchKey, upc)
+                  : await fetchLinksByUrl(musicFetchKey, spotifyUrl)
+                if (links) {
+                  const existing = album.streamingLinks || {}
+                  album.streamingLinks = { ...links, ...existing }
+                  console.log(`    ✓ MusicFetch (gap-fill): "${album.title}" → ${Object.keys(links).join(', ')}`)
+                  gapFillCounts.musicfetch++
+                }
+              })()
+            )
+          }
+
+          await Promise.all(tasks)
+        })
+      }
+
+      // Artist-level MusicFetch (needs Spotify artist URL)
+      if (hasMusicFetch) {
+        await enrichArtistWithMusicFetch(artist, musicFetchKey)
+      }
+
+    } else if (!options.tidalOnly) {
+      // ════════════════════════════════════════════════════════════════════════
+      // LEGACY MODE (no Soundcharts credentials)
+      // ════════════════════════════════════════════════════════════════════════
+
+      // ── Step 1: Spotify ─────────────────────────────────────────────────────
+      if (hasSpotify && spotifyToken) {
+
+        // 1a. Artist-level Spotify URL
+        if (!(artist.streamingLinks && artist.streamingLinks.spotify)) {
+          if (config.spotifyArtistUrl) {
+            artist.streamingLinks = artist.streamingLinks || {}
+            artist.streamingLinks.spotify = config.spotifyArtistUrl
+            console.log(`  ✓ Spotify artist (config): ${config.spotifyArtistUrl}`)
+          } else {
+            await enrichArtistWithSpotify(artist, spotifyClientId, spotifyClientSecret)
+          }
+        }
+
+        // 1b. Album Spotify URLs + UPCs via artist page
+        const artistSpotifyUrl = config.spotifyArtistUrl ||
+          (artist.streamingLinks && artist.streamingLinks.spotify)
+
+        if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
+          try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
+          console.log(`  → Spotify artist page fetch (rebuilding album list)...`)
+          const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
+          if (spotifyAlbums.length > 0) {
+            artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+          }
+        }
+
+        // 1c. Fetch full metadata from Spotify for Spotify-only albums
+        if (spotifyToken) {
+          const spotifyOnly = (artist.albums || []).filter(al => !al.url && al.streamingLinks && al.streamingLinks.spotify)
+          if (spotifyOnly.length > 0) {
+            console.log(`  → Spotify metadata for ${spotifyOnly.length} Spotify-only album(s)...`)
+            await enrichSpotifyOnlyAlbums(spotifyOnly, spotifyToken)
+          }
+        }
+
+        // 1d. Fetch artwork from Spotify for Bandcamp albums missing artwork
+        if (spotifyToken) {
+          const missingArtwork = (artist.albums || []).filter(al => al.url && !al.artwork && al.streamingLinks && al.streamingLinks.spotify)
+          if (missingArtwork.length > 0) {
+            console.log(`  → Fetching artwork from Spotify for ${missingArtwork.length} Bandcamp album(s)...`)
+            await enrichSpotifyOnlyAlbums(missingArtwork, spotifyToken)
+          }
+        }
+
+        // 1e. Fall back to name search only for artists NOT in config
+        if (!config.spotifyArtistUrl) {
+          const stillMissingSpotify = (artist.albums || []).filter(
+            al => !(al.streamingLinks && al.streamingLinks.spotify)
+          )
+          if (stillMissingSpotify.length > 0) {
+            console.log(`  → Spotify name search for ${stillMissingSpotify.length} album(s)...`)
+            await enrichAlbumsWithSpotify(stillMissingSpotify, artist.name, spotifyClientId, spotifyClientSecret)
+          }
         }
       }
 
-      // 1b. Album Spotify URLs + UPCs via artist page (preferred over text search)
-      const artistSpotifyUrl = config.spotifyArtistUrl ||
-        (artist.streamingLinks && artist.streamingLinks.spotify)
-
-      if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
-        // Refresh token before the paginated fetch to avoid expiry
-        try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
-
-        console.log(`  → Spotify artist page fetch (rebuilding album list)...`)
-        const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
-        if (spotifyAlbums.length > 0) {
-          artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
-        }
-      }
-
-      // 1c. Fetch full metadata from Spotify for Spotify-only albums (no Bandcamp URL)
-      if (spotifyToken) {
-        const spotifyOnly = (artist.albums || []).filter(al => !al.url && al.streamingLinks && al.streamingLinks.spotify)
-        if (spotifyOnly.length > 0) {
-          console.log(`  → Spotify metadata for ${spotifyOnly.length} Spotify-only album(s)...`)
-          await enrichSpotifyOnlyAlbums(spotifyOnly, spotifyToken)
-        }
-      }
-
-      // 1d. Fetch artwork from Spotify for Bandcamp albums missing artwork
-      if (spotifyToken) {
-        const missingArtwork = (artist.albums || []).filter(al => al.url && !al.artwork && al.streamingLinks && al.streamingLinks.spotify)
-        if (missingArtwork.length > 0) {
-          console.log(`  → Fetching artwork from Spotify for ${missingArtwork.length} Bandcamp album(s)...`)
-          await enrichSpotifyOnlyAlbums(missingArtwork, spotifyToken)
-        }
-      }
-
-      // 1d. Fall back to name search only for artists NOT in config
-      // (if we have the artist URL, fetchArtistAlbums already got everything available)
-      if (!config.spotifyArtistUrl) {
-        const stillMissingSpotify = (artist.albums || []).filter(
-          al => !(al.streamingLinks && al.streamingLinks.spotify)
-        )
-        if (stillMissingSpotify.length > 0) {
-          console.log(`  → Spotify name search for ${stillMissingSpotify.length} album(s)...`)
-          await enrichAlbumsWithSpotify(stillMissingSpotify, artist.name, spotifyClientId, spotifyClientSecret)
-        }
-      }
-    }
-
-    // ── Steps 2–4+6: iTunes, Deezer, Tidal, MusicFetch — run concurrently per album ──
-    if (!options.tidalOnly) {
+      // ── Steps 2–4+6: iTunes, Deezer, Tidal, MusicFetch ─────────────────────
       const albums = artist.albums || []
       const needsEnrichment = albums.filter(al =>
         !(al.streamingLinks && al.streamingLinks.appleMusic) ||
@@ -321,7 +958,6 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       if (needsEnrichment.length > 0) {
         console.log(`  → Enriching ${needsEnrichment.length} album(s) via iTunes/Deezer/Tidal/MusicFetch concurrently...`)
 
-        // Process up to 3 albums at a time; within each album run all services in parallel
         await pMap(needsEnrichment, 3, async (album) => {
           const tasks = []
 
@@ -329,7 +965,6 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./itunes')
-                // Try title search first (more reliable), fall back to UPC
                 let result = await searchAlbum(artist.name, album.title)
                 if (!result && album.upc) result = await lookupByUpc(album.upc)
                 if (result) {
@@ -349,7 +984,6 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./deezer')
-                // Try title search first (more reliable), fall back to UPC
                 let result = await searchAlbum(artist.name, album.title)
                 if (!result && album.upc) result = await lookupByUpc(album.upc)
                 if (result) {
@@ -416,8 +1050,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       if (hasMusicFetch) {
         await enrichArtistWithMusicFetch(artist, musicFetchKey)
       }
+
     } else {
-      // tidalOnly mode — just run Tidal
+      // ════════════════════════════════════════════════════════════════════════
+      // TIDAL-ONLY MODE
+      // ════════════════════════════════════════════════════════════════════════
       if (hasTidal || config.tidalArtistUrl) {
         if (!(artist.streamingLinks && artist.streamingLinks.tidal)) {
           if (config.tidalArtistUrl) {
@@ -454,7 +1091,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
     }
 
-    // ── Step 5: Discogs — conservative concurrency (rate limited) ────────────
+    // ── Discogs — always runs (both modes), conservative concurrency ────────
     if (hasDiscogs && !options.tidalOnly) {
       const needsDiscogs = (artist.albums || []).filter(al => !al.discogsUrl)
       if (needsDiscogs.length > 0) {
@@ -463,19 +1100,17 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
     }
 
-    // ── Step 6: Spotify label fallback — fill missing labelName from Spotify ──
-    if (hasSpotify && spotifyToken && !options.tidalOnly) {
+    // ── Spotify label fallback — legacy mode only ───────────────────────────
+    if (!hasSoundcharts && hasSpotify && spotifyToken && !options.tidalOnly) {
       const needsLabel = (artist.albums || []).filter(al =>
         !al.labelName && al.streamingLinks && al.streamingLinks.spotify
       )
       if (needsLabel.length > 0) {
         console.log(`  → Spotify label fallback for ${needsLabel.length} album(s)...`)
-        // Refresh token
         try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
         await enrichSpotifyOnlyAlbums(needsLabel, spotifyToken)
       }
 
-      // Compare Discogs vs Spotify labels and warn if different
       for (const al of artist.albums || []) {
         if (al.labelName && al.spotifyLabel && al.labelName !== al.spotifyLabel) {
           console.warn(`    ⚠ Label mismatch: "${al.title}" — Discogs: "${al.labelName}", Spotify: "${al.spotifyLabel}"`)
@@ -484,8 +1119,41 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     }
   }
 
+  // ── End-of-run logging ──────────────────────────────────────────────────────
+  if (hasSoundcharts && !options.tidalOnly) {
+    // Log quota remaining at end (Task 4.1)
+    const endQuota = getQuotaRemaining()
+    if (endQuota != null) {
+      console.log(`\n[soundcharts] Quota remaining (end): ${endQuota}`)
+    }
+    // Log total SC call count (Task 4.2)
+    console.log(`[soundcharts] Total API calls this run: ${getCallCount()}`)
+
+    // Log gap-fill counts (Task 3.8)
+    const gfParts = []
+    if (gapFillCounts.itunes > 0) gfParts.push(`iTunes: ${gapFillCounts.itunes}`)
+    if (gapFillCounts.deezer > 0) gfParts.push(`Deezer: ${gapFillCounts.deezer}`)
+    if (gapFillCounts.tidal > 0) gfParts.push(`Tidal: ${gapFillCounts.tidal}`)
+    if (gapFillCounts.musicfetch > 0) gfParts.push(`MusicFetch: ${gapFillCounts.musicfetch}`)
+    if (gfParts.length > 0) {
+      console.log(`[gap-fill] Calls: ${gfParts.join(', ')}`)
+    } else {
+      console.log('[gap-fill] No gap-fill calls needed')
+    }
+  }
+
   await writeCache(cachePath, data)
   console.log('\nEnrichment complete. Cache updated.')
 }
 
-module.exports = { enrichCache }
+module.exports = {
+  enrichCache,
+  // Exported for testing
+  extractSpotifyId,
+  hasAllAlbumLinks,
+  hasAllArtistLinks,
+  albumNeedsSCEnrichment,
+  albumHasChanged,
+  deduplicateAlbumsByUpc,
+  checkQuota
+}

@@ -12,7 +12,3 @@ This software is available under two licenses:
 2. COMMERCIAL LICENSE
    For use in proprietary or commercial products without GPL obligations.
    Contact: info@aenaos-records.com
-
-The original bandcamp-scraper library (lib/, spec/, schemas/) is licensed
-under the MIT License. See LICENSE-MIT for the full text.
-Copyright (c) 2015 Simon Thiboutôt

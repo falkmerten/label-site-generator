@@ -106,12 +106,26 @@
       </section>
     {% endif %}
 
-    {% if artist.bandLinks and artist.bandLinks.length %}
+    {# Unified links section: non-social bandLinks first, then social links #}
+    {% set hasSocial = artist.socialLinks and (artist.socialLinks.facebook or artist.socialLinks.instagram or artist.socialLinks.tiktok or artist.socialLinks.twitter or artist.socialLinks.linktree) %}
+    {% if (artist.bandLinks and artist.bandLinks.length) or hasSocial %}
       <section class="artist-links">
         <ul>
-          {% for link in artist.bandLinks %}
-            <li><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> {{ link.name }}</a></li>
-          {% endfor %}
+          {% if artist.bandLinks %}
+            {% for link in artist.bandLinks %}
+              {% set linkLower = link.name | lower %}
+              {% if linkLower !== 'facebook' and linkLower !== 'instagram' and linkLower !== 'tiktok' and linkLower !== 'x.com' and linkLower !== 'twitter' and linkLower !== 'linktr.ee' and linkLower !== 'soundcloud' and linkLower !== 'open.spotify.com' and linkLower !== 'youtube' %}
+              <li><a href="{{ link.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> {{ link.name }}</a></li>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if artist.socialLinks %}
+            {% if artist.socialLinks.facebook %}<li><a href="{{ artist.socialLinks.facebook }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-facebook"></i> Facebook</a></li>{% endif %}
+            {% if artist.socialLinks.instagram %}<li><a href="{{ artist.socialLinks.instagram }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-instagram"></i> Instagram</a></li>{% endif %}
+            {% if artist.socialLinks.tiktok %}<li><a href="{{ artist.socialLinks.tiktok }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-tiktok"></i> TikTok</a></li>{% endif %}
+            {% if artist.socialLinks.twitter %}<li><a href="{{ artist.socialLinks.twitter }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter"></i> X</a></li>{% endif %}
+            {% if artist.socialLinks.linktree %}<li><a href="{{ artist.socialLinks.linktree }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-link"></i> Linktree</a></li>{% endif %}
+          {% endif %}
         </ul>
       </section>
     {% endif %}
@@ -129,6 +143,7 @@
           {% if artist.streamingLinks.tidal %}<li><a href="{{ artist.streamingLinks.tidal }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-water"></i> Tidal</a></li>{% endif %}
           {% if artist.streamingLinks.beatport %}<li><a href="{{ artist.streamingLinks.beatport }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-headphones"></i> Beatport</a></li>{% endif %}
           {% if artist.streamingLinks.soundcloud %}<li><a href="{{ artist.streamingLinks.soundcloud }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-soundcloud"></i> SoundCloud</a></li>{% endif %}
+          {% if artist.streamingLinks.youtube %}<li><a href="{{ artist.streamingLinks.youtube }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-youtube"></i> YouTube</a></li>{% endif %}
         </ul>
       </section>
     {% endif %}
@@ -204,6 +219,33 @@
         <p>No releases currently available.</p>
       {% endif %}
     </section>
+
+    {% if artist.events and artist.events.length %}
+    <section class="upcoming-shows">
+      <h2>Upcoming Shows</h2>
+      <div class="events-list">
+        {% for event in artist.events %}
+          <div class="event-row">
+            <span class="event-date">{% if event.date %}{{ event.date | formatDate }}{% endif %}</span>
+            <span class="event-details">
+              {% if event.name %}<span class="event-name">{{ event.name }}</span>{% endif %}
+              {% if event.type == 'festival' %}<span class="event-badge festival-badge">Festival</span>{% endif %}
+              {% if event.venueName %}<span class="event-venue">{{ event.venueName }}</span>{% endif %}
+              {% if event.cityName or event.countryName %}
+                <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
+              {% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+      {% if artist.eventLinks %}
+        <div class="event-more-links">
+          {% if artist.eventLinks.bandsintown %}<a href="{{ artist.eventLinks.bandsintown }}" target="_blank" rel="noopener noreferrer">More dates on Bandsintown</a>{% endif %}
+          {% if artist.eventLinks.songkick %}<a href="{{ artist.eventLinks.songkick }}" target="_blank" rel="noopener noreferrer">More dates on Songkick</a>{% endif %}
+        </div>
+      {% endif %}
+    </section>
+    {% endif %}
 
   </article>
 {% endblock %}

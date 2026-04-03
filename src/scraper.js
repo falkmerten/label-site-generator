@@ -1,22 +1,10 @@
-const bandcamp = require('../lib/index.js')
+const bandcamp = require('./bandcamp.js')
 const fs = require('fs/promises')
 const path = require('path')
 const { getLabelArtistUrls } = require('./bandcampApi')
 const { enrichAlbumsWithStreamingLinks, fetchArtistStreamingLinks } = require('./odesli')
 
 const DELAY_MS = 1500 // delay between requests to avoid rate limiting
-
-/**
- * Wraps a callback-based bandcamp function in a Promise.
- */
-function promisify (fn, ...args) {
-  return new Promise((resolve, reject) => {
-    fn(...args, (err, result) => {
-      if (err) reject(err)
-      else resolve(result)
-    })
-  })
-}
 
 /**
  * Waits for a given number of milliseconds.
@@ -94,7 +82,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
 
   if (!artistUrls) {
     console.log(`Fetching artist list from ${labelUrl}...`)
-    const rawArtistUrls = await promisify(bandcamp.getArtistUrls.bind(bandcamp), labelUrl)
+    const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
     artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
   }
 
@@ -120,7 +108,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     try {
       console.log(`[${i + 1}/${artistUrls.length}] Scraping artist: ${artistUrl}`)
       await delay(DELAY_MS)
-      artistInfo = await promisify(bandcamp.getArtistInfo.bind(bandcamp), artistUrl)
+      artistInfo = await bandcamp.getArtistInfo(artistUrl)
     } catch (err) {
       console.error(`  Error fetching artist info for ${artistUrl}:`, err.message || err)
       continue
@@ -130,7 +118,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     let fullAlbumUrls = []
     try {
       await delay(DELAY_MS)
-      fullAlbumUrls = await promisify(bandcamp.getAlbumUrls.bind(bandcamp), artistUrl)
+      fullAlbumUrls = await bandcamp.getAlbumUrls(artistUrl)
     } catch (err) {
       console.warn(`  Could not fetch full album list for ${artistUrl}, using artist page albums`)
       fullAlbumUrls = (artistInfo.albums || []).map(a => a.url)
@@ -148,7 +136,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
       try {
         console.log(`  → Album: ${albumUrl}`)
         await delay(DELAY_MS)
-        albumInfo = await promisify(bandcamp.getAlbumInfo.bind(bandcamp), albumUrl)
+        albumInfo = await bandcamp.getAlbumInfo(albumUrl)
       } catch (err) {
         console.error(`    Error fetching album info for ${albumUrl}:`, err.message || err)
         continue

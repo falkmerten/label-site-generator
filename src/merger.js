@@ -123,6 +123,10 @@ async function mergeData (rawData, content) {
           galleryImages: [],
           bandLinks: artist.bandLinks,
           streamingLinks: artist.streamingLinks || null,
+          socialLinks: artist.socialLinks || null,
+          discoveryLinks: artist.discoveryLinks || null,
+          eventLinks: artist.eventLinks || null,
+          events: artist.events || null,
           slug: artistSlug,
           albums
         }
@@ -239,12 +243,44 @@ async function mergeData (rawData, content) {
         galleryImages: (artistContent.galleryImages || []).map(p => path.basename(p)),
         bandLinks: artist.bandLinks,
         streamingLinks: artist.streamingLinks || null,
+        socialLinks: artist.socialLinks || null,
+        discoveryLinks: artist.discoveryLinks || null,
+        eventLinks: artist.eventLinks || null,
+        events: artist.events || null,
         slug: artistSlug,
         albums
       }
 
       if (artistContent.meta) {
         Object.assign(mergedArtist, artistContent.meta)
+      }
+
+      // Apply links.json overrides (highest priority — manual links come first)
+      if (artistContent.links) {
+        const cl = artistContent.links
+        // Streaming links
+        if (cl.streaming) {
+          mergedArtist.streamingLinks = mergedArtist.streamingLinks || {}
+          for (const [key, url] of Object.entries(cl.streaming)) {
+            if (url) mergedArtist.streamingLinks[key] = url
+          }
+        }
+        // Social links
+        if (cl.social) {
+          mergedArtist.socialLinks = mergedArtist.socialLinks || {}
+          for (const [key, url] of Object.entries(cl.social)) {
+            if (url) mergedArtist.socialLinks[key] = url
+          }
+        }
+        // Website / non-social links (added to bandLinks if not already present)
+        if (cl.websites) {
+          mergedArtist.bandLinks = mergedArtist.bandLinks || []
+          for (const link of cl.websites) {
+            if (link.url && !mergedArtist.bandLinks.some(bl => bl.url === link.url)) {
+              mergedArtist.bandLinks.unshift(link)
+            }
+          }
+        }
       }
 
       return mergedArtist

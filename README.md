@@ -2,8 +2,6 @@
 
 Generates a complete static website for a Bandcamp music label. Scrapes artist and album data from Bandcamp, enriches it with streaming links and physical release data from multiple APIs, merges it with local content, and renders a branded HTML site.
 
-Built on top of the [bandcamp-scraper](https://github.com/masterT/bandcamp-scraper) library.
-
 ---
 
 ## Features
@@ -12,14 +10,12 @@ Built on top of the [bandcamp-scraper](https://github.com/masterT/bandcamp-scrap
 - Supports **extra artist profiles** via `content/extra-artists.txt` or `EXTRA_ARTIST_URLS` env var
 - **Caches** all scraped data to `cache.json` — subsequent runs skip Bandcamp entirely
 - **Single-artist refresh** — re-scrape one artist without touching the rest
-- **Streaming link enrichment** via multiple APIs:
-  - Spotify Web API — artist page fetch → UPC extraction (source of truth for album list)
-  - iTunes/Apple Music API — UPC lookup (free, no auth)
-  - Deezer API — UPC lookup (free, no auth)
-  - Tidal API — UPC lookup (requires credentials)
-  - MusicFetch via RapidAPI — optional, fills remaining gaps
-- **Physical release data** via Discogs API — formats (Vinyl, CD, Cassette), catalog number, label, sell links, YouTube videos
-- **Artist config** (`content/artists.json`) — maps artist slugs to Spotify artist URLs for reliable enrichment
+- **Soundcharts enrichment** (recommended) — all streaming links, social media, events, and metadata in ~2 API calls per album
+- **Legacy enrichment** fallback via Spotify, iTunes, Deezer, Tidal, MusicFetch when Soundcharts credentials are absent
+- **Physical release data** via Discogs API — formats (Vinyl, CD, Cassette), catalog number, label, sell links
+- **Artist config** (`content/artists.json`) — maps artist slugs to Spotify artist URLs
+- **Social media links** — auto-populated from Soundcharts (Facebook, Instagram, TikTok, X/Twitter, Linktree)
+- **Upcoming shows** — tour dates from Soundcharts events, rendered on artist pages with Bandsintown/Songkick links
 - **Content overrides**: artist bios (Markdown or Word .docx), photos, gallery images, album artwork
 - **Word document conversion** — drop `bio.docx` in an artist folder, auto-converted to `bio.md` on generate
 - **Dynamic static pages** — any `.md` or `.docx` in `content/pages/` becomes a page with a footer link
@@ -35,9 +31,9 @@ Built on top of the [bandcamp-scraper](https://github.com/masterT/bandcamp-scrap
 
 - Node.js 18+
 - A Bandcamp label account with API access (see note below)
-- Spotify Developer credentials (recommended — enables full enrichment pipeline)
+- Soundcharts API credentials (recommended — free tier: 1,000 credits/month)
 
-> **Bandcamp API access**: The generator uses the Bandcamp API to fetch your label's artist roster. API access is available to Bandcamp label accounts — go to your Bandcamp label settings → **API Access** to obtain your `CLIENT_ID` and `CLIENT_SECRET`. Without API credentials the generator falls back to HTML scraping of your label page, which is less reliable. Note that Bandcamp API access is only available to label accounts, not individual artist accounts.
+> **Bandcamp API access**: The generator uses the Bandcamp API to fetch your label's artist roster. API access is available to Bandcamp label accounts — go to your Bandcamp label settings → **API Access** to obtain your `CLIENT_ID` and `CLIENT_SECRET`. Without API credentials the generator falls back to HTML scraping of your label page, which is less reliable.
 
 ---
 
@@ -77,7 +73,9 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `TIDAL_CLIENT_ID` | Tidal API client ID ([developer.tidal.com](https://developer.tidal.com)) |
 | `TIDAL_CLIENT_SECRET` | Tidal API client secret |
 | `DISCOGS_TOKEN` | Discogs personal access token ([discogs.com/settings/developers](https://www.discogs.com/settings/developers)) |
-| `MUSICFETCH_RAPIDAPI_KEY` | MusicFetch API key via RapidAPI (optional) |
+| `SOUNDCHARTS_APP_ID` | Soundcharts API app ID ([developers.soundcharts.com](https://developers.soundcharts.com)) |
+| `SOUNDCHARTS_API_KEY` | Soundcharts API key (free tier: 1,000 credits/month) |
+| `MUSICFETCH_RAPIDAPI_KEY` | MusicFetch API key via RapidAPI (optional, legacy fallback) |
 | `LABEL_BANDCAMP_URL` | Label Bandcamp URL (footer social links) |
 | `LABEL_SPOTIFY_URL` | Spotify profile URL |
 | `LABEL_SOUNDCLOUD_URL` | SoundCloud URL |
@@ -137,6 +135,15 @@ Preserves all existing enrichment data (streaming links, UPCs, Discogs etc.).
 node generate.js --init-content
 ```
 
+### Content cleanup
+
+```bash
+# Check for orphaned content folders
+node generate.js --cleanup
+```
+
+Reports content folders that don't match any album in the cache. Dry-run only — doesn't delete anything.
+
 ### Typical ongoing workflow
 
 ```bash
@@ -150,14 +157,35 @@ node generate.js                           # regenerate site
 
 ## Enrichment Pipeline
 
-Run `node generate.js --enrich`. Per artist, the pipeline is:
+Run `node generate.js --enrich`. The pipeline mode depends on which credentials are configured:
 
-1. **Spotify** — fetches all releases from the artist's Spotify page (using URL from `artists.json`), matches to Bandcamp albums by title, extracts UPCs. Spotify is the source of truth for the album list when an artist URL is configured.
+### Soundcharts mode (recommended)
+
+When `SOUNDCHARTS_APP_ID` and `SOUNDCHARTS_API_KEY` are set:
+
+1. **Soundcharts** — resolves artist by Spotify ID, fetches all streaming links (Spotify, Apple Music, Deezer, Tidal, Amazon, YouTube, SoundCloud), social media links, album metadata (UPC, label, distributor, copyright), and upcoming events — all in ~2 API calls per album. Also discovers releases from Soundcharts not on Bandcamp (streaming-only releases are automatically added).
+2. **Gap-fill** — iTunes, Deezer, Tidal, MusicFetch called only for links Soundcharts didn't return. Spotify API is never called.
+3. **Discogs** — physical formats, sell links, per-label URLs (unchanged).
+
+Budget: ~434 calls for 18 artists / 181 albums (initial run). Incremental runs only process new/changed albums.
+
+### Legacy mode (fallback)
+
+When Soundcharts credentials are absent, the existing pipeline runs:
+
+1. **Spotify** — fetches all releases from the artist's Spotify page, matches to Bandcamp albums by title, extracts UPCs.
 2. **iTunes/Apple Music** — UPC lookup via iTunes API (free, no auth). Falls back to title search.
-3. **Deezer** — UPC lookup via Deezer API (free, no auth). Falls back to title search. Also sets artist-level Deezer link.
+3. **Deezer** — UPC lookup via Deezer API (free, no auth). Falls back to title search.
 4. **Tidal** — UPC lookup via Tidal API (requires `TIDAL_CLIENT_ID` + `TIDAL_CLIENT_SECRET`).
-5. **Discogs** — UPC lookup, then artist+title search fallback. Fetches physical formats, catalog number, label names with per-label Discogs URLs, sell links, and YouTube videos. Collects labels from all versions of a master release. Fills missing release dates and descriptions.
+5. **Discogs** — UPC lookup, then artist+title search fallback. Fetches physical formats, label names with per-label Discogs URLs, sell links.
 6. **MusicFetch** — optional, fills Amazon Music and other gaps (requires `MUSICFETCH_RAPIDAPI_KEY`).
+
+### Single-artist enrichment
+
+```bash
+node generate.js --enrich --artist "Artist Name"          # enrich one artist only
+node generate.js --enrich --artist "Artist Name" --refresh # force re-enrich (clear cached SC data)
+```
 
 ---
 
@@ -193,6 +221,7 @@ content/
       videos.json            # YouTube video links (see format below)
       stores.json            # Custom physical store links (see format below)
       reviews.md             # Press quotes / review excerpts (Markdown)
+    links.json               # Manual social/streaming/website links override
 ```
 
 ### Album videos (`videos.json`)
@@ -266,6 +295,25 @@ URL templates support `{artist}` and `{album}` placeholders which are automatica
 
 Per-album `stores.json` entries always appear and are not filtered by `PHYSICAL_STORES`.
 
+### Artist links override (`links.json`)
+
+To manually set social, streaming, or website links for an artist, create a `links.json` file:
+
+```
+content/{artist-slug}/links.json
+```
+
+Format:
+```json
+{
+  "social": { "instagram": "https://instagram.com/...", "facebook": "https://facebook.com/..." },
+  "streaming": { "tidal": "https://tidal.com/browse/artist/..." },
+  "websites": [{ "name": "Official Website", "url": "https://example.com" }]
+}
+```
+
+Manual links take priority. Bandcamp and Soundcharts fill in the rest.
+
 ### Static pages
 
 Any `.md` or `.docx` file placed in `content/pages/` automatically becomes a page:
@@ -330,16 +378,19 @@ Custom Nunjucks filters:
 
 | Module | Description |
 |---|---|
-| `src/scraper.js` | Scrapes artist and album data from Bandcamp (uses `/music` for full album list) |
+| `src/bandcamp.js` | Bandcamp HTML scraper: artist info, album info, album URLs, artist URLs |
+| `src/scraper.js` | Orchestrates Bandcamp scraping for the full label roster |
 | `src/refreshArtist.js` | Re-scrapes a single artist, preserving enrichment data |
 | `src/bandcampApi.js` | Fetches label artist roster via Bandcamp OAuth2 API |
 | `src/cache.js` | Reads/writes the JSON cache |
-| `src/spotify.js` | Spotify Web API: artist page fetch, album search, UPC extraction |
-| `src/itunes.js` | iTunes/Apple Music API: UPC lookup + title search |
-| `src/deezer.js` | Deezer API: UPC lookup + title search |
-| `src/tidal.js` | Tidal API: UPC lookup + title search |
+| `src/soundcharts.js` | Soundcharts API client: streaming links, social links, events, metadata |
+| `src/spotify.js` | Spotify Web API: artist page fetch, album search, UPC extraction (legacy mode) |
+| `src/itunes.js` | iTunes/Apple Music API: UPC lookup + title search (gap-fill / legacy) |
+| `src/deezer.js` | Deezer API: UPC lookup + title search (gap-fill / legacy) |
+| `src/tidal.js` | Tidal API: UPC lookup + title search (gap-fill / legacy) |
 | `src/discogs.js` | Discogs API: physical formats, per-label URLs, catalog number, videos, sell links |
-| `src/enricher.js` | Orchestrates the full enrichment pipeline |
+| `src/enricher.js` | Orchestrates the full enrichment pipeline (Soundcharts or legacy mode) |
+| `src/cleanup.js` | Reports orphaned content folders not matching any album in cache |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
 | `src/convertDocs.js` | Converts `.docx` files to `.md` using mammoth |
@@ -383,4 +434,4 @@ Old URL redirects are handled by static HTML pages in `dist/` (meta-refresh + JS
 
 ---
 
-GPL-3.0 — see [LICENSE](LICENSE) for details. Original bandcamp-scraper library portions are MIT licensed — see [LICENSE-MIT](LICENSE-MIT).
+GPL-3.0 — see [LICENSE](LICENSE) for details.
