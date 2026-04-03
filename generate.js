@@ -11,7 +11,7 @@ const { convertAllDocs } = require('./src/convertDocs');
 const { refreshArtist } = require('./src/refreshArtist');
 const { downloadArtwork } = require('./src/downloadArtwork');
 const { syncElasticStage } = require('./src/elasticstage');
-const { syncYouTube } = require('./src/youtube');
+const { syncYouTube, resolveYouTubeHandles } = require('./src/youtube');
 const { backupCache } = require('./src/cache');
 
 function printUsage() {
@@ -31,6 +31,7 @@ Options:
   --download-artwork   Download remote artwork to content/ and update cache
   --sync-elasticstage  Sync ElasticStage release links to stores.json files
   --sync-youtube       Search YouTube and create videos.json for albums without one
+  --resolve-youtube    Resolve @handle entries in youtube.json to channel IDs
   --cleanup            Report orphaned content folders not matching any album in cache
   --help               Print this help message and exit
 `);
@@ -82,6 +83,8 @@ function parseArgs(argv) {
       options.syncElasticStage = true;
     } else if (arg === '--sync-youtube') {
       options.syncYouTube = true;
+    } else if (arg === '--resolve-youtube') {
+      options.resolveYouTube = true;
     } else if (arg === '--cleanup') {
       options.cleanup = true;
     }
@@ -176,6 +179,16 @@ async function run() {
     }
     console.log('Syncing YouTube videos...');
     await syncYouTube(ytKey, options.cachePath, options.contentDir, { artistFilter: options.artistFilter || null });
+    return;
+  }
+  if (options.resolveYouTube) {
+    const ytKey = process.env.YOUTUBE_API_KEY;
+    if (!ytKey) {
+      console.error('Error: YOUTUBE_API_KEY is not set in .env');
+      process.exit(1);
+    }
+    console.log('Resolving YouTube @handles to channel IDs...');
+    await resolveYouTubeHandles(ytKey, options.contentDir);
     return;
   }
   if (options.cleanup) {

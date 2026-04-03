@@ -49,6 +49,73 @@ function _nextResetTime () {
 }
 
 /**
+ * Resolves a YouTube @handle to a channel ID using the YouTube Data API.
+ * @param {string} apiKey
+ * @param {string} handle - e.g. "@aenaosrecords"
+ * @returns {Promise<string|null>} Channel ID (UCxxxx) or null
+ */
+async function resolveHandle (apiKey, handle) {
+  const cleanHandle = handle.replace(/^@/, '')
+  const params = new URLSearchParams({ part: 'id', forHandle: cleanHandle, key: apiKey })
+  const data = await httpsGet(`https://www.googleapis.com/youtube/v3/channels?${params}`)
+  if (!data || data.quotaExceeded || !data.items || data.items.length === 0) return null
+  return data.items[0].id
+}
+
+/**
+ * Resolves all @handle entries in youtube.json to UC... channel IDs.
+ * Updates the file in place.
+ * @param {string} apiKey
+ * @param {string} contentDir
+ */
+async function resolveYouTubeHandles (apiKey, contentDir) {
+  const configPath = path.join(contentDir, 'youtube.json')
+  let config
+  try { config = JSON.parse(fs.readFileSync(configPath, 'utf8')) } catch { console.error('[youtube] No youtube.json found.'); return }
+
+  let resolved = 0
+
+  // Resolve label channel
+  if (config.labelChannel && config.labelChannel.includes('/@')) {
+    const handle = config.labelChannel.match(/@([A-Za-z0-9_-]+)/)[1]
+    console.log(`Resolving label channel @${handle}...`)
+    await delay(DELAY_MS)
+    const id = await resolveHandle(apiKey, handle)
+    if (id) {
+      config.labelChannel = `https://www.youtube.com/channel/${id}`
+      console.log(`  ✓ @${handle} → ${id}`)
+      resolved++
+    } else {
+      console.log(`  ✖ Could not resolve @${handle}`)
+    }
+  }
+
+  // Resolve artist channels
+  const artists = config.artists || config
+  for (const [slug, url] of Object.entries(artists)) {
+    if (!url || !url.includes('/@')) continue
+    const handle = url.match(/@([A-Za-z0-9_-]+)/)[1]
+    console.log(`Resolving ${slug} @${handle}...`)
+    await delay(DELAY_MS)
+    const id = await resolveHandle(apiKey, handle)
+    if (id) {
+      artists[slug] = `https://www.youtube.com/channel/${id}`
+      console.log(`  ✓ @${handle} → ${id}`)
+      resolved++
+    } else {
+      console.log(`  ✖ Could not resolve @${handle}`)
+    }
+  }
+
+  if (resolved > 0) {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8')
+    console.log(`Resolved ${resolved} handle(s). Updated ${configPath}`)
+  } else {
+    console.log('No @handles to resolve.')
+  }
+}
+
+/**
  * Extracts a YouTube channel ID from a channel URL.
  * Supports: /channel/UCxxxx, /c/name, /@handle
  * For @handle and /c/ URLs, returns the full URL (channelId search uses forHandle param).
@@ -315,4 +382,4 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
   console.log(`\nYouTube sync complete: ${searched} searched, ${created} created, ${skipped} skipped (existing), ${noChannel} artist(s) without channel.`)
 }
 
-module.exports = { searchChannel, syncYouTube, loadOrCreateYouTubeConfig, extractChannelId }
+module.exports = { searchChannel, syncYouTube, loadOrCreateYouTubeConfig, extractChannelId, resolveYouTubeHandles }
