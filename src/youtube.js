@@ -51,13 +51,19 @@ function _nextResetTime () {
 /**
  * Extracts a YouTube channel ID from a channel URL.
  * Supports: /channel/UCxxxx, /c/name, /@handle
+ * For @handle and /c/ URLs, returns the full URL (channelId search uses forHandle param).
  * @param {string} url
  * @returns {string|null}
  */
 function extractChannelId (url) {
   if (!url) return null
+  // Direct channel ID
   const m = url.match(/\/channel\/(UC[A-Za-z0-9_-]+)/)
-  return m ? m[1] : null
+  if (m) return m[1]
+  // @handle — return the handle for forHandle lookup
+  const h = url.match(/\/@([A-Za-z0-9_-]+)/)
+  if (h) return '@' + h[1]
+  return null
 }
 
 /**
@@ -68,16 +74,22 @@ function extractChannelId (url) {
  * @param {number} maxResults
  * @returns {Promise<Array<{url: string, title: string}>>}
  */
-async function searchChannel (apiKey, channelId, query, maxResults = 2) {
+async function searchChannel (apiKey, channelIdOrHandle, query, maxResults = 2) {
   if (_quotaExhausted) return []
   const params = new URLSearchParams({
     part: 'snippet',
     q: query,
     type: 'video',
-    channelId,
     maxResults: String(maxResults + 3),
     key: apiKey
   })
+  // UC... is a channel ID, @handle needs forHandle resolution first
+  if (channelIdOrHandle.startsWith('UC')) {
+    params.set('channelId', channelIdOrHandle)
+  } else if (channelIdOrHandle.startsWith('@')) {
+    // Search with channel handle in the query as workaround
+    params.set('q', `${channelIdOrHandle} ${query}`)
+  }
   const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?${params}`)
   if (!data || data.quotaExceeded || !data.items) return []
 
