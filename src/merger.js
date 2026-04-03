@@ -148,8 +148,27 @@ async function mergeData (rawData, content) {
           .filter(album => albumBelongsToArtist(album, artist.name))
           .map(async (album) => {
           const albumSlug = toSlug(album.title)
-          // Try cache slug first (may be deduped like center-of-your-world-2), then title slug
-          const albumContent = (artistContent.albums || {})[album.slug] || (artistContent.albums || {})[albumSlug]
+          // Try multiple slug forms to find content folder:
+          // 1. Cache slug (may be deduped like center-of-your-world-2)
+          // 2. Title-derived slug
+          // 3. URL-derived slug (from Bandcamp URL, e.g. principe-valiente-ep)
+          // 4. Year-deduped slug (e.g. principe-valiente-2007)
+          const albumContentCandidates = [album.slug, albumSlug]
+          if (album.url) {
+            const urlMatch = album.url.match(/\/(album|track)\/([^/?#]+)/)
+            if (urlMatch) albumContentCandidates.push(urlMatch[2])
+          }
+          if (album.releaseDate) {
+            const year = new Date(album.releaseDate).getFullYear()
+            if (year) albumContentCandidates.push(`${albumSlug}-${year}`)
+          }
+          let albumContent = null
+          for (const candidate of albumContentCandidates) {
+            if (candidate && (artistContent.albums || {})[candidate]) {
+              albumContent = (artistContent.albums || {})[candidate]
+              break
+            }
+          }
           const albumId = extractAlbumId(album.raw)
 
           let artwork
@@ -286,6 +305,38 @@ async function mergeData (rawData, content) {
       return mergedArtist
     })
   )
+
+  // ── Post-merge: fill missing label URLs from known mappings ──────────────
+  // Build label name → URL map from albums that have per-label URLs
+  const labelUrlMap = {}
+  for (const artist of mergedArtists) {
+    for (const album of artist.albums || []) {
+      if (album.labelName && album.labelUrls) {
+        const names = album.labelName.split(' / ')
+        for (let i = 0; i < names.length; i++) {
+          const name = names[i].trim()
+          const url = album.labelUrls[i]
+          if (name && url && !labelUrlMap[name]) {
+            labelUrlMap[name] = url
+          }
+        }
+      }
+    }
+  }
+
+  // Apply known URLs to albums missing them
+  for (const artist of mergedArtists) {
+    for (const album of artist.albums || []) {
+      if (album.labelName && !album.labelUrl) {
+        const names = album.labelName.split(' / ')
+        const urls = names.map(n => labelUrlMap[n.trim()] || null)
+        if (urls.some(u => u)) {
+          album.labelUrls = urls
+          album.labelUrl = urls[0]
+        }
+      }
+    }
+  }
 
   return {
     scrapedAt: rawData.scrapedAt,

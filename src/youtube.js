@@ -83,6 +83,7 @@ async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
 async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
   const overwrite = options.overwrite || false
   const maxResults = options.maxResults || 3
+  const artistFilter = options.artistFilter || null
 
   let cache = null
   try { cache = JSON.parse(fs.readFileSync(cachePath, 'utf8')) } catch { /* no cache */ }
@@ -91,11 +92,26 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
     return
   }
 
+  let artists = cache.artists || []
+  if (artistFilter) {
+    const filterLower = artistFilter.toLowerCase()
+    const filterSlug = toSlug(artistFilter)
+    artists = artists.filter(a => {
+      const aSlug = toSlug(a.name)
+      return aSlug === filterSlug || a.name.toLowerCase() === filterLower
+    })
+    if (artists.length === 0) {
+      console.error(`[youtube] No artist matching "${artistFilter}" found in cache.`)
+      return
+    }
+    console.log(`[youtube] Filtering to artist: ${artists[0].name}`)
+  }
+
   let searched = 0
   let created = 0
   let skipped = 0
 
-  for (const artist of cache.artists || []) {
+  for (const artist of artists) {
     const artistSlug = toSlug(artist.name)
     console.log(`\n[${artist.name}]`)
 

@@ -4,6 +4,20 @@
 
 ---
 
+### v3.0.1 — 2026-04-03
+
+**Bug fixes**
+- Fixed artwork resolution for duplicate-title albums (e.g. self-titled album + EP) — merger now checks URL-derived and year-deduped content folder slugs
+- Fixed missing label URLs — labels known from other albums (e.g. known from other albums) now get their Discogs link across the catalog
+- Fixed `--sync-youtube --artist` triggering a Bandcamp re-scrape instead of filtering YouTube sync
+- Fixed CLI argument parsing for `--sync-youtube`, `--sync-elasticstage`, `--cleanup` — no longer exits early, allows combining with `--artist`
+
+**Improvements**
+- Automatic cache backup before destructive operations (`--artist` re-scrape, `--enrich`) — saved as `cache.backup.{timestamp}.json`
+- `--sync-youtube --artist "Name"` — sync YouTube videos for a single artist only
+
+---
+
 ### v3.0.0 — 2026-04-03
 
 **Soundcharts API integration**

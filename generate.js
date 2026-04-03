@@ -12,6 +12,7 @@ const { refreshArtist } = require('./src/refreshArtist');
 const { downloadArtwork } = require('./src/downloadArtwork');
 const { syncElasticStage } = require('./src/elasticstage');
 const { syncYouTube } = require('./src/youtube');
+const { backupCache } = require('./src/cache');
 
 function printUsage() {
   console.log(`Usage: node generate.js [options]
@@ -79,13 +80,10 @@ function parseArgs(argv) {
       options.downloadArtwork = true;
     } else if (arg === '--sync-elasticstage') {
       options.syncElasticStage = true;
-      return options;
     } else if (arg === '--sync-youtube') {
       options.syncYouTube = true;
-      return options;
     } else if (arg === '--cleanup') {
       options.cleanup = true;
-      return options;
     }
   }
 
@@ -139,12 +137,16 @@ async function run() {
     await initContent(options.cachePath, options.contentDir);
     return;
   }
-  if (options.artistFilter && !options.enrich) {
+  if (options.artistFilter && !options.enrich && !options.syncYouTube && !options.syncElasticStage && !options.cleanup) {
+    const backupPath = await backupCache(options.cachePath);
+    if (backupPath) console.log(`Cache backed up to ${backupPath}`);
     console.log(`Re-scraping artist: ${options.artistFilter}`);
     await refreshArtist(options.cachePath, options.artistFilter);
     return;
   }
   if (options.enrich) {
+    const backupPath = await backupCache(options.cachePath);
+    if (backupPath) console.log(`Cache backed up to ${backupPath}`);
     console.log('Enriching cache with streaming links...');
     await enrichCache(options.cachePath, options.contentDir, {
       tidalOnly: options.tidalOnly,
@@ -173,7 +175,7 @@ async function run() {
       process.exit(1);
     }
     console.log('Syncing YouTube videos...');
-    await syncYouTube(ytKey, options.cachePath, options.contentDir);
+    await syncYouTube(ytKey, options.cachePath, options.contentDir, { artistFilter: options.artistFilter || null });
     return;
   }
   if (options.cleanup) {
