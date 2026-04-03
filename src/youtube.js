@@ -11,6 +11,8 @@ function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+let _quotaExhausted = false
+
 function httpsGet (url) {
   return new Promise((resolve) => {
     https.get(url, (res) => {
@@ -22,6 +24,7 @@ function httpsGet (url) {
             const err = JSON.parse(raw)
             if (err.error && err.error.errors && err.error.errors[0] && err.error.errors[0].reason === 'quotaExceeded') {
               console.error('[youtube] ✖ YouTube API daily quota exceeded. Quota resets at midnight Pacific Time (PT). Try again after ' + _nextResetTime() + '.')
+              _quotaExhausted = true
               return resolve({ quotaExceeded: true })
             }
           } catch { /* not JSON */ }
@@ -35,7 +38,6 @@ function httpsGet (url) {
 }
 
 function _nextResetTime () {
-  // YouTube quota resets at midnight Pacific Time
   const now = new Date()
   const pt = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }))
   const tomorrow = new Date(pt)
@@ -47,58 +49,49 @@ function _nextResetTime () {
 }
 
 /**
- * Searches YouTube for videos matching artist + album title.
- * Filters out "Topic" auto-generated channels and verifies results match the artist.
- * Returns array of { url, title } objects.
- *
- * @param {string} apiKey - YouTube Data API v3 key
- * @param {string} artistName - artist name for verification
- * @param {string} albumTitle - album/track title
- * @param {number} maxResults - max results to return (default 2)
+ * Extracts a YouTube channel ID from a channel URL.
+ * Supports: /channel/UCxxxx, /c/name, /@handle
+ * @param {string} url
+ * @returns {string|null}
+ */
+function extractChannelId (url) {
+  if (!url) return null
+  const m = url.match(/\/channel\/(UC[A-Za-z0-9_-]+)/)
+  return m ? m[1] : null
+}
+
+/**
+ * Searches YouTube for videos within a specific channel.
+ * @param {string} apiKey
+ * @param {string} channelId - YouTube channel ID (UCxxxx)
+ * @param {string} query - search query
+ * @param {number} maxResults
  * @returns {Promise<Array<{url: string, title: string}>>}
  */
-async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
-  const query = `${artistName} "${albumTitle}"`
+async function searchChannel (apiKey, channelId, query, maxResults = 2) {
+  if (_quotaExhausted) return []
   const params = new URLSearchParams({
     part: 'snippet',
     q: query,
     type: 'video',
-    videoCategoryId: '10', // Music category
-    maxResults: String(maxResults + 5), // fetch extra to filter
+    channelId,
+    maxResults: String(maxResults + 3),
     key: apiKey
   })
   const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?${params}`)
   if (!data || data.quotaExceeded || !data.items) return []
 
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-  const targetArtist = normalise(artistName)
-
-  // Extract key words from album title for matching (strip parenthetical, feat., etc.)
-  const titleCore = albumTitle
-    .replace(/\s*\([^)]*\)\s*/g, ' ')
-    .replace(/\s*\[[^\]]*\]\s*/g, ' ')
-    .replace(/\s+(feat\.|ft\.|featuring)\s+.*/i, '')
-    .trim()
-  const titleWords = normalise(titleCore)
+  const queryWords = normalise(query)
 
   return data.items
     .filter(item => {
       if (!item.id || !item.id.videoId) return false
       const snippet = item.snippet || {}
-      // Skip "Topic" auto-generated channels
       if ((snippet.channelTitle || '').includes('- Topic')) return false
+      // For channel search, just verify the query words appear in the title
       const vidTitle = normalise(snippet.title || '')
-      const channel = normalise(snippet.channelTitle || '')
-      const desc = normalise(snippet.description || '')
-      // Must match artist name
-      const hasArtist = vidTitle.includes(targetArtist) || channel.includes(targetArtist) || desc.includes(targetArtist)
-      if (!hasArtist) return false
-      // Must match album/track title (core words)
-      if (titleWords.length > 3) {
-        const hasTitle = vidTitle.includes(titleWords)
-        if (!hasTitle) return false
-      }
-      return true
+      return queryWords.length <= 3 || vidTitle.includes(queryWords)
     })
     .slice(0, maxResults)
     .map(item => ({
@@ -108,14 +101,59 @@ async function searchYouTube (apiKey, artistName, albumTitle, maxResults = 2) {
 }
 
 /**
+ * Loads or creates content/youtube.json — maps artist slugs to YouTube channel URLs.
+ * Merges Soundcharts-discovered channel URLs with existing entries.
+ * @param {string} contentDir
+ * @param {Array} artists - cache artists array
+ * @returns {Object} slug → channelUrl map
+ */
+function loadOrCreateYouTubeConfig (contentDir, artists) {
+  const configPath = path.join(contentDir, 'youtube.json')
+  let config = {}
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  } catch { /* doesn't exist yet */ }
+
+  let updated = false
+  for (const artist of artists) {
+    const slug = toSlug(artist.name)
+    const scYoutube = (artist.streamingLinks || {}).youtube || null
+
+    if (!config[slug]) {
+      // New artist — add with Soundcharts URL or null
+      config[slug] = scYoutube
+      updated = true
+    } else if (!config[slug] && scYoutube) {
+      // Existing entry with null — fill from Soundcharts
+      config[slug] = scYoutube
+      updated = true
+    }
+    // Never overwrite manually set URLs
+  }
+
+  if (updated) {
+    // Sort by slug for readability
+    const sorted = {}
+    for (const key of Object.keys(config).sort()) {
+      sorted[key] = config[key]
+    }
+    fs.mkdirSync(contentDir, { recursive: true })
+    fs.writeFileSync(configPath, JSON.stringify(sorted, null, 2) + '\n', 'utf8')
+    console.log(`[youtube] Updated ${configPath}`)
+  }
+
+  return config
+}
+
+/**
  * Syncs YouTube videos to videos.json files for all albums.
- * Only creates videos.json if one doesn't already exist.
- * Searches for "{artist} {album} official" to prioritise official content.
+ * Uses channel-specific search when a YouTube channel is configured.
+ * Skips artists without a channel URL (use content/{artist}/{album}/videos.json for manual links).
  *
  * @param {string} apiKey
  * @param {string} cachePath
  * @param {string} contentDir
- * @param {object} options - { overwrite: false, maxResults: 3 }
+ * @param {object} options - { overwrite, maxResults, artistFilter }
  */
 async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
   const overwrite = options.overwrite || false
@@ -144,38 +182,55 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
     console.log(`[youtube] Filtering to artist: ${artists[0].name}`)
   }
 
+  // Load/create youtube.json config
+  const ytConfig = loadOrCreateYouTubeConfig(contentDir, cache.artists || [])
+
   let searched = 0
   let created = 0
   let skipped = 0
+  let noChannel = 0
 
   for (const artist of artists) {
+    if (_quotaExhausted) break
+
     const artistSlug = toSlug(artist.name)
-    console.log(`\n[${artist.name}]`)
+    const channelUrl = ytConfig[artistSlug] || null
+    const channelId = extractChannelId(channelUrl)
+
+    if (!channelId) {
+      console.log(`[${artist.name}] No YouTube channel configured — skipping (add to content/youtube.json)`)
+      noChannel++
+      continue
+    }
+
+    console.log(`\n[${artist.name}] Channel: ${channelId}`)
 
     for (const album of artist.albums || []) {
+      if (_quotaExhausted) break
+
       const albumSlug = album.slug || toSlug(album.title)
       const albumDir = path.join(contentDir, artistSlug, albumSlug)
       const videosPath = path.join(albumDir, 'videos.json')
 
-      // Skip if videos.json already exists and we're not overwriting
       if (!overwrite && fs.existsSync(videosPath)) {
         skipped++
         continue
       }
 
+      // Search within the artist's channel for the album title
       await delay(DELAY_MS)
-      const results = await searchYouTube(apiKey, artist.name, album.title, maxResults)
+      let results = await searchChannel(apiKey, channelId, album.title, maxResults)
       searched++
 
-      // If album-level search found nothing, try track-by-track for albums with tracks
-      let finalResults = results
+      // Fallback: track-by-track search within the channel
       if (results.length === 0 && album.tracks && album.tracks.length > 0) {
         const trackResults = []
         const seenVideoIds = new Set()
         for (const track of album.tracks) {
+          if (_quotaExhausted) break
           if (!track.name || trackResults.length >= maxResults) break
           await delay(DELAY_MS)
-          const tResults = await searchYouTube(apiKey, artist.name, track.name, 1)
+          const tResults = await searchChannel(apiKey, channelId, track.name, 1)
           searched++
           for (const r of tResults) {
             const vidId = r.url.split('v=')[1]
@@ -185,13 +240,13 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
             }
           }
         }
-        finalResults = trackResults
+        results = trackResults
       }
 
-      if (finalResults.length > 0) {
+      if (results.length > 0) {
         fs.mkdirSync(albumDir, { recursive: true })
-        fs.writeFileSync(videosPath, JSON.stringify(finalResults, null, 2), 'utf8')
-        console.log(`  ✓ ${albumSlug} → ${finalResults.length} video(s)`)
+        fs.writeFileSync(videosPath, JSON.stringify(results, null, 2), 'utf8')
+        console.log(`  ✓ ${albumSlug} → ${results.length} video(s)`)
         created++
       } else {
         console.log(`  – ${albumSlug} → no results`)
@@ -199,7 +254,7 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
     }
   }
 
-  console.log(`\nYouTube sync complete: ${searched} searched, ${created} created, ${skipped} skipped (existing).`)
+  console.log(`\nYouTube sync complete: ${searched} searched, ${created} created, ${skipped} skipped (existing), ${noChannel} artist(s) without channel.`)
 }
 
-module.exports = { searchYouTube, syncYouTube }
+module.exports = { searchChannel, syncYouTube, loadOrCreateYouTubeConfig, extractChannelId }
