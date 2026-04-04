@@ -48,7 +48,7 @@ function extractAlbumId (raw) {
  */
 function albumBelongsToArtist (album, artistName) {
   if (!album.artist) return true // no artist field — keep it
-  const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
   const albumArtist = norm(album.artist)
   const owner = norm(artistName)
   if (albumArtist === 'various') return true // compilations always kept

@@ -412,80 +412,96 @@ async function fetchArtistAlbums (token, artistUrl) {
  * @param {string} token
  */
 async function enrichSpotifyOnlyAlbums (albums, token) {
+  // Collect albums that need metadata, extract their Spotify IDs
+  const toEnrich = []
   for (const album of albums) {
     if (!album.streamingLinks || !album.streamingLinks.spotify) continue
     const m = album.streamingLinks.spotify.match(/album\/([A-Za-z0-9]+)/)
     if (!m) continue
+    toEnrich.push({ album, spotifyId: m[1] })
+  }
+  if (toEnrich.length === 0) return
 
-    try {
-      await delay(DELAY_MS)
-      const data = await new Promise((resolve) => {
-        const options = {
-          hostname: 'api.spotify.com',
-          path: `/v1/albums/${m[1]}`,
-          method: 'GET',
-          headers: { Authorization: `Bearer ${token}` }
-        }
-        https.get(options, (res) => {
-          let raw = ''
-          res.on('data', chunk => { raw += chunk })
-          res.on('end', () => {
-            try { resolve(JSON.parse(raw)) } catch { resolve(null) }
-          })
-        }).on('error', () => resolve(null))
-      })
+  // Batch fetch up to 20 albums per call
+  for (let i = 0; i < toEnrich.length; i += 20) {
+    const batch = toEnrich.slice(i, i + 20)
+    const ids = batch.map(b => b.spotifyId).join(',')
 
+    await delay(DELAY_MS)
+    const batchData = await new Promise((resolve) => {
+      const options = {
+        hostname: 'api.spotify.com',
+        path: `/v1/albums?ids=${ids}`,
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      }
+      https.get(options, (res) => {
+        let raw = ''
+        res.on('data', chunk => { raw += chunk })
+        res.on('end', () => {
+          try { resolve(JSON.parse(raw)) } catch { resolve(null) }
+        })
+      }).on('error', () => resolve(null))
+    })
+
+    if (!batchData || !batchData.albums) continue
+
+    for (let j = 0; j < batch.length; j++) {
+      const { album } = batch[j]
+      const data = batchData.albums[j]
       if (!data) continue
 
-      // Artwork — always use Spotify's (largest image) for Spotify-only albums
-      if (data.images && data.images.length > 0) {
-        album.artwork = data.images[0].url
-      }
-      // Release date
-      if (!album.releaseDate && data.release_date) {
-        album.releaseDate = new Date(data.release_date).toISOString()
-      }
-      // Label as description fallback
-      if (!album.description && data.label) {
-        album.description = `Label: ${data.label}`
-      }
-      // Label name from Spotify (copyright P-line since label field was removed in Feb 2026)
-      if (data.label || data.copyrights) {
-        let spotifyLabelName = data.label
-        if (!spotifyLabelName && data.copyrights) {
-          const pLine = data.copyrights.find(c => c.type === 'P')
-          const line = pLine || data.copyrights[0]
-          if (line && line.text) {
-            spotifyLabelName = line.text.replace(/^[©℗(CP)]*\s*\d{4}\s*/i, '').replace(/^\d{3,4}\s+/, '').trim()
+      try {
+        // Artwork
+        if (data.images && data.images.length > 0) {
+          album.artwork = data.images[0].url
+        }
+        // Release date
+        if (!album.releaseDate && data.release_date) {
+          album.releaseDate = new Date(data.release_date).toISOString()
+        }
+        // Label as description fallback
+        if (!album.description && data.label) {
+          album.description = `Label: ${data.label}`
+        }
+        // Label name from Spotify
+        if (data.label || data.copyrights) {
+          let spotifyLabelName = data.label
+          if (!spotifyLabelName && data.copyrights) {
+            const pLine = data.copyrights.find(c => c.type === 'P')
+            const line = pLine || data.copyrights[0]
+            if (line && line.text) {
+              spotifyLabelName = line.text.replace(/^[©℗(CP)]*\s*\d{4}\s*/i, '').replace(/^\d{3,4}\s+/, '').trim()
+            }
+          }
+          if (spotifyLabelName) {
+            album.spotifyLabel = spotifyLabelName
+            if (!album.labelName) {
+              album.labelName = spotifyLabelName
+              console.log(`    ✓ Spotify label: "${album.title}" → ${spotifyLabelName}`)
+            }
           }
         }
-        if (spotifyLabelName) {
-          album.spotifyLabel = spotifyLabelName
-          if (!album.labelName) {
-            album.labelName = spotifyLabelName
-            console.log(`    ✓ Spotify label: "${album.title}" → ${spotifyLabelName}`)
-          }
+        // Tracks
+        if ((!album.tracks || album.tracks.length === 0) && data.tracks && data.tracks.items) {
+          album.tracks = data.tracks.items.map(t => ({
+            name: t.name,
+            duration: t.duration_ms ? formatDuration(t.duration_ms) : null
+          }))
         }
-      }
-      // Tracks
-      if ((!album.tracks || album.tracks.length === 0) && data.tracks && data.tracks.items) {
-        album.tracks = data.tracks.items.map(t => ({
-          name: t.name,
-          duration: t.duration_ms ? formatDuration(t.duration_ms) : null
-        }))
-      }
-      // UPC if missing
-      if (!album.upc && data.external_ids && data.external_ids.upc) {
-        album.upc = data.external_ids.upc
-      }
-      // Genres from album or artist
-      if ((!album.tags || album.tags.length === 0) && data.genres && data.genres.length > 0) {
-        album.tags = data.genres.map(g => ({ name: g }))
-      }
+        // UPC
+        if (!album.upc && data.external_ids && data.external_ids.upc) {
+          album.upc = data.external_ids.upc
+        }
+        // Genres
+        if ((!album.tags || album.tags.length === 0) && data.genres && data.genres.length > 0) {
+          album.tags = data.genres.map(g => ({ name: g }))
+        }
 
-      console.log(`    ✓ Spotify metadata: "${album.title}" (artwork, ${album.tracks ? album.tracks.length + ' tracks' : 'no tracks'})`)
-    } catch (err) {
-      console.warn(`    ⚠ Spotify metadata failed for "${album.title}": ${err.message}`)
+        console.log(`    ✓ Spotify metadata: "${album.title}" (artwork, ${album.tracks ? album.tracks.length + ' tracks' : 'no tracks'})`)
+      } catch (err) {
+        console.warn(`    ⚠ Spotify metadata failed for "${album.title}": ${err.message}`)
+      }
     }
   }
 }

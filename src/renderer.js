@@ -12,7 +12,8 @@ const { renderMarkdown } = require('./markdown');
  * @param {string} outputDir - Directory to write rendered HTML files into
  * @returns {Promise<number>} Total number of pages written
  */
-async function renderSite(data, pages, outputDir, labelName) {
+async function renderSite(data, pages, outputDir, labelName, newsArticles) {
+  newsArticles = newsArticles || []
   labelName = labelName || process.env.LABEL_NAME || 'My Label';
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
   const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
@@ -201,6 +202,9 @@ async function renderSite(data, pages, outputDir, labelName) {
       tiktok:     process.env.LABEL_TIKTOK_URL || '',
       twitter:    process.env.LABEL_TWITTER_URL || '',
     },
+    newsArticles: newsArticles.slice(0, 10),
+    hasNews: newsArticles.length > 0,
+    totalNews: newsArticles.length,
   };
 
   // --- index ---
@@ -294,6 +298,67 @@ async function renderSite(data, pages, outputDir, labelName) {
       }), 'utf8');
       if (pageUrl) sitemapUrls.push({ url: pageUrl, priority: '0.4' });
       count++;
+    }
+  }
+
+  // --- news pages ---
+  if (newsArticles.length > 0) {
+    const ARTICLES_PER_PAGE = 12
+
+    // Individual article pages
+    for (let i = 0; i < newsArticles.length; i++) {
+      const article = newsArticles[i]
+      const articleDir = path.join(outputDir, 'news', article.slug)
+      await fs.mkdir(articleDir, { recursive: true })
+      const articleUrl = siteUrl ? `${siteUrl}news/${article.slug}/` : null
+
+      // Copy feature image if local
+      if (article.imagePath && !article.imagePath.startsWith('http')) {
+        try {
+          const imgName = path.basename(article.imagePath)
+          await fs.copyFile(article.imagePath, path.join(articleDir, imgName))
+          article.imageUrl = imgName
+        } catch { /* ignore */ }
+      } else if (article.image) {
+        article.imageUrl = article.image
+      }
+
+      const articleHtml = nunjucks.render('news-article.njk', {
+        ...baseCtx,
+        article,
+        prevArticle: i < newsArticles.length - 1 ? newsArticles[i + 1] : null,
+        nextArticle: i > 0 ? newsArticles[i - 1] : null,
+        rootPath: '../../',
+        canonicalUrl: articleUrl,
+      })
+      await fs.writeFile(path.join(articleDir, 'index.html'), articleHtml, 'utf8')
+      if (articleUrl) sitemapUrls.push({ url: articleUrl, priority: '0.5' })
+      count++
+    }
+
+    // Paginated listing pages
+    const totalPages = Math.ceil(newsArticles.length / ARTICLES_PER_PAGE)
+    for (let page = 1; page <= totalPages; page++) {
+      const start = (page - 1) * ARTICLES_PER_PAGE
+      const pageArticles = newsArticles.slice(start, start + ARTICLES_PER_PAGE)
+      const pageDir = page === 1
+        ? path.join(outputDir, 'news')
+        : path.join(outputDir, 'news', 'page', String(page))
+      await fs.mkdir(pageDir, { recursive: true })
+      const pageUrl = siteUrl
+        ? (page === 1 ? `${siteUrl}news/` : `${siteUrl}news/page/${page}/`)
+        : null
+
+      const listHtml = nunjucks.render('news-list.njk', {
+        ...baseCtx,
+        articles: pageArticles,
+        pagination: { current: page, total: totalPages, prev: page > 1 ? page - 1 : null, next: page < totalPages ? page + 1 : null },
+        rootPath: page === 1 ? '../' : '../../../',
+        canonicalUrl: pageUrl,
+      })
+      await fs.writeFile(path.join(pageDir, 'index.html'), listHtml, 'utf8')
+      if (pageUrl) sitemapUrls.push({ url: pageUrl, priority: '0.6' })
+      count++
     }
   }
 

@@ -4,6 +4,26 @@
 
 ---
 
+### v3.1.2 — 2026-04-04
+
+**News system (markdown-first)**
+- New file-based news system: `content/news/{year}/MM-DD-slug.md` (or `.docx`)
+- Homepage shows latest 10 articles with title, excerpt, date, and feature image
+- Dedicated `/news/` listing page with pagination (12 per page)
+- Individual article pages at `/news/{slug}/`
+- Front-matter support: `title`, `excerpt`, `image` fields
+- Auto-detection of feature images by slug name in year folder
+- "News" nav link appears in header when articles exist
+- Backward compatible: no `content/news/` folder = existing behavior unchanged
+
+**Bug fixes**
+- Fixed `albumBelongsToArtist` dropping albums with accented artist names (e.g. accented vs non-accented artist names) — NFD normalization now decomposes accents before comparison
+- Fixed news article `h2`/`h3` headings inheriting section border-bottom and uppercase styling
+- Fixed news item titles on listing pages inheriting section heading styles
+- Fixed front-matter parsing failing on Windows CRLF line endings
+
+---
+
 ### v3.1.1 — 2026-04-04
 
 **Bug fixes — Enrichment fallback chain**

@@ -90,7 +90,37 @@
   <section id="news" class="section news-section">
     <div class="section-inner">
       <h2>News</h2>
-      {% if newsHtml %}
+      {% if hasNews %}
+        <div class="news-list">
+          {% for article in newsArticles %}
+            <article class="news-item">
+              {% if article.imageUrl %}
+                <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-image">
+                  {% if article.imageUrl | isLocal %}
+                  <picture>
+                    <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toWebp }}" type="image/webp">
+                    <img src="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+                  </picture>
+                  {% else %}
+                  <img src="{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+                  {% endif %}
+                </a>
+              {% endif %}
+              <div class="news-item-body">
+                <h3 class="news-item-title"><a href="{{ rootPath }}news/{{ article.slug }}/">{{ article.title }}</a></h3>
+                <time class="news-item-date" datetime="{{ article.date }}">{{ article.date | formatDate }}</time>
+                <p class="news-item-excerpt">{{ article.excerpt }}</p>
+                <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-more">Read more &rarr;</a>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+        {% if totalNews > 10 %}
+          <div class="view-all">
+            <a href="{{ rootPath }}news/">View all {{ totalNews }} articles</a>
+          </div>
+        {% endif %}
+      {% elif newsHtml %}
         <div class="prose">{{ newsHtml | safe }}</div>
       {% endif %}
       {% if newsletter.actionUrl %}

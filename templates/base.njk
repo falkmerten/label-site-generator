@@ -87,6 +87,9 @@
           {% endif %}
         </div>
         <a href="{{ rootPath }}releases/" class="nav-item"><i class="fa-solid fa-record-vinyl"></i> Releases</a>
+        {% if hasNews %}
+          <a href="{{ rootPath }}news/" class="nav-item"><i class="fa-solid fa-newspaper"></i> News</a>
+        {% endif %}
         {% for p in mainNavPages %}
           <a href="{{ rootPath }}{{ p.slug }}/" class="nav-item">{{ p.title }}</a>
         {% endfor %}

@@ -53,6 +53,13 @@ async function generate(options) {
   console.log('Merging data...');
   const mergedData = await mergeData(rawData, content);
 
+  // Step 5b: Load news articles
+  const { loadNews } = require('./news');
+  const newsArticles = await loadNews(contentDir);
+  if (newsArticles.length > 0) {
+    console.log(`Loaded ${newsArticles.length} news article(s).`);
+  }
+
   // Step 6: Assign slugs
   mergedData.artists = assignSlugs(mergedData.artists);
 
@@ -60,7 +67,7 @@ async function generate(options) {
   console.log('Rendering pages...');
   let pageCount;
   try {
-    pageCount = await renderSite(mergedData, content.pages || {}, outputDir, labelName);
+    pageCount = await renderSite(mergedData, content.pages || {}, outputDir, labelName, newsArticles);
   } catch (err) {
     console.error('[generator] Fatal: could not write to output directory.');
     throw err;

@@ -1,0 +1,54 @@
+{% extends "base.njk" %}
+
+{% block title %}{{ article.title }} — {{ labelName }}{% endblock %}
+{% block metaDescription %}{{ article.excerpt }}{% endblock %}
+{% block ogDescription %}{{ article.excerpt }}{% endblock %}
+{% block twitterTitle %}{{ article.title }}{% endblock %}
+{% block twitterDescription %}{{ article.excerpt }}{% endblock %}
+
+{% block ogImage %}
+  {% if article.imageUrl %}
+    {% if article.imageUrl | isLocal %}
+      {% if siteUrl %}<meta property="og:image" content="{{ siteUrl }}news/{{ article.slug }}/{{ article.imageUrl }}">{% endif %}
+    {% else %}
+      <meta property="og:image" content="{{ article.imageUrl }}">
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <article class="section news-article-section">
+    <div class="section-inner">
+      <header class="news-article-header">
+        <h1>{{ article.title }}</h1>
+        <time class="news-article-date" datetime="{{ article.date }}">{{ article.date | formatDate }}</time>
+      </header>
+      {% if article.imageUrl %}
+        <div class="news-article-image">
+          {% if article.imageUrl | isLocal %}
+          <picture>
+            <source srcset="{{ article.imageUrl | toWebp }}" type="image/webp">
+            <img src="{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+          </picture>
+          {% else %}
+          <img src="{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+          {% endif %}
+        </div>
+      {% endif %}
+      <div class="news-article-body prose">
+        {{ article.html | safe }}
+      </div>
+      <nav class="news-article-nav">
+        {% if prevArticle %}
+          <a href="{{ rootPath }}news/{{ prevArticle.slug }}/" class="news-nav-prev">&larr; {{ prevArticle.title }}</a>
+        {% endif %}
+        {% if nextArticle %}
+          <a href="{{ rootPath }}news/{{ nextArticle.slug }}/" class="news-nav-next">{{ nextArticle.title }} &rarr;</a>
+        {% endif %}
+      </nav>
+      <div class="news-back-link">
+        <a href="{{ rootPath }}news/">&larr; Back to News</a>
+      </div>
+    </div>
+  </article>
+{% endblock %}
