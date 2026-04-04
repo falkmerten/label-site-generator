@@ -59,6 +59,27 @@ async function downloadArtwork (cachePath, contentDir = './content') {
   for (const artist of data.artists || []) {
     const artistSlug = toSlug(artist.name)
 
+    // Download artist photo if remote and no local photo exists
+    const remotePhoto = (artist.coverImage && artist.coverImage.startsWith('http')) ? artist.coverImage : null
+    if (remotePhoto) {
+      const photoExt = extFromUrl(remotePhoto)
+      const photoDir = path.join(contentDir, artistSlug)
+      const photoPath = path.join(photoDir, `photo${photoExt}`)
+      try {
+        await fsp.access(photoPath)
+        skipped++
+      } catch {
+        await fsp.mkdir(photoDir, { recursive: true })
+        try {
+          await downloadFile(remotePhoto, photoPath)
+          console.log(`  ✓ ${artistSlug}/photo${photoExt}`)
+          downloaded++
+        } catch (err) {
+          console.warn(`  ⚠ Failed to download photo for "${artist.name}": ${err.message}`)
+        }
+      }
+    }
+
     for (const album of artist.albums || []) {
       // Use artwork if set, fall back to imageUrl from scraper
       const remoteUrl = (album.artwork && album.artwork.startsWith('http') ? album.artwork : null)
