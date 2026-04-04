@@ -7,12 +7,9 @@ const DOMPurify = require('isomorphic-dompurify')
 const renderer = new marked.Renderer()
 const originalLink = renderer.link.bind(renderer)
 renderer.link = function (href, title, text) {
-  // Handle both old (positional) and new (object) marked API
   const h = typeof href === 'object' ? href.href : href
-  const t = typeof href === 'object' ? href.title : title
-  const tx = typeof href === 'object' ? href.text : text
-  const html = originalLink.call ? originalLink(href, title, text) : `<a href="${h}">${tx}</a>`
-  if (h && (h.startsWith('http://') || h.startsWith('https://'))) {
+  const html = originalLink.call ? originalLink(href, title, text) : `<a href="${h}">${typeof href === 'object' ? href.text : text}</a>`
+  if (h && (h.startsWith('http://') || h.startsWith('https://')) && !h.includes('aenaos-records.com')) {
     return html.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ')
   }
   return html
