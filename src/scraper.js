@@ -2,7 +2,6 @@ const bandcamp = require('./bandcamp.js')
 const fs = require('fs/promises')
 const path = require('path')
 const { getLabelArtistUrls } = require('./bandcampApi')
-const { enrichAlbumsWithStreamingLinks, fetchArtistStreamingLinks } = require('./odesli')
 
 const DELAY_MS = 1500 // delay between requests to avoid rate limiting
 
@@ -157,13 +156,6 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
 
     console.log(`  ✓ ${artistInfo.name} — ${albums.length} album(s)`)
 
-    // Enrich with streaming links via Odesli
-    if (albums.length > 0) {
-      console.log(`  → Fetching streaming links for ${artistInfo.name}...`)
-      await enrichAlbumsWithStreamingLinks(albums, artistInfo.name)
-    }
-    const artistStreamingLinks = await fetchArtistStreamingLinks(artistUrl)
-
     artists.push({
       url: artistUrl,
       name: artistInfo.name,
@@ -171,12 +163,75 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
       description: artistInfo.description,
       coverImage: artistInfo.coverImage,
       bandLinks: artistInfo.bandLinks,
-      streamingLinks: artistStreamingLinks || undefined,
+      streamingLinks: undefined,
       albums
     })
   }
 
   console.log(`Scraping complete. ${artists.length} artist(s) collected.`)
+
+  // ── Scrape label page for compilations (Various Artists) ──────────────────
+  if (labelUrl) {
+    const labelClean = cleanUrl(labelUrl)
+    // Only scrape if the label URL isn't already in the artist list
+    if (!artistUrls.includes(labelClean)) {
+      try {
+        console.log(`\nScraping label page for compilations: ${labelClean}`)
+        await delay(DELAY_MS)
+        const labelAlbumUrls = await bandcamp.getAlbumUrls(labelClean)
+        // Filter to albums not already scraped under any artist
+        const allScrapedUrls = new Set()
+        for (const a of artists) {
+          for (const al of a.albums) {
+            if (al.url) allScrapedUrls.add(al.url.replace(/\/+$/, ''))
+          }
+        }
+        const compilationUrls = labelAlbumUrls.filter(u => !allScrapedUrls.has(u.replace(/\/+$/, '')))
+        if (compilationUrls.length > 0) {
+          console.log(`  Found ${compilationUrls.length} compilation(s) not under any artist`)
+          const compilationAlbums = []
+          for (const albumUrl of compilationUrls) {
+            try {
+              console.log(`  → Compilation: ${albumUrl}`)
+              await delay(DELAY_MS)
+              const albumInfo = await bandcamp.getAlbumInfo(albumUrl)
+              if (albumInfo) {
+                compilationAlbums.push({
+                  url: albumUrl,
+                  title: albumInfo.title,
+                  artist: 'Various Artists',
+                  imageUrl: albumInfo.imageUrl,
+                  tracks: albumInfo.tracks,
+                  tags: albumInfo.tags,
+                  raw: albumInfo.raw
+                })
+              }
+            } catch (err) {
+              console.warn(`    Error: ${err.message}`)
+            }
+          }
+          if (compilationAlbums.length > 0) {
+            artists.push({
+              url: labelClean,
+              name: 'Various Artists',
+              location: null,
+              description: null,
+              coverImage: null,
+              bandLinks: [],
+              streamingLinks: undefined,
+              albums: compilationAlbums
+            })
+            console.log(`  ✓ Various Artists — ${compilationAlbums.length} compilation(s)`)
+          }
+        } else {
+          console.log('  No compilations found on label page')
+        }
+      } catch (err) {
+        console.warn(`  Could not scrape label page: ${err.message}`)
+      }
+    }
+  }
+
   return {
     scrapedAt: new Date().toISOString(),
     artists

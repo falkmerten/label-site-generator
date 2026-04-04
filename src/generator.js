@@ -70,7 +70,12 @@ async function generate(options) {
   console.log('Copying assets...');
   await copyAssets(mergedData, contentDir, outputDir);
 
-  // Step 9: Generate redirects
+  // Step 9: Optimize images (resize + WebP conversion)
+  console.log('Optimizing images...');
+  const { optimizeImages } = require('./imageOptimizer');
+  await optimizeImages(outputDir);
+
+  // Step 10: Generate redirects
   await generateRedirects(contentDir, outputDir);
 
   return { outputDir, pageCount };

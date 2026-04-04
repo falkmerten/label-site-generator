@@ -39,6 +39,9 @@ async function renderSite(data, pages, outputDir, labelName) {
   // Custom filter: check if a URL is a local file (not http/https)
   env.addFilter('isLocal', (url) => url && !url.startsWith('http'));
 
+  // Custom filter: convert image path to WebP equivalent
+  env.addFilter('toWebp', (url) => url ? url.replace(/\.(jpg|jpeg|png)$/i, '.webp') : url);
+
   // Custom filter: URL-encode a string
   env.addFilter('urlencode', (str) => encodeURIComponent(str || ''));
 
@@ -151,10 +154,12 @@ async function renderSite(data, pages, outputDir, labelName) {
       })
     : allAlbums;
 
-  // Sort artists alphabetically
-  const sortedArtists = [...(data.artists || [])].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  );
+  // Sort artists alphabetically, exclude compilations from artist grid
+  const sortedArtists = [...(data.artists || [])]
+    .filter(a => a.name.toLowerCase() !== 'various artists' && a.name.toLowerCase() !== 'various')
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
 
   const baseCtx = {
     artists: sortedArtists,
@@ -208,6 +213,9 @@ async function renderSite(data, pages, outputDir, labelName) {
 
   // --- artist + album pages ---
   for (const artist of data.artists || []) {
+    // Skip compilation/label entries — their albums appear on releases page but no artist page
+    if (artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various') continue
+
     const artistDir = path.join(outputDir, 'artists', artist.slug);
     await fs.mkdir(artistDir, { recursive: true });
     const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
