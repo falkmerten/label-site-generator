@@ -302,8 +302,13 @@ async function fetchArtistAlbums (token, artistUrl) {
       if (result.statusCode === 429 || result.raw === 'Too many requests') {
         const retryAfter = parseInt(result.headers['retry-after'] || '1', 10)
         if (retryAfter > 60) {
-          console.warn(`[warn] fetchArtistAlbums: Spotify requests a ${retryAfter}s wait — quota likely exhausted. Spotify rate limits reset after ~30 minutes of inactivity. Check your app at developer.spotify.com`)
-          return null
+          const hours = Math.ceil(retryAfter / 3600)
+          console.warn(`[warn] fetchArtistAlbums: Spotify rate limited for ~${hours}h (retry-after: ${retryAfter}s). Spotify rate limits reset after ~30 minutes of inactivity.`)
+          // Throw a typed error so the enricher can catch it and disable Spotify
+          const err = new Error(`Spotify rate limited (retry-after: ${retryAfter}s)`)
+          err.statusCode = 429
+          err.retryAfter = retryAfter
+          throw err
         }
         // Exponential backoff: retryAfter * 2^attempt, capped at 30s
         const backoff = Math.min(retryAfter * Math.pow(2, attempt), 30)
@@ -328,33 +333,72 @@ async function fetchArtistAlbums (token, artistUrl) {
     return null
   }
 
-  // Fetch all pages
+  // Fetch all pages — only album and single (not appears_on/compilation to avoid
+  // pulling Various Artists compilations into individual artist catalogs)
   const allItems = []
+  const seenIds = new Set()
   let offset = 0
-  const limit = 10
 
   while (true) {
-    const qs = `include_groups=album,single&limit=${limit}&offset=${offset}`
+    const qs = `include_groups=album,single&offset=${offset}`
     const data = await artistGet(`/v1/artists/${artistId}/albums?${qs}`)
 
     if (!data || !data.items || data.items.length === 0) break
-    allItems.push(...data.items)
-    if (data.items.length < limit) break
-    offset += limit
+    for (const item of data.items) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id)
+        allItems.push(item)
+      }
+    }
+    if (!data.next) break
+    offset += data.items.length
     await delay(DELAY_MS)
   }
 
+  // Batch-fetch UPCs using Get Several Albums (up to 20 per call)
+  // This reduces API calls from N to ceil(N/20)
   const results = []
-  for (const item of allItems) {
+  for (let i = 0; i < allItems.length; i += 20) {
+    const batch = allItems.slice(i, i + 20)
+    const ids = batch.map(item => item.id).join(',')
     await delay(DELAY_MS)
-    const upc = await getAlbumUpc(token, item.id)
-    results.push({
-      title: item.name,
-      spotifyUrl: item.external_urls.spotify,
-      upc,
-      albumType: item.album_type,
-      releaseDate: item.release_date ? new Date(item.release_date).toISOString() : null
-    })
+    const batchData = await artistGet(`/v1/albums?ids=${ids}`)
+    if (batchData && batchData.albums) {
+      for (let j = 0; j < batchData.albums.length; j++) {
+        const full = batchData.albums[j]
+        const item = batch[j]
+        if (!full) {
+          // Album not found in batch response, use basic data
+          results.push({
+            title: item.name,
+            spotifyUrl: item.external_urls.spotify,
+            upc: null,
+            albumType: item.album_type,
+            releaseDate: item.release_date ? new Date(item.release_date).toISOString() : null
+          })
+          continue
+        }
+        const upc = (full.external_ids && full.external_ids.upc) || null
+        results.push({
+          title: full.name,
+          spotifyUrl: full.external_urls.spotify,
+          upc,
+          albumType: full.album_type,
+          releaseDate: full.release_date ? new Date(full.release_date).toISOString() : null
+        })
+      }
+    } else {
+      // Batch call failed, fall back to basic data without UPCs
+      for (const item of batch) {
+        results.push({
+          title: item.name,
+          spotifyUrl: item.external_urls.spotify,
+          upc: null,
+          albumType: item.album_type,
+          releaseDate: item.release_date ? new Date(item.release_date).toISOString() : null
+        })
+      }
+    }
   }
   return results
 }
@@ -452,4 +496,4 @@ function formatDuration (ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums }
+module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc }

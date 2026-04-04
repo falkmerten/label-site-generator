@@ -4,6 +4,36 @@
 
 ---
 
+### v3.1.1 — 2026-04-04
+
+**Bug fixes — Enrichment fallback chain**
+- Fixed Soundcharts pre-check wasting 35+ seconds retrying on rate limit — now uses a single API call with no retry
+- Fixed Soundcharts quota exhaustion mid-artist not triggering immediate fallback to Spotify — previously only detected after the artist was fully processed
+- Fixed Spotify label fallback blocked when SC credentials exist but quota is exhausted — guard now checks actual mode, not just credential presence
+- Fixed `fetchArtistAlbums` silently returning empty on Spotify rate limit — now throws a typed error so the enricher disables Spotify for remaining artists immediately
+- Fixed `fetchArtistAlbums` rate limit error crashing the enrichment run in Soundcharts mode — now caught and handled gracefully
+- Fixed Spotify `limit` parameter rejected by API (HTTP 400 "Invalid limit") — removed explicit limit, uses Spotify's default page size with `data.next` pagination
+- Optimized `fetchArtistAlbums` UPC fetching — batch endpoint (`/v1/albums?ids=`) replaces per-album calls, reducing Spotify API calls from ~263 to ~62 for a full enrich
+
+**Bug fixes — Compilation handling**
+- Fixed scraper classifying all unscraped label page albums as "Various Artists" — now checks actual Bandcamp artist field, only albums with artist "Various Artists"/"various" are treated as compilations
+- Fixed `fetchArtistAlbums` pulling `appears_on` compilations into individual artist catalogs — reverted to `album,single` groups only
+- Fixed compilation album pages not being created — renderer now generates album pages for Various Artists while skipping the artist page and grid entry
+- Fixed compilation album page back-links pointing to non-existent `/artists/various-artists/` — now links to `/releases/` page
+- Fixed renderer label filter excluding label Bandcamp albums without a matching homepage label — albums from `BANDCAMP_LABEL_URL` origin always included
+
+**Bug fixes — Audit & data quality**
+- Fixed duplicate album detection false positives for album+single pairs with same title (multiple artists) — now considers item type and URL
+- Normalized inconsistent label names across catalog
+- Removed spurious `appears_on` artifact from cache
+
+**Data recovery**
+- Restored missing album from cache backup
+- Scraped and added missing EP from Bandcamp
+- Added "Join the dark side, we have the music!" compilation under Various Artists
+
+---
+
 ### v3.1.0 — 2026-04-03
 
 **Bandcamp URL verification**

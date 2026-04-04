@@ -397,7 +397,8 @@ module.exports = {
   getAlbumByUpc,
   getAlbumIdentifiers,
   getArtistEvents,
-  // Exported for testing
+  // Exported for testing / quota pre-check
+  scGet,
   mapIdentifiersToLinks,
   normalizeAlbumMeta,
   categorizeLinks

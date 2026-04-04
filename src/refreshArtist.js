@@ -3,6 +3,7 @@
 const bandcamp = require('./bandcamp.js')
 const { readCache, writeCache } = require('./cache')
 const { toSlug } = require('./slugs')
+const readline = require('readline')
 
 const DELAY_MS = 1500
 
@@ -11,8 +12,158 @@ function delay (ms) {
 }
 
 /**
+ * All album-level enrichment fields that must be preserved during re-scrape.
+ */
+const ALBUM_ENRICHMENT_FIELDS = [
+  'streamingLinks', 'upc', 'discogsUrl', 'discogsSellUrl',
+  'discogsSellUrlVinyl', 'discogsSellUrlCd', 'discogsSellUrlCassette',
+  'physicalFormats', 'catalogNumber', 'labelName', 'labelUrl', 'labelUrls',
+  'videos', 'soundchartsUuid', 'soundchartsEnriched', 'spotifyLabel',
+  'distributor', 'copyright', 'description'
+]
+
+/**
+ * All artist-level enrichment fields that must be preserved during re-scrape.
+ */
+const ARTIST_ENRICHMENT_FIELDS = [
+  'streamingLinks', 'socialLinks', 'discoveryLinks', 'eventLinks',
+  'events', 'soundchartsUuid'
+]
+
+/**
+ * Computes the Levenshtein distance between two strings.
+ * Returns a ratio between 0 (identical) and 1 (completely different).
+ * @param {string} a
+ * @param {string} b
+ * @returns {number}
+ */
+function levenshteinRatio (a, b) {
+  if (!a && !b) return 0
+  if (!a || !b) return 1
+  const la = a.length
+  const lb = b.length
+  if (la === 0 && lb === 0) return 0
+  if (la === 0 || lb === 0) return 1
+
+  const matrix = Array.from({ length: la + 1 }, (_, i) => {
+    const row = new Array(lb + 1)
+    row[0] = i
+    return row
+  })
+  for (let j = 0; j <= lb; j++) matrix[0][j] = j
+
+  for (let i = 1; i <= la; i++) {
+    for (let j = 1; j <= lb; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      )
+    }
+  }
+
+  const distance = matrix[la][lb]
+  return distance / Math.max(la, lb)
+}
+
+/**
+ * Detects significant conflicts between cached and scraped artist data.
+ * @param {object} cachedArtist
+ * @param {Array} scrapedAlbums - newly scraped albums
+ * @returns {Array} conflicts - array of { albumUrl, field, oldValue, newValue }
+ */
+function detectConflicts (cachedArtist, scrapedAlbums) {
+  const conflicts = []
+  const cachedAlbums = cachedArtist.albums || []
+
+  for (const scraped of scrapedAlbums) {
+    const cached = cachedAlbums.find(a => a.url === scraped.url)
+    if (!cached) continue
+
+    // Title change (case-insensitive)
+    const cachedTitle = (cached.title || '').trim()
+    const scrapedTitle = (scraped.title || '').trim()
+    if (cachedTitle.toLowerCase() !== scrapedTitle.toLowerCase() && cachedTitle && scrapedTitle) {
+      conflicts.push({
+        albumUrl: scraped.url,
+        field: 'title',
+        oldValue: cachedTitle,
+        newValue: scrapedTitle
+      })
+    }
+
+    // Track count differs by more than 1
+    const cachedTrackCount = (cached.tracks || []).length
+    const scrapedTrackCount = (scraped.tracks || []).length
+    if (Math.abs(cachedTrackCount - scrapedTrackCount) > 1) {
+      conflicts.push({
+        albumUrl: scraped.url,
+        field: 'trackCount',
+        oldValue: String(cachedTrackCount),
+        newValue: String(scrapedTrackCount)
+      })
+    }
+
+    // Description changed by more than 20%
+    const cachedDesc = cached.description || (cached.raw && cached.raw.current && cached.raw.current.about) || ''
+    const scrapedDesc = (scraped.raw && scraped.raw.current && scraped.raw.current.about) || ''
+    if (cachedDesc && scrapedDesc) {
+      const ratio = levenshteinRatio(cachedDesc, scrapedDesc)
+      if (ratio > 0.2) {
+        conflicts.push({
+          albumUrl: scraped.url,
+          field: 'description',
+          oldValue: cachedDesc.slice(0, 80) + (cachedDesc.length > 80 ? '...' : ''),
+          newValue: scrapedDesc.slice(0, 80) + (scrapedDesc.length > 80 ? '...' : '')
+        })
+      }
+    }
+  }
+
+  return conflicts
+}
+
+/**
+ * Prompts the user to resolve conflicts. In non-interactive mode, defaults to 'keep cached'.
+ * @param {Array} conflicts
+ * @returns {Promise<string>} 'keep-cached' | 'overwrite'
+ */
+async function promptConflictResolution (conflicts) {
+  // Display conflict summary
+  console.log(`\n  ⚠ ${conflicts.length} conflict(s) detected:`)
+  for (const c of conflicts) {
+    console.log(`    ${c.field} @ ${c.albumUrl}`)
+    console.log(`      cached:  ${c.oldValue}`)
+    console.log(`      scraped: ${c.newValue}`)
+  }
+
+  // Non-interactive mode: default to keep cached
+  const isInteractive = process.stdin.isTTY && !process.env.CI
+  if (!isInteractive) {
+    console.log('  → Non-interactive mode: keeping cached data (default)')
+    return 'keep-cached'
+  }
+
+  // Interactive prompt
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise(resolve => {
+    rl.question('\n  Choose: (k)eep cached data [default] / (o)verwrite with scraped data? ', answer => {
+      rl.close()
+      const choice = (answer || '').trim().toLowerCase()
+      if (choice === 'o' || choice === 'overwrite') {
+        resolve('overwrite')
+      } else {
+        resolve('keep-cached')
+      }
+    })
+  })
+}
+
+/**
  * Re-scrapes a single artist and updates the cache in place.
  * Matches by artist name or slug.
+ * Preserves all enrichment fields and retains albums that disappear from Bandcamp.
  *
  * @param {string} cachePath
  * @param {string} artistFilter - artist name or slug to match
@@ -59,32 +210,21 @@ async function refreshArtist (cachePath, artistFilter) {
   }
   if (albumUrls.length === 0) albumUrls = (artistInfo.albums || []).map(a => a.url)
 
-  const albums = []
+  const scrapedAlbums = []
   for (const albumUrl of albumUrls) {
     try {
       console.log(`  → Album: ${albumUrl}`)
       await delay(DELAY_MS)
       const albumInfo = await bandcamp.getAlbumInfo(albumUrl)
       if (albumInfo) {
-        // Preserve existing enrichment data (streamingLinks, upc, discogs etc.)
-        const existing = artist.albums.find(a => a.url === albumUrl)
-        albums.push({
+        scrapedAlbums.push({
           url: albumUrl,
           title: albumInfo.title,
           artist: albumInfo.artist,
           imageUrl: albumInfo.imageUrl,
           tracks: albumInfo.tracks,
           tags: albumInfo.tags,
-          raw: albumInfo.raw,
-          // Preserve enriched data from previous runs
-          streamingLinks: existing ? existing.streamingLinks : undefined,
-          upc: existing ? existing.upc : undefined,
-          discogsUrl: existing ? existing.discogsUrl : undefined,
-          discogsSellUrl: existing ? existing.discogsSellUrl : undefined,
-          physicalFormats: existing ? existing.physicalFormats : undefined,
-          catalogNumber: existing ? existing.catalogNumber : undefined,
-          labelName: existing ? existing.labelName : undefined,
-          videos: existing ? existing.videos : undefined,
+          raw: albumInfo.raw
         })
       }
     } catch (err) {
@@ -92,11 +232,58 @@ async function refreshArtist (cachePath, artistFilter) {
     }
   }
 
-  console.log(`  ✓ ${artistInfo.name} — ${albums.length} album(s)`)
+  console.log(`  ✓ ${artistInfo.name} — ${scrapedAlbums.length} album(s) scraped`)
 
-  // Update artist in cache
+  // Detect conflicts before applying changes
+  const conflicts = detectConflicts(artist, scrapedAlbums)
+  let resolution = 'overwrite'
+  if (conflicts.length > 0) {
+    resolution = await promptConflictResolution(conflicts)
+    console.log(`  → Resolution: ${resolution}`)
+  }
+
+  // Build final album list, preserving enrichment fields
+  const scrapedUrlSet = new Set(albumUrls)
+  const albums = []
+
+  for (const scraped of scrapedAlbums) {
+    const existing = artist.albums.find(a => a.url === scraped.url)
+    const album = { ...scraped }
+
+    // Preserve all enrichment fields from existing cached album
+    if (existing) {
+      for (const field of ALBUM_ENRICHMENT_FIELDS) {
+        if (existing[field] !== undefined && existing[field] !== null) {
+          album[field] = existing[field]
+        }
+      }
+
+      // If resolution is 'keep-cached', keep cached scraped fields too
+      if (resolution === 'keep-cached') {
+        album.title = existing.title || scraped.title
+        album.tracks = (existing.tracks && existing.tracks.length > 0) ? existing.tracks : scraped.tracks
+        if (existing.raw && existing.raw.current && existing.raw.current.about) {
+          album.raw = album.raw || {}
+          album.raw.current = album.raw.current || {}
+          album.raw.current.about = existing.raw.current.about
+        }
+      }
+    }
+
+    albums.push(album)
+  }
+
+  // Retain cached albums not found during re-scrape
+  for (const cached of (artist.albums || [])) {
+    if (cached.url && !scrapedUrlSet.has(cached.url)) {
+      console.warn(`  ⚠ Album not found during re-scrape, retaining cached: "${cached.title}" (${cached.url})`)
+      albums.push(cached)
+    }
+  }
+
+  // Update artist in cache, preserving artist-level enrichment fields
   const idx = data.artists.findIndex(a => a.url === artist.url)
-  data.artists[idx] = {
+  const updatedArtist = {
     ...artist,
     name: artistInfo.name,
     location: artistInfo.location,
@@ -106,8 +293,24 @@ async function refreshArtist (cachePath, artistFilter) {
     albums
   }
 
+  // Preserve artist-level enrichment fields
+  for (const field of ARTIST_ENRICHMENT_FIELDS) {
+    if (artist[field] !== undefined && artist[field] !== null) {
+      updatedArtist[field] = artist[field]
+    }
+  }
+
+  data.artists[idx] = updatedArtist
+
   await writeCache(cachePath, data)
   console.log(`Cache updated for ${artistInfo.name}.`)
 }
 
-module.exports = { refreshArtist }
+module.exports = {
+  refreshArtist,
+  levenshteinRatio,
+  detectConflicts,
+  promptConflictResolution,
+  ALBUM_ENRICHMENT_FIELDS,
+  ARTIST_ENRICHMENT_FIELDS
+}

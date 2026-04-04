@@ -40,7 +40,7 @@
   "name": {{ album.title | dump | safe }},
   "byArtist": {
     "@type": "MusicGroup",
-    "name": {{ artist.name | dump | safe }}{% if siteUrl %},
+    "name": {{ artist.name | dump | safe }}{% if siteUrl and not isCompilation %},
     "url": {{ (siteUrl + 'artists/' + artist.slug + '/') | dump | safe }}{% endif %}
   }{% if album.releaseDate %},
   "datePublished": "{{ album.releaseDate | truncate(10, true, '') }}"{% endif %}{% if album.upc %},
@@ -71,10 +71,10 @@
         <div class="artist-hero-bg"></div>
       </div>
       <div class="artist-hero-overlay">
-        <p class="artist-hero-location"><a href="{{ rootPath }}artists/{{ artist.slug }}/" style="color:inherit">{{ artist.name }}</a></p>
+        <p class="artist-hero-location"><a href="{% if isCompilation %}{{ rootPath }}releases/{% else %}{{ rootPath }}artists/{{ artist.slug }}/{% endif %}" style="color:inherit">{{ artist.name }}</a></p>
         <h1 class="artist-hero-name">{{ album.title }}</h1>
       </div>
-      <a href="{{ rootPath }}artists/{{ artist.slug }}/" class="artist-hero-logo-link">
+      <a href="{% if isCompilation %}{{ rootPath }}releases/{% else %}{{ rootPath }}artists/{{ artist.slug }}/{% endif %}" class="artist-hero-logo-link">
         {% if album.artwork | isLocal %}
         <picture>
           <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
@@ -100,7 +100,7 @@
 
     <div class="album-header">
       <div class="album-header-text">
-        <p class="album-artist"><a href="{{ rootPath }}artists/{{ artist.slug }}/">{{ artist.name }}</a></p>
+        <p class="album-artist"><a href="{% if isCompilation %}{{ rootPath }}releases/{% else %}{{ rootPath }}artists/{{ artist.slug }}/{% endif %}">{{ artist.name }}</a></p>
         {% if album.tags and album.tags.length %}
           <ul class="tags">
             {% for tag in album.tags %}

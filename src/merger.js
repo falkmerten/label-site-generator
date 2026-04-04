@@ -6,6 +6,19 @@ const { toSlug } = require('./slugs')
 const { renderMarkdown } = require('./markdown')
 
 /**
+ * Returns the first non-null, non-undefined value from the arguments.
+ * Used to enforce the content > cache > scraped priority hierarchy.
+ * @param {...*} values
+ * @returns {*}
+ */
+function pickFirst (...values) {
+  for (const v of values) {
+    if (v !== null && v !== undefined) return v
+  }
+  return null
+}
+
+/**
  * Strips Bandcamp's "... more" truncation suffix from bio text.
  */
 function stripMoreSuffix (text) {
@@ -144,15 +157,16 @@ async function mergeData (rawData, content) {
         }
       }
 
-      // Apply content overrides
+      // Apply content overrides with content > cache > scraped priority
       let biography
       if (artistContent.bioPath) {
         const mdContent = await fs.readFile(artistContent.bioPath, 'utf8')
         biography = renderMarkdown(mdContent)
       } else {
-        biography = stripMoreSuffix(artist.description)
+        biography = pickFirst(artist.biography, stripMoreSuffix(artist.description))
       }
 
+      const location = pickFirst(artist.location)
       const photo = artistContent.photoPath ? path.basename(artistContent.photoPath) : artist.coverImage
 
       const albums = await Promise.all(
@@ -223,8 +237,12 @@ async function mergeData (rawData, content) {
             albumId,
             itemType: (album.raw && album.raw.item_type) || album.itemType || 'album',
             releaseDate: rawReleaseDate2 ? new Date(rawReleaseDate2).toISOString() : (album.releaseDate || null),
-            description: (rawCurrent && rawCurrent.about) ? rawCurrent.about : (album.description || null),
-            credits: (rawCurrent && rawCurrent.credits) ? rawCurrent.credits : null,
+            description: pickFirst(
+              notes,
+              album.description,
+              (rawCurrent && rawCurrent.about) ? rawCurrent.about : null
+            ),
+            credits: pickFirst(album.credits, (rawCurrent && rawCurrent.credits) ? rawCurrent.credits : null),
             streamingLinks: album.streamingLinks || null,
             upc: album.upc || null,
             physicalFormats: album.physicalFormats || (bandcampPhysicalFormats2.length ? bandcampPhysicalFormats2 : null),
@@ -246,6 +264,7 @@ async function mergeData (rawData, content) {
 
           if (notes !== undefined) {
             mergedAlbum.notes = notes
+            // Content notes also serve as the description override (content > cache > scraped)
           }
 
           if (albumContent && albumContent.videos) {
@@ -270,7 +289,7 @@ async function mergeData (rawData, content) {
       const mergedArtist = {
         url: artist.url,
         name: artist.name,
-        location: artist.location,
+        location,
         biography,
         photo,
         galleryImages: (artistContent.galleryImages || []).map(p => path.basename(p)),
@@ -367,4 +386,4 @@ async function mergeData (rawData, content) {
   }
 }
 
-module.exports = { mergeData, extractAlbumId }
+module.exports = { mergeData, extractAlbumId, pickFirst }

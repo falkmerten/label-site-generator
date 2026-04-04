@@ -30,7 +30,8 @@ const {
   resetCallCount,
   mapIdentifiersToLinks,
   categorizeLinks,
-  getArtistEvents
+  getArtistEvents,
+  scGet
 } = require('./soundcharts')
 
 /**
@@ -690,17 +691,39 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
   const artistConfig = await loadArtistConfig(contentDir)
 
-  // Log active mode
-  if (hasSoundcharts && !options.tidalOnly) {
-    console.log('  ✓ Soundcharts mode (SOUNDCHARTS_APP_ID + SOUNDCHARTS_API_KEY detected)')
+  // Log active mode — pre-check SC quota with a single lightweight call (no retries)
+  let scAvailable = hasSoundcharts && !options.tidalOnly
+  if (scAvailable) {
+    console.log('  ✓ Soundcharts credentials detected — checking quota...')
     resetCallCount()
-  } else if (options.tidalOnly) {
-    console.log('  → Tidal-only mode')
-  } else {
+    // Single call to check quota header — no retry on 429
+    let preCheckResult = null
+    try {
+      preCheckResult = await scGet('/api/v2.9/artist/by-platform/spotify/0000000000000000000000', scAppId, scApiKey)
+    } catch { /* ignore */ }
+    const quota = getQuotaRemaining()
+
+    if (preCheckResult && preCheckResult.statusCode === 429 && (quota === null || quota > 0)) {
+      // Rate-limited but quota not exhausted — SC is temporarily unavailable
+      console.warn('  ⚠ Soundcharts rate limited on pre-check. Falling back to legacy mode for this run.')
+      scAvailable = false
+      resetCallCount()
+    } else if (quota !== null && quota <= 0) {
+      console.warn('  ⚠ Soundcharts monthly quota exhausted (0 credits). Falling back to legacy mode.')
+      console.warn('  ⚠ Quota resets on the 1st of each month.')
+      scAvailable = false
+      resetCallCount()
+    } else {
+      console.log(`  ✓ Soundcharts mode active (quota: ${quota !== null ? quota : 'unknown'})`)
+    }
+  }
+  if (!scAvailable && !options.tidalOnly) {
     console.log('  → Legacy mode (Spotify + per-platform lookups)')
     if (!hasSpotify) console.log('  (No SPOTIFY_CLIENT_ID/SECRET — skipping Spotify)')
     if (!hasTidal)   console.log('  (No TIDAL_CLIENT_ID/SECRET — skipping Tidal)')
     if (hasMusicFetch) console.log('  (MusicFetch active — will fill remaining gaps)')
+  } else if (options.tidalOnly) {
+    console.log('  → Tidal-only mode')
   }
 
   // ── Artist filter (Task 6.2) ──────────────────────────────────────────────
@@ -735,6 +758,13 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   // Quota tracking state (Task 4)
   const quotaState = { firstQuotaLogged: false, quotaExhausted: false, callCount: 0 }
 
+  // Fallback state — tracks mid-run service disablement
+  const fallbackState = {
+    soundchartsDisabled: false,
+    spotifyDisabled: false,
+    spotifyRetryAfter: null
+  }
+
   // Gap-fill call counting (Task 3.8)
   const gapFillCounts = { itunes: 0, deezer: 0, tidal: 0, musicfetch: 0 }
 
@@ -749,10 +779,13 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     const slug = toSlug(artist.name)
     const config = artistConfig[slug] || {}
 
+    // Determine if SC is available for this artist (may have been disabled mid-run)
+    let useScForThisArtist = scAvailable && !fallbackState.soundchartsDisabled
+
     // ══════════════════════════════════════════════════════════════════════════
     // SOUNDCHARTS MODE
     // ══════════════════════════════════════════════════════════════════════════
-    if (hasSoundcharts && !options.tidalOnly) {
+    if (useScForThisArtist) {
 
       // ── Step 1: Spotify album list (source of truth for album catalog) ────
       if (hasSpotify && spotifyToken) {
@@ -770,9 +803,20 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
           try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
           console.log('  → Spotify album list (source of truth)...')
-          const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
-          if (spotifyAlbums.length > 0) {
-            artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+          try {
+            const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
+            if (spotifyAlbums.length > 0) {
+              artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+            }
+          } catch (spotifyErr) {
+            if (spotifyErr.statusCode === 429 || (spotifyErr.message && spotifyErr.message.includes('429'))) {
+              fallbackState.spotifyDisabled = true
+              fallbackState.spotifyRetryAfter = spotifyErr.retryAfter || null
+              const hours = spotifyErr.retryAfter ? Math.ceil(spotifyErr.retryAfter / 3600) : '?'
+              console.warn(`  ⚠ [fallback] Spotify rate limited (429). Retry in ~${hours}h. Disabling Spotify for remaining artists.`)
+            } else {
+              console.warn(`  ⚠ [spotify] Album list fetch failed: ${spotifyErr.message}`)
+            }
           }
         }
       }
@@ -787,6 +831,49 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
       // ── Step 2: Soundcharts enrichment (artist + albums) ──────────────────
       await soundchartsEnrichArtist(artist, config, scAppId, scApiKey, quotaState)
+
+      // ── Mid-artist fallback: if SC quota exhausted during this artist, switch now ──
+      if (quotaState.quotaExhausted && !fallbackState.soundchartsDisabled) {
+        fallbackState.soundchartsDisabled = true
+        useScForThisArtist = false
+        console.warn(`\n  ⚠ [fallback] Soundcharts quota exhausted mid-run during "${artist.name}".`)
+        console.warn('  ⚠ [fallback] Switching to legacy enrichment (Spotify + per-platform) for remaining artists.')
+        console.warn('  ⚠ [fallback] Soundcharts quota resets on the 1st of each month.')
+
+        // Run Spotify metadata/artwork for this artist since SC couldn't finish
+        if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled) {
+          try {
+            // Spotify-only album metadata
+            const spotifyOnly = (artist.albums || []).filter(al => !al.url && al.streamingLinks && al.streamingLinks.spotify)
+            if (spotifyOnly.length > 0) {
+              console.log(`  → Spotify metadata for ${spotifyOnly.length} Spotify-only album(s) (fallback)...`)
+              await enrichSpotifyOnlyAlbums(spotifyOnly, spotifyToken)
+            }
+            // Artwork for Bandcamp albums missing it
+            const missingArtwork = (artist.albums || []).filter(al => al.url && !al.artwork && al.streamingLinks && al.streamingLinks.spotify)
+            if (missingArtwork.length > 0) {
+              console.log(`  → Fetching artwork from Spotify for ${missingArtwork.length} album(s) (fallback)...`)
+              await enrichSpotifyOnlyAlbums(missingArtwork, spotifyToken)
+            }
+            // Spotify name search for albums still missing Spotify links
+            const stillMissingSpotify = (artist.albums || []).filter(al => !(al.streamingLinks && al.streamingLinks.spotify))
+            if (stillMissingSpotify.length > 0) {
+              console.log(`  → Spotify name search for ${stillMissingSpotify.length} album(s) (fallback)...`)
+              await enrichAlbumsWithSpotify(stillMissingSpotify, artist.name, spotifyClientId, spotifyClientSecret)
+            }
+          } catch (spotifyErr) {
+            if (spotifyErr.statusCode === 429 || spotifyErr.status === 429 || (spotifyErr.message && spotifyErr.message.includes('429'))) {
+              const retryAfter = spotifyErr.retryAfter || spotifyErr.headers && spotifyErr.headers['retry-after']
+              fallbackState.spotifyDisabled = true
+              fallbackState.spotifyRetryAfter = retryAfter || null
+              const retryMsg = retryAfter ? ` (retry after ${retryAfter}s)` : ''
+              console.warn(`  ⚠ [fallback] Spotify rate limited (429)${retryMsg}. Disabling Spotify for remaining artists.`)
+            } else {
+              console.warn(`  ⚠ [spotify] Error: ${spotifyErr.message}`)
+            }
+          }
+        }
+      }
 
       // ── Gap-fill: iTunes/Deezer/Tidal/MusicFetch for albums still missing links ──
       // NO Spotify calls in Soundcharts mode (Task 3.7)
@@ -899,11 +986,16 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
     } else if (!options.tidalOnly) {
       // ════════════════════════════════════════════════════════════════════════
-      // LEGACY MODE (no Soundcharts credentials)
+      // LEGACY MODE (no Soundcharts credentials, or SC disabled mid-run)
       // ════════════════════════════════════════════════════════════════════════
 
+      if (fallbackState.soundchartsDisabled && scAvailable) {
+        console.log('  → Soundcharts disabled mid-run, using legacy enrichment path')
+      }
+
       // ── Step 1: Spotify ─────────────────────────────────────────────────────
-      if (hasSpotify && spotifyToken) {
+      if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled) {
+        try {
 
         // 1a. Artist-level Spotify URL
         if (!(artist.streamingLinks && artist.streamingLinks.spotify)) {
@@ -955,6 +1047,20 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
           if (stillMissingSpotify.length > 0) {
             console.log(`  → Spotify name search for ${stillMissingSpotify.length} album(s)...`)
             await enrichAlbumsWithSpotify(stillMissingSpotify, artist.name, spotifyClientId, spotifyClientSecret)
+          }
+        }
+
+        } catch (spotifyErr) {
+          // Detect Spotify 429 rate limit
+          if (spotifyErr.statusCode === 429 || spotifyErr.status === 429 || (spotifyErr.message && spotifyErr.message.includes('429'))) {
+            const retryAfter = spotifyErr.retryAfter || spotifyErr.headers && spotifyErr.headers['retry-after']
+            fallbackState.spotifyDisabled = true
+            fallbackState.spotifyRetryAfter = retryAfter || null
+            const retryMsg = retryAfter ? ` (retry after ${retryAfter}s)` : ''
+            console.warn(`  ⚠ [fallback] Spotify rate limited (429)${retryMsg}. Disabling Spotify for remaining artists.`)
+            console.warn('  ⚠ [fallback] Continuing with iTunes/Deezer/Tidal/Discogs.')
+          } else {
+            console.warn(`  ⚠ [spotify] Error: ${spotifyErr.message}`)
           }
         }
       }
@@ -1113,8 +1219,8 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
     }
 
-    // ── Spotify label fallback — legacy mode only ───────────────────────────
-    if (!hasSoundcharts && hasSpotify && spotifyToken && !options.tidalOnly) {
+    // ── Spotify label fallback — runs when not using SC for this artist ────
+    if (!useScForThisArtist && hasSpotify && spotifyToken && !options.tidalOnly && !fallbackState.spotifyDisabled) {
       const needsLabel = (artist.albums || []).filter(al =>
         !al.labelName && al.streamingLinks && al.streamingLinks.spotify
       )
@@ -1130,10 +1236,14 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         }
       }
     }
+
+    // ── Per-artist cache save (progress preservation) ───────────────────────
+    await writeCache(cachePath, data)
+    console.log(`  ✓ Cache saved after ${artist.name}`)
   }
 
   // ── End-of-run logging ──────────────────────────────────────────────────────
-  if (hasSoundcharts && !options.tidalOnly) {
+  if (scAvailable) {
     // Log quota remaining at end (Task 4.1)
     const endQuota = getQuotaRemaining()
     if (endQuota != null) {

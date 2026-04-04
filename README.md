@@ -138,11 +138,19 @@ node generate.js --init-content
 ### Content cleanup
 
 ```bash
-# Check for orphaned content folders
+# Check for orphaned content folders and run data quality audit
 node generate.js --cleanup
 ```
 
-Reports content folders that don't match any album in the cache. Dry-run only — doesn't delete anything.
+Reports content folders that don't match any album in the cache, plus data quality issues (missing labels, streaming links, UPCs, duplicates). Dry-run only — doesn't delete anything.
+
+### Compilations (Various Artists)
+
+The scraper automatically detects compilations on the label Bandcamp page (`BANDCAMP_LABEL_URL`). Albums where the Bandcamp artist field is "Various Artists" are collected under a special "Various Artists" entry:
+- Compilations appear on the releases page and homepage
+- Each compilation gets its own album page
+- No artist page or grid entry is created for Various Artists
+- Back-links on compilation album pages go to the releases page
 
 ### New release workflow
 
@@ -198,7 +206,7 @@ When `SOUNDCHARTS_APP_ID` and `SOUNDCHARTS_API_KEY` are set:
 4. **Gap-fill** — iTunes, Deezer, Tidal, MusicFetch called only for links Soundcharts didn't return. Spotify API is not called again.
 5. **Discogs** — physical formats, sell links, per-label URLs (unchanged).
 
-Budget: ~434 calls for 18 artists / 181 albums (initial run). Incremental runs only process new/changed albums.
+Budget: ~62 Spotify API calls + ~434 Soundcharts calls for 18 artists / 206 albums (initial run). Spotify calls optimized with batch UPC fetching. Incremental runs only process new/changed albums.
 
 ### Legacy mode (fallback)
 
@@ -421,7 +429,7 @@ Custom Nunjucks filters:
 | `src/tidal.js` | Tidal API: UPC lookup + title search (gap-fill / legacy) |
 | `src/discogs.js` | Discogs API: physical formats, per-label URLs, catalog number, videos, sell links |
 | `src/enricher.js` | Orchestrates the full enrichment pipeline (Soundcharts or legacy mode) |
-| `src/cleanup.js` | Reports orphaned content folders not matching any album in cache |
+| `src/cleanup.js` | Reports orphaned content folders and runs data quality audit on cache |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
 | `src/convertDocs.js` | Converts `.docx` files to `.md` using mammoth |

@@ -186,16 +186,22 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
             if (al.url) allScrapedUrls.add(al.url.replace(/\/+$/, ''))
           }
         }
-        const compilationUrls = labelAlbumUrls.filter(u => !allScrapedUrls.has(u.replace(/\/+$/, '')))
-        if (compilationUrls.length > 0) {
-          console.log(`  Found ${compilationUrls.length} compilation(s) not under any artist`)
+        const unscrapedUrls = labelAlbumUrls.filter(u => !allScrapedUrls.has(u.replace(/\/+$/, '')))
+        if (unscrapedUrls.length > 0) {
+          console.log(`  Found ${unscrapedUrls.length} unscraped album(s) on label page`)
           const compilationAlbums = []
-          for (const albumUrl of compilationUrls) {
+          for (const albumUrl of unscrapedUrls) {
             try {
-              console.log(`  → Compilation: ${albumUrl}`)
               await delay(DELAY_MS)
               const albumInfo = await bandcamp.getAlbumInfo(albumUrl)
-              if (albumInfo) {
+              if (!albumInfo) continue
+
+              // Check the actual artist field from Bandcamp
+              const bcArtist = (albumInfo.artist || '').toLowerCase().trim()
+              const isCompilation = bcArtist === 'various artists' || bcArtist === 'various'
+
+              if (isCompilation) {
+                console.log(`  → Compilation: "${albumInfo.title}" (${albumUrl})`)
                 compilationAlbums.push({
                   url: albumUrl,
                   title: albumInfo.title,
@@ -205,6 +211,11 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
                   tags: albumInfo.tags,
                   raw: albumInfo.raw
                 })
+              } else {
+                // Not a compilation — it's a regular album by a specific artist
+                // that happens to be on the label page. Skip it (it belongs to
+                // the artist's own page, or was already scraped there).
+                console.log(`  – Skipped (artist: "${albumInfo.artist}"): "${albumInfo.title}" (${albumUrl})`)
               }
             } catch (err) {
               console.warn(`    Error: ${err.message}`)
@@ -222,9 +233,11 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
               albums: compilationAlbums
             })
             console.log(`  ✓ Various Artists — ${compilationAlbums.length} compilation(s)`)
+          } else {
+            console.log('  No compilations found on label page')
           }
         } else {
-          console.log('  No compilations found on label page')
+          console.log('  No unscraped albums found on label page')
         }
       } catch (err) {
         console.warn(`  Could not scrape label page: ${err.message}`)

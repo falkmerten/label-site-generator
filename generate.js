@@ -192,8 +192,10 @@ async function run() {
     return;
   }
   if (options.cleanup) {
-    const { reportOrphanedContent } = require('./src/cleanup');
+    const { reportOrphanedContent, auditCache, printAuditReport } = require('./src/cleanup');
     await reportOrphanedContent(options.cachePath, options.contentDir);
+    const report = await auditCache(options.cachePath);
+    if (report) printAuditReport(report);
     return;
   }
   // Auto-convert any bio.docx files before generating

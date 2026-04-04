@@ -146,8 +146,15 @@ async function renderSite(data, pages, outputDir, labelName) {
   });
 
   // Filter albums for homepage/releases page by label if configured
+  const labelBandcampOrigin = (() => {
+    const url = process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || ''
+    try { return new URL(url).origin } catch { return '' }
+  })()
+
   const homepageAlbums = homepageLabels.length > 0
     ? allAlbums.filter(al => {
+        // Always include albums from the label's own Bandcamp page (compilations etc.)
+        if (labelBandcampOrigin && al.url && al.url.startsWith(labelBandcampOrigin)) return true
         if (!al.labelName) return false // no label = exclude when filter is active
         const labels = al.labelName.toLowerCase().split('/').map(s => s.trim())
         return labels.some(l => homepageLabels.includes(l))
@@ -213,31 +220,34 @@ async function renderSite(data, pages, outputDir, labelName) {
 
   // --- artist + album pages ---
   for (const artist of data.artists || []) {
-    // Skip compilation/label entries — their albums appear on releases page but no artist page
-    if (artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various') continue
+    const isCompilationArtist = artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various'
 
-    const artistDir = path.join(outputDir, 'artists', artist.slug);
-    await fs.mkdir(artistDir, { recursive: true });
-    const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
+    // Skip artist index page for compilations, but still create album pages
+    if (!isCompilationArtist) {
+      const artistDir = path.join(outputDir, 'artists', artist.slug);
+      await fs.mkdir(artistDir, { recursive: true });
+      const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
 
-    const artistHtml = nunjucks.render('artist.njk', {
-      ...baseCtx,
-      artist: {
-        ...artist,
-        albums: [...(artist.albums || [])].sort((a, b) => {
-          if (!a.releaseDate && !b.releaseDate) return 0;
-          if (!a.releaseDate) return 1;
-          if (!b.releaseDate) return -1;
-          return new Date(b.releaseDate) - new Date(a.releaseDate);
-        })
-      },
-      rootPath: '../../',
-      canonicalUrl: artistUrl,
-    });
-    await fs.writeFile(path.join(artistDir, 'index.html'), artistHtml, 'utf8');
-    if (artistUrl) sitemapUrls.push({ url: artistUrl, priority: '0.8' });
-    count++;
+      const artistHtml = nunjucks.render('artist.njk', {
+        ...baseCtx,
+        artist: {
+          ...artist,
+          albums: [...(artist.albums || [])].sort((a, b) => {
+            if (!a.releaseDate && !b.releaseDate) return 0;
+            if (!a.releaseDate) return 1;
+            if (!b.releaseDate) return -1;
+            return new Date(b.releaseDate) - new Date(a.releaseDate);
+          })
+        },
+        rootPath: '../../',
+        canonicalUrl: artistUrl,
+      });
+      await fs.writeFile(path.join(artistDir, 'index.html'), artistHtml, 'utf8');
+      if (artistUrl) sitemapUrls.push({ url: artistUrl, priority: '0.8' });
+      count++;
+    }
 
+    // Album pages — created for ALL artists including Various Artists
     for (const album of artist.albums || []) {
       const albumDir = path.join(outputDir, 'artists', artist.slug, album.slug);
       await fs.mkdir(albumDir, { recursive: true });
@@ -247,6 +257,7 @@ async function renderSite(data, pages, outputDir, labelName) {
         ...baseCtx,
         album,
         artist,
+        isCompilation: isCompilationArtist,
         rootPath: '../../../',
         canonicalUrl: albumUrl,
       });
