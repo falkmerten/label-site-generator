@@ -868,11 +868,14 @@ main { min-height: 60vh; }
 .prose p { margin-bottom: 1rem; }
 .prose h2, .prose h3 { margin: 1.5rem 0 0.75rem; font-weight: 700; }
 .prose ul, .prose ol { padding-left: 1.5rem; margin-bottom: 1rem; }
-.prose a { border-bottom: 1px solid var(--border); }
+.prose a { color: var(--brand-dark); text-decoration: underline; text-underline-offset: 2px; }
+.prose a:hover { color: var(--text); }
 
 /* ── Text page (imprint / contact) ── */
 .text-page { max-width: var(--max-width); margin: 0 auto; padding: 3rem 2rem; }
 .text-page h1 { font-size: 2rem; font-weight: 800; margin-bottom: 2rem; }
+.text-page a { color: var(--brand-dark); text-decoration: underline; text-underline-offset: 2px; }
+.text-page a:hover { color: var(--text); }
 
 /* ── Releases page ── */
 .releases-page { padding: 3rem 2rem; }
