@@ -1089,7 +1089,16 @@ async function copyAssets (data, contentDir, outputDir) {
     if (artist.photo && !artist.photo.startsWith('http')) {
       await fs.mkdir(artistOutDir, { recursive: true })
       const filename = path.basename(artist.photo)
-      await fs.copyFile(artist.photo, path.join(artistOutDir, filename))
+      // Try content/{artist-slug}/{filename} first, then the path as-is
+      const contentPath = path.join(contentDir, artist.slug, filename)
+      let src = artist.photo
+      try { await fs.access(contentPath); src = contentPath } catch {
+        try { await fs.access(artist.photo) } catch {
+          console.warn(`[assets] Photo not found for "${artist.name}": ${filename}`)
+          src = null
+        }
+      }
+      if (src) await fs.copyFile(src, path.join(artistOutDir, filename))
     }
 
     // Gallery images
