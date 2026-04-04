@@ -28,7 +28,10 @@
           {% for album in allAlbums %}
             <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card">
               {% if album.artwork | isLocal %}
-                <img src="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+                <picture>
+                  <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
+                  <img src="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+                </picture>
               {% elif album.artwork %}
                 <img src="{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
               {% else %}

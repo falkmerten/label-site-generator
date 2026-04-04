@@ -71,7 +71,14 @@
         {% if artist.location %}<p class="artist-hero-location">{{ artist.location }}</p>{% endif %}
       </div>
       <a href="{{ rootPath }}" class="artist-hero-logo-link">
+        {% if artist.photo | isLocal %}
+        <picture>
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
+          <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
+        </picture>
+        {% else %}
         <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
+        {% endif %}
       </a>
     </div>
   {% else %}
@@ -154,7 +161,10 @@
         <div class="gallery-grid">
           {% for img in artist.galleryImages %}
             <button class="gallery-thumb" onclick="openLightbox('{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}')" aria-label="View photo">
-              <img src="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}" alt="{{ artist.name }}" loading="lazy">
+              <picture>
+                <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toWebp }}" type="image/webp">
+                <img src="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}" alt="{{ artist.name }}" loading="lazy">
+              </picture>
             </button>
           {% endfor %}
         </div>
@@ -200,7 +210,10 @@
           {% for album in artist.albums %}
             <a href="{{ album.slug }}/" class="release-card">
               {% if album.artwork | isLocal %}
-                <img src="{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+                <picture>
+                  <source srcset="{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
+                  <img src="{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+                </picture>
               {% elif album.artwork %}
                 <img src="{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
               {% else %}

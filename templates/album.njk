@@ -75,7 +75,14 @@
         <h1 class="artist-hero-name">{{ album.title }}</h1>
       </div>
       <a href="{{ rootPath }}artists/{{ artist.slug }}/" class="artist-hero-logo-link">
+        {% if album.artwork | isLocal %}
+        <picture>
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
+          <img src="{{ artworkUrl }}" alt="{{ album.title }}" class="site-hero-logo">
+        </picture>
+        {% else %}
         <img src="{{ artworkUrl }}" alt="{{ album.title }}" class="site-hero-logo">
+        {% endif %}
       </a>
     </div>
   {% else %}
