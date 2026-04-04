@@ -113,6 +113,53 @@ Submit your sitemap at [Google Search Console](https://search.google.com/search-
 
 ---
 
+## Troubleshooting
+
+**Spotify returns "Invalid limit" (HTTP 400) on artist album fetch**
+Spotify occasionally rejects the `limit` query parameter on `/v1/artists/{id}/albums`. The generator handles this by omitting the limit and using Spotify's default page size with `data.next` pagination. If you see this error, update to the latest version.
+
+**Spotify rate limit with 17-hour Retry-After**
+Spotify's development mode has undocumented daily limits beyond the documented 250 requests/30 seconds. A full enrich across many artists can trigger this. The generator now uses batch API calls (`/v1/albums?ids=`) to reduce total calls from ~263 to ~45 per full enrich. If you hit the limit, the enricher automatically falls back to iTunes/Deezer/Tidal/Discogs and skips Spotify for the remainder of the run. Wait for the Retry-After period to expire before running again.
+
+**Soundcharts quota exhausted mid-run**
+When the Soundcharts monthly quota (1,000 credits on free tier) runs out during enrichment, the generator immediately switches to legacy mode (Spotify + per-platform lookups) for remaining artists. Already-enriched artists keep their data. The quota resets on the 1st of each month.
+
+**Soundcharts pre-check hangs for 30+ seconds**
+Fixed in v3.1.1. The pre-check now uses a single API call with no retry. If Soundcharts is rate-limiting, it falls back to legacy mode immediately.
+
+**Albums by accented artists missing from artist pages (e.g. Amáutica)**
+Fixed in v3.1.2. The artist name comparison now uses Unicode NFD normalization before stripping non-ASCII characters, so "AMAUTICA" correctly matches "Amáutica".
+
+**Various Artists compilation appears under a regular artist**
+Fixed in v3.1.1. The `fetchArtistAlbums` function now only fetches `album,single` groups from Spotify (not `appears_on,compilation`), preventing compilations from being attributed to individual artists. Compilations are handled separately via the label Bandcamp page scraper.
+
+**Compilation album page links to non-existent artist page**
+Fixed in v3.1.1. Compilation album pages now link back to `/releases/` instead of `/artists/various-artists/`.
+
+**Some albums show as duplicates in the audit but are album + single with the same name**
+Fixed in v3.1.1. The duplicate detection now considers both the item type (album vs track) and the URL, so an album and a single sharing the same title are not flagged.
+
+**How do I run enrichment without Spotify and Soundcharts?**
+Temporarily unset the credentials before running: the enricher will use iTunes, Deezer, Tidal, and Discogs only. This is useful when both Spotify and Soundcharts are rate-limited.
+
+---
+
+## News
+
+**How do I add news articles?**
+Create markdown files in `content/news/{year}/` with the naming pattern `MM-DD-slug.md`. For example: `content/news/2026/04-04-welcome-to-our-new-website.md`. Word documents (`.docx`) are also supported.
+
+**How does the title get extracted?**
+From front-matter `title:` field first, then the first `#` or `##` heading in the markdown, then derived from the filename slug.
+
+**How do I add a feature image to a news article?**
+Either add `image: filename.jpg` to the front-matter (file in the same year folder), or place a file named `{slug}.jpg` in the year folder for auto-detection.
+
+**Where do news articles appear?**
+The latest 10 appear on the homepage in the News section. All articles are listed on the `/news/` page with pagination. Each article gets its own page at `/news/{slug}/`.
+
+---
+
 ## Licensing
 
 **Can I use this commercially?**

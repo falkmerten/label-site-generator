@@ -5,10 +5,18 @@ DUAL LICENSE
 
 This software is available under two licenses:
 
-1. GNU GENERAL PUBLIC LICENSE v3 (GPL-3.0)
-   For open source use. See LICENSE-GPL for the full text.
+1. GNU GENERAL PUBLIC LICENSE v3 (GPL-3.0-or-later)
+   For open source, non-commercial, and personal use.
    Any modifications or derivative works must also be released under GPL-3.0.
+   The full GPL-3.0 license text follows below.
 
 2. COMMERCIAL LICENSE
    For use in proprietary or commercial products without GPL obligations.
    Contact: info@aenaos-records.com
+
+SPDX-License-Identifier: GPL-3.0-or-later
+
+================================================================================
+
+The full text of the GNU General Public License v3 is available at:
+https://www.gnu.org/licenses/gpl-3.0.txt
