@@ -42,14 +42,21 @@
   <link rel="manifest" href="{{ rootPath }}site.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 
-  {# Google Analytics 4 — only injected when GA_MEASUREMENT_ID is set #}
+  {# Google Analytics 4 — cookieless mode (no consent banner needed) #}
   {% if gaMeasurementId %}
   <script async src="https://www.googletagmanager.com/gtag/js?id={{ gaMeasurementId }}"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      'analytics_storage': 'denied',
+      'ad_storage': 'denied'
+    });
     gtag('js', new Date());
-    gtag('config', '{{ gaMeasurementId }}');
+    gtag('config', '{{ gaMeasurementId }}', {
+      'anonymize_ip': true,
+      'cookie_flags': 'SameSite=None;Secure'
+    });
   </script>
   {% endif %}
 </head>
