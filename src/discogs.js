@@ -325,12 +325,26 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
       const result = await lookupRelease(token, album.upc, artistName, album.title)
       if (result) {
         album.discogsUrl = result.discogsUrl
+
+        // Determine if this is a single/track (should not get physical formats from album matches)
+        const isSingle = album.itemType === 'track' || album.itemType === 'single' ||
+          (album.url && album.url.includes('/track/')) ||
+          (album.tracks && album.tracks.length <= 3 && album.tracks.length > 0)
+
         album.discogsSellUrl = result.discogsSellUrl
         album.discogsSellUrlVinyl = result.discogsSellUrlVinyl
         album.discogsSellUrlCd = result.discogsSellUrlCd
         album.discogsSellUrlCassette = result.discogsSellUrlCassette
-        // Only set physical formats and sell links from UPC matches (title search may match wrong edition)
-        if (result.matchedByUpc && result.formats.length > 0) album.physicalFormats = result.formats
+        // Only set physical formats from UPC matches, and never for singles
+        if (result.matchedByUpc && result.formats.length > 0 && !isSingle) {
+          album.physicalFormats = result.formats
+        } else if (result.matchedByUpc && result.formats.length > 0 && isSingle) {
+          console.log(`    ⚠ Physical formats found but album is a single — skipping physical data`)
+          album.discogsSellUrl = null
+          album.discogsSellUrlVinyl = null
+          album.discogsSellUrlCd = null
+          album.discogsSellUrlCassette = null
+        }
         if (!result.matchedByUpc && result.formats.length > 0) {
           // Title search found physicals but we can't be sure they're the right edition
           console.log(`    ⚠ Physical formats found via title search (not UPC) — skipping format data for safety`)

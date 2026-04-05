@@ -183,7 +183,13 @@ async function verifyBandcampUrls (artist) {
   if (noUrl.length === 0) return 0
 
   // Find the Bandcamp base domain from existing albums
-  const bcAlbum = artist.albums.find(a => a.url && a.url.includes('bandcamp.com'))
+  const bcAlbum = artist.albums.find(a => {
+    if (!a.url) return false
+    try {
+      const host = new URL(a.url).hostname
+      return host === 'bandcamp.com' || host.endsWith('.bandcamp.com')
+    } catch { return false }
+  })
   if (!bcAlbum) return 0
   let bcBase
   try { bcBase = new URL(bcAlbum.url).origin } catch { return 0 }

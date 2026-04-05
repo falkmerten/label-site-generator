@@ -239,17 +239,21 @@ main { min-height: 60vh; }
 
 .coming-soon-badge {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--text);
+  top: 0;
+  left: 0;
+  right: 0;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 0, 50, 0.7);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 4px 10px;
-  border-radius: 3px;
   z-index: 1;
+  pointer-events: none;
 }
 
 .release-card:hover, .artist-card:hover {

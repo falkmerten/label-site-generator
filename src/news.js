@@ -124,7 +124,12 @@ function parseArticle (md, slug, date, yearPath) {
   excerpt = excerpt
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
     .replace(/[*_~`#]/g, '') // formatting
-    .replace(/<[^>]+>/g, '') // HTML tags
+  // Strip HTML tags iteratively to prevent incomplete sanitization (e.g. <scr<script>ipt>)
+  let prev = ''
+  while (prev !== excerpt) {
+    prev = excerpt
+    excerpt = excerpt.replace(/<[^>]*>/g, '')
+  }
     .trim()
   if (excerpt.length > 300) {
     excerpt = excerpt.slice(0, 297) + '…'

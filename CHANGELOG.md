@@ -4,6 +4,23 @@
 
 ---
 
+### v3.2.1 — 2026-04-05
+
+**Security fixes (CodeQL)**
+- Fixed incomplete HTML tag sanitization in news excerpt extraction — iterative stripping prevents nested tag bypass (e.g. `<scr<script>ipt>`)
+- Fixed incomplete URL substring check for Bandcamp domain — now validates hostname properly instead of substring match
+- Added `permissions: contents: read` to GitHub Actions workflow (least privilege)
+- Updated Actions to v4, Node test matrix to 18/20/22
+
+**Bug fixes**
+- Fixed Discogs physical format misattribution for singles sharing album title (LSG-20) — singles (≤3 tracks, `/track/` URL, or itemType track) skip physical format assignment
+- Fixed "Coming Soon" badge covering entire card — now overlays artwork only
+- Fixed Bandcamp player showing for private/upcoming releases
+- Fixed `content/news/` flagged as orphaned artist folder
+- Fixed label inconsistencies: inconsistent label name casing normalized
+
+---
+
 ### v3.2.0 — 2026-04-05
 
 **Upcoming / Coming Soon releases**

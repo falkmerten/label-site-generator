@@ -130,6 +130,7 @@ async function mergeData (rawData, content) {
               labelName: album.labelName || null,
               labelUrl: album.labelUrl || null,
               discogsLabel: album.discogsLabel || null,
+              upcoming: album.upcoming || false,
               labelUrls: album.labelUrls || (album.labelUrl
                 ? [album.labelUrl, ...Array(
                     Math.max(0, (album.labelName || '').split(' / ').length - 1)
@@ -256,6 +257,7 @@ async function mergeData (rawData, content) {
             labelName: album.labelName || null,
             labelUrl: album.labelUrl || null,
             discogsLabel: album.discogsLabel || null,
+            upcoming: album.upcoming || false,
             labelUrls: album.labelUrls || (album.labelUrl
               ? [album.labelUrl, ...Array(
                   Math.max(0, (album.labelName || '').split(' / ').length - 1)

@@ -40,7 +40,7 @@ async function reportOrphanedContent (cachePath, contentDir) {
   }
 
   // Known non-artist folders in content/
-  const ignoreFolders = new Set(['global', 'pages'])
+  const ignoreFolders = new Set(['global', 'pages', 'news'])
   // Known non-album files in artist folders
   const ignoreFiles = new Set(['bio.md', 'bio.docx', 'photo.jpg', 'photo.png', 'photo.webp', 'README.txt', 'links.json', 'meta.json'])
 
