@@ -130,7 +130,7 @@ function parseArticle (md, slug, date, yearPath) {
     prev = excerpt
     excerpt = excerpt.replace(/<[^>]*>/g, '')
   }
-    .trim()
+  excerpt = excerpt.trim()
   if (excerpt.length > 300) {
     excerpt = excerpt.slice(0, 297) + '…'
   }
