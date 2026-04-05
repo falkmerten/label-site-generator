@@ -77,6 +77,7 @@
       <a href="{% if isCompilation %}{{ rootPath }}releases/{% else %}{{ rootPath }}artists/{{ artist.slug }}/{% endif %}" class="artist-hero-logo-link">
         {% if album.artwork | isLocal %}
         <picture>
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
           <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
           <img src="{{ artworkUrl }}" alt="{{ album.title }}" class="site-hero-logo">
         </picture>
@@ -127,6 +128,12 @@
       </section>
     {% elif album.url and not album.upcoming %}
       <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
+    {% endif %}
+
+    {% if album.upcoming and album.presaveUrl %}
+      <section class="presave-section">
+        <a href="{{ album.presaveUrl }}" target="_blank" rel="noopener noreferrer" class="btn presave-btn"><i class="fa-solid fa-bell"></i> Pre-save this release</a>
+      </section>
     {% endif %}
 
     {% if album.streamingLinks or album.url %}

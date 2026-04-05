@@ -73,6 +73,7 @@
       <a href="{{ rootPath }}" class="artist-hero-logo-link">
         {% if artist.photo | isLocal %}
         <picture>
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
           <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
           <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
         </picture>
@@ -162,6 +163,7 @@
           {% for img in artist.galleryImages %}
             <button class="gallery-thumb" onclick="openLightbox('{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}')" aria-label="View photo">
               <picture>
+                <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                 <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toWebp }}" type="image/webp">
                 <img src="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}" alt="{{ artist.name }}" loading="lazy">
               </picture>
@@ -212,6 +214,7 @@
               {% if album.releaseDate | isFuture %}<span class="coming-soon-badge">Coming Soon</span>{% endif %}
               {% if album.artwork | isLocal %}
                 <picture>
+                  <source srcset="{{ album.slug }}/{{ album.artwork | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                   <source srcset="{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
                   <img src="{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
                 </picture>

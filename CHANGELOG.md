@@ -4,6 +4,15 @@
 
 ---
 
+### v3.2.2 — 2026-04-06
+
+**Bug fixes — Mobile image variants**
+- Fixed missing mobile `<source>` entries in `artist.njk` (hero, gallery, discography) and `album.njk` (hero) — mobile browsers now receive optimized `-mobile.webp` variants via `toMobileWebp` filter with `media="(max-width: 640px)"`
+- Fixed missing mobile `<source>` in homepage news section (`index.njk`)
+- Fixed image optimizer skipping mobile variant generation for images ≤ 600px wide — now always generates `-mobile.webp` and `-mobile.jpg` (at original size for small images, resized to 600px for larger ones)
+
+---
+
 ### v3.2.1 — 2026-04-05
 
 **Security fixes (CodeQL)**

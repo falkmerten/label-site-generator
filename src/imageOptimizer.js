@@ -67,12 +67,6 @@ async function optimizeImages (outputDir) {
         const resizeOpts = needsResize ? { width: MAX_WIDTH } : {}
         const effectiveWidth = needsResize ? MAX_WIDTH : metadata.width
 
-        // If image is too small for mobile variant, only WebP matters for skip
-        if (hasWebp && effectiveWidth <= MOBILE_WIDTH) {
-          skipped++
-          continue
-        }
-
         // Create full-size WebP if missing
         if (!hasWebp) {
           const webpBuffer = await sharp(input)
@@ -94,14 +88,18 @@ async function optimizeImages (outputDir) {
         }
 
         // Create mobile versions if missing
-        if (!hasMobile && effectiveWidth > MOBILE_WIDTH) {
+        if (!hasMobile) {
+          const mobileResizeOpts = effectiveWidth > MOBILE_WIDTH
+            ? { width: MOBILE_WIDTH }
+            : {}
+
           const mobileBuffer = await sharp(input)
-            .resize({ width: MOBILE_WIDTH })
+            .resize(mobileResizeOpts)
             .toBuffer()
           await fs.writeFile(mobilePath, mobileBuffer)
 
           const mobileWebpBuffer = await sharp(input)
-            .resize({ width: MOBILE_WIDTH })
+            .resize(mobileResizeOpts)
             .webp({ quality: WEBP_QUALITY })
             .toBuffer()
           await fs.writeFile(mobileWebpPath, mobileWebpBuffer)

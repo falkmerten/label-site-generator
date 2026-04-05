@@ -113,6 +113,7 @@
                 <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-image">
                   {% if article.imageUrl | isLocal %}
                   <picture>
+                    <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                     <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toWebp }}" type="image/webp">
                     <img src="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
                   </picture>
@@ -203,6 +204,32 @@
       {% endif %}
     </div>
   </section>
+
+  {% if hasEvents %}
+  <section id="shows" class="section shows-section">
+    <div class="section-inner">
+      <h2>Upcoming Shows</h2>
+      <div class="events-list">
+        {% for event in allEvents %}
+          <div class="event-row">
+            <span class="event-date">{{ event.date | formatDate }}</span>
+            <span class="event-details">
+              <a href="{{ rootPath }}artists/{{ event.artistSlug }}/" class="event-artist-link">{{ event.artistName }}</a>
+              <span class="event-separator">-</span>
+              {% if event.name %}<span class="event-name-light">{{ event.name }}</span>{% endif %}
+              {% if event.type == 'festival' %}<span class="event-badge festival-badge">Festival</span>{% endif %}
+              {% if event.venueName %}<span class="event-venue">{{ event.venueName }}</span>{% endif %}
+              {% if event.cityName or event.countryName %}
+                <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
+              {% endif %}
+              {% if event.eventUrl %}<a href="{{ event.eventUrl }}" target="_blank" rel="noopener noreferrer" class="event-tickets"><i class="fa-solid fa-ticket"></i> Tickets</a>{% endif %}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
 
   <section id="about" class="section about-section">
     <div class="section-inner">
