@@ -241,12 +241,15 @@ content/
   compilations.json          # Spotify album IDs for Various Artists compilations
   upcoming.json              # Private Bandcamp stream links for unreleased albums
   youtube.json               # YouTube channel URLs per artist
+  news/                      # News articles (markdown-first)
+    2026/
+      04-04-welcome.md       # Article: MM-DD-slug.md (year from folder)
+      04-04-welcome.jpg      # Optional feature image (auto-detected by slug)
   global/
     style.css                # Replaces the default stylesheet entirely
     favicon.ico
   pages/
     about.md                 # About Us section on homepage
-    news.md                  # News section on homepage
     imprint.md               # Imprint page → footer link  ← can also be imprint.docx
     contact.md               # Contact page → footer link  ← can also be contact.docx
     data-protection.md       # Any extra page → footer link (auto-discovered)
@@ -392,6 +395,43 @@ Map Various Artists compilation slugs to their Spotify album IDs. This avoids Sp
 
 Compilations are scraped from the label Bandcamp page (`BANDCAMP_LABEL_URL`) when the Bandcamp artist field is "Various Artists". They appear on the releases page and homepage but have no artist page.
 
+### News articles
+
+News articles are Markdown (or `.docx`) files in `content/news/{year}/` folders:
+
+```
+content/news/
+  2026/
+    04-04-welcome-to-our-new-website.md
+    04-04-welcome-to-our-new-website.jpg   # optional feature image
+    06-15-new-album-announcement.md
+  2025/
+    12-01-year-in-review.md
+```
+
+Filename format: `MM-DD-slug.md` — the year comes from the folder, month-day from the filename.
+
+Articles support front-matter for metadata:
+
+```yaml
+---
+title: Welcome to Our New Website
+excerpt: Custom excerpt text for listing pages
+image: welcome.jpg
+---
+```
+
+- **Title**: from front-matter `title:`, or first heading, or derived from slug
+- **Excerpt**: from front-matter `excerpt:`, or first paragraph (max 300 chars)
+- **Image**: from front-matter `image:` (relative path or URL), or auto-detected `{slug}.jpg` in the year folder
+
+News articles appear in three places:
+- **Homepage**: latest 10 articles in the News section
+- **News page**: `/news/` with all articles, paginated (12 per page)
+- **Article pages**: `/news/{slug}/` for each article
+
+A "News" link appears in the navigation when articles exist. Word documents (`.docx`) are auto-converted.
+
 ### Static pages
 
 Any `.md` or `.docx` file placed in `content/pages/` automatically becomes a page:
@@ -401,7 +441,7 @@ Any `.md` or `.docx` file placed in `content/pages/` automatically becomes a pag
 - Supported via `.docx` (auto-converted) or `.md` directly
 
 Built-in page names with special behaviour:
-- `about.md` / `news.md` — rendered as homepage sections (not separate pages)
+- `about.md` — rendered as homepage section (not a separate page)
 - `imprint.md` / `contact.md` — rendered as pages with footer links
 
 ### Word document support
@@ -441,6 +481,8 @@ HTML templates live in `templates/` and use [Nunjucks](https://mozilla.github.io
 | `album.njk` | Album page: hero artwork, player, streaming links, physical release, videos, tracklist |
 | `releases.njk` | Full releases listing |
 | `page.njk` | Static pages (Imprint, Contact, and any custom pages) |
+| `news-list.njk` | News listing page with pagination |
+| `news-article.njk` | Individual news article page |
 
 Custom Nunjucks filters:
 
@@ -469,6 +511,8 @@ Custom Nunjucks filters:
 | `src/discogs.js` | Discogs API: physical formats, per-label URLs, catalog number, videos, sell links |
 | `src/enricher.js` | Orchestrates the full enrichment pipeline (Soundcharts or legacy mode) |
 | `src/cleanup.js` | Reports orphaned content folders and runs data quality audit on cache |
+| `src/news.js` | Loads news articles from `content/news/` markdown files |
+| `src/upcoming.js` | Loads upcoming releases from `content/upcoming.json` private Bandcamp links |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
 | `src/convertDocs.js` | Converts `.docx` files to `.md` using mammoth |
