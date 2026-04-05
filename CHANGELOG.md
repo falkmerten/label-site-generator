@@ -4,6 +4,68 @@
 
 ---
 
+### v3.2.0 — 2026-04-05
+
+**Upcoming / Coming Soon releases**
+- `content/upcoming.json` — add private Bandcamp stream links for unreleased albums
+- Private stream links (`https://bandcamp.com/private/{CODE}`) are scraped for metadata (title, artist, artwork, release date)
+- "Coming Soon" badge on album cards for releases with future release dates (pre-orders and upcoming)
+- Album pages show "Pre-order" instead of "Released" for future dates
+- Upcoming releases bypass the homepage label filter — always shown
+- `--artist` refresh now loads upcoming releases for the refreshed artist
+
+**Dual label support (digital vs physical)**
+- When Spotify and Discogs report different labels, both are stored
+- `discogsLabel` field preserves the physical release label from Discogs
+- Album pages show both labels separated by " / " when they differ
+- Only set when the Discogs label comes from an actual physical release (Vinyl/CD/Cassette)
+
+**Spotify improvements**
+- Label extraction now prefers C-line (© = label) over P-line (℗ = sound recording copyright)
+- Spotify release dates are authoritative — override Bandcamp dates when different
+- Batch album endpoint (`/v1/albums?ids=`) blocked in dev mode — reverted to per-album calls
+- Release dates extracted from Bandcamp raw data for 34 albums that were missing them
+- UPCs fetched for 18 albums that had Spotify URLs but no UPC
+
+**Enrichment & data quality**
+- `compilations.json` — direct Spotify album ID mapping for Various Artists compilations
+- Various Artists excluded from Spotify/Soundcharts enrichment (prevents junk matches)
+- `albumBelongsToArtist` uses NFD normalization for accented artist names (fixes accented artist names)
+- `refreshArtist` preserves Spotify-only and upcoming albums during re-scrape
+- `releaseDate` and `slug` added to enrichment field preservation list
+- Artist slug mismatch fixed in `artists.json`
+- Inconsistent label name normalized
+
+**Performance & Lighthouse**
+- Self-hosted Font Awesome (no CDN dependency, served from own CloudFront)
+- Font preloading (`woff2` files) + `font-display: swap` override
+- `fetchpriority="high"` on hero banner image
+- Mobile image variants (600px WebP) for all images
+- `<picture>` tags with mobile srcset on grid cards
+- Banner and logo converted to WebP with mobile variants
+- S3 deploy with per-file-type `Cache-Control` headers
+- `SiteNavigationElement` structured data for Google sitelinks
+- Hamburger menu breakpoint raised to 960px for tablets
+- Image optimizer skip logic fixed (small images no longer re-processed)
+
+**News system**
+- File-based news: `content/news/{year}/MM-DD-slug.md` (or `.docx`)
+- Homepage shows latest 10 articles, `/news/` listing with pagination
+- Individual article pages at `/news/{slug}/`
+- Front-matter: `title`, `excerpt`, `image` fields
+- News heading styles fixed (no section border/uppercase)
+- Front-matter parsing handles Windows CRLF line endings
+
+**Other**
+- Compilation album pages link back to `/releases/` (not non-existent VA artist page)
+- Duplicate detection considers item type and URL (no false positives)
+- Removed spurious `appears_on` artifact from cache
+- Cleaned up licensing: single `LICENSE` file with dual-license header
+- FAQ updated with troubleshooting section
+- YouTrack project tracking (LSG)
+
+---
+
 ### v3.1.2 — 2026-04-04
 
 **News system (markdown-first)**

@@ -4,6 +4,11 @@ const fs = require('fs/promises')
 const path = require('path')
 
 const DEFAULT_CSS = `/* Label Site Generator — Default Theme */
+
+/* Override Font Awesome font-display: block → swap (text visible while fonts load) */
+@font-face { font-family: 'Font Awesome 6 Free'; font-display: swap; }
+@font-face { font-family: 'Font Awesome 6 Brands'; font-display: swap; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -229,6 +234,22 @@ main { min-height: 60vh; }
   transition: box-shadow 0.2s, transform 0.2s;
   text-decoration: none;
   color: var(--text);
+  position: relative;
+}
+
+.coming-soon-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--text);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 3px;
+  z-index: 1;
 }
 
 .release-card:hover, .artist-card:hover {
@@ -1204,7 +1225,7 @@ main { min-height: 60vh; }
 .footer-nav a:hover { color: #fff; opacity: 1; text-decoration: none; }
 
 /* ── Responsive ── */
-@media (max-width: 640px) {
+@media (max-width: 960px) {
   .site-nav { display: none; flex-direction: column; position: absolute; top: 56px; left: 0; right: 0; background: var(--brand-dark); border-bottom: 1px solid var(--header-border); padding: 1rem; max-height: calc(100vh - 56px); overflow-y: auto; z-index: 1000; }
   .site-nav.open { display: flex; }
   .nav-toggle { display: block; }
@@ -1267,6 +1288,22 @@ async function copyAssets (data, contentDir, outputDir) {
     } catch (err) {
       if (err.code !== 'ENOENT') console.warn(`[assets] Could not copy ${file}:`, err.message)
     }
+  }
+
+  // 3b. Copy Font Awesome (self-hosted, no CDN dependency)
+  const faBase = path.join('node_modules', '@fortawesome', 'fontawesome-free')
+  const faCssDir = path.join(outputDir, 'fa', 'css')
+  const faFontDir = path.join(outputDir, 'fa', 'webfonts')
+  await fs.mkdir(faCssDir, { recursive: true })
+  await fs.mkdir(faFontDir, { recursive: true })
+  try {
+    await fs.copyFile(path.join(faBase, 'css', 'all.min.css'), path.join(faCssDir, 'all.min.css'))
+    const webfonts = await fs.readdir(path.join(faBase, 'webfonts'))
+    for (const wf of webfonts) {
+      await fs.copyFile(path.join(faBase, 'webfonts', wf), path.join(faFontDir, wf))
+    }
+  } catch (err) {
+    console.warn(`[assets] Could not copy Font Awesome: ${err.message}`)
   }
 
   // 4. Copy local artist photos and album artwork

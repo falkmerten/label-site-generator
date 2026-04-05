@@ -15,6 +15,18 @@
   "description": "{{ labelName }} — independent music label"
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SiteNavigationElement",
+  "name": "Main Navigation",
+  "hasPart": [
+    { "@type": "WebPage", "name": "Releases", "url": "{{ siteUrl }}releases/" }{% if hasNews %},
+    { "@type": "WebPage", "name": "News", "url": "{{ siteUrl }}news/" }{% endif %}{% for p in footerNavPages %},
+    { "@type": "WebPage", "name": "{{ p.title }}", "url": "{{ siteUrl }}{{ p.slug }}/" }{% endfor %}
+  ]
+}
+</script>
 {% endblock %}
 
 {% block content %}
@@ -28,6 +40,7 @@
             <a href="{{ rootPath }}artists/{{ artist.slug }}/" class="artist-card">
               {% if artist.photo | isLocal %}
                 <picture>
+                  <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                   <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
                   <img src="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo }}" alt="{{ artist.name }}" loading="lazy">
                 </picture>
@@ -55,9 +68,11 @@
       {% if latestReleases and latestReleases.length %}
         <div class="release-grid">
           {% for album in latestReleases %}
-            <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card">
+            <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}">
+              {% if album.releaseDate | isFuture %}<span class="coming-soon-badge">Coming Soon</span>{% endif %}
               {% if album.artwork | isLocal %}
                 <picture>
+                  <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                   <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
                   <img src="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
                 </picture>

@@ -144,6 +144,19 @@ Temporarily unset the credentials before running: the enricher will use iTunes, 
 
 ---
 
+## Upcoming Releases
+
+**How do I show unreleased albums on the site?**
+Add private Bandcamp stream links to `content/upcoming.json`. Create a private stream link in Bandcamp (album settings → sharing), then add it to the JSON file mapped by artist slug. The generator fetches the metadata and shows the release with a "Coming Soon" badge.
+
+**Do pre-orders get the badge automatically?**
+Yes. Any release with a future release date gets the "Coming Soon" badge automatically — no `upcoming.json` entry needed. Pre-orders published on Bandcamp are scraped normally.
+
+**When should I remove an entry from upcoming.json?**
+When the release goes public on Bandcamp. The normal scraper will pick it up, and the "Coming Soon" badge disappears once the release date passes.
+
+---
+
 ## News
 
 **How do I add news articles?**

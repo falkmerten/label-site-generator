@@ -19,7 +19,7 @@ const ALBUM_ENRICHMENT_FIELDS = [
   'discogsSellUrlVinyl', 'discogsSellUrlCd', 'discogsSellUrlCassette',
   'physicalFormats', 'catalogNumber', 'labelName', 'labelUrl', 'labelUrls',
   'videos', 'soundchartsUuid', 'soundchartsEnriched', 'spotifyLabel',
-  'distributor', 'copyright', 'description'
+  'distributor', 'copyright', 'description', 'releaseDate', 'slug', 'discogsLabel'
 ]
 
 /**
@@ -278,6 +278,10 @@ async function refreshArtist (cachePath, artistFilter) {
     if (cached.url && !scrapedUrlSet.has(cached.url)) {
       console.warn(`  ⚠ Album not found during re-scrape, retaining cached: "${cached.title}" (${cached.url})`)
       albums.push(cached)
+    } else if (!cached.url) {
+      // Spotify-only or upcoming albums (no Bandcamp URL) — always retain
+      console.log(`  ↩ Retaining non-Bandcamp album: "${cached.title}"${cached.upcoming ? ' (upcoming)' : ' (Spotify-only)'}`)
+      albums.push(cached)
     }
   }
 
@@ -301,6 +305,14 @@ async function refreshArtist (cachePath, artistFilter) {
   }
 
   data.artists[idx] = updatedArtist
+
+  // Load upcoming releases for this artist from upcoming.json
+  const { loadUpcoming } = require('./upcoming')
+  const contentDir = process.env.CONTENT_DIR || './content'
+  const upcomingCount = await loadUpcoming(contentDir, data, artistFilter)
+  if (upcomingCount > 0) {
+    console.log(`Added ${upcomingCount} upcoming release(s) for ${artistInfo.name}.`)
+  }
 
   await writeCache(cachePath, data)
   console.log(`Cache updated for ${artistInfo.name}.`)

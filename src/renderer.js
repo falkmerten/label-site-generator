@@ -43,6 +43,9 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   // Custom filter: convert image path to WebP equivalent
   env.addFilter('toWebp', (url) => url ? url.replace(/\.(jpg|jpeg|png)$/i, '.webp') : url);
 
+  // Custom filter: convert image path to mobile WebP variant
+  env.addFilter('toMobileWebp', (url) => url ? url.replace(/\.(jpg|jpeg|png)$/i, '-mobile.webp') : url);
+
   // Custom filter: URL-encode a string
   env.addFilter('urlencode', (str) => encodeURIComponent(str || ''));
 
@@ -81,6 +84,12 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   env.addFilter('formatDate', (iso) => {
     if (!iso) return '';
     return new Date(iso).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+  });
+
+  // Custom filter: check if a date is in the future (for pre-orders / coming soon)
+  env.addFilter('isFuture', (iso) => {
+    if (!iso) return false
+    return new Date(iso) > new Date()
   });
 
   let count = 0;
@@ -154,6 +163,8 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
 
   const homepageAlbums = homepageLabels.length > 0
     ? allAlbums.filter(al => {
+        // Always include upcoming/pre-order releases
+        if (al.upcoming || (al.releaseDate && new Date(al.releaseDate) > new Date())) return true
         // Always include albums from the label's own Bandcamp page (compilations etc.)
         if (labelBandcampOrigin && al.url && al.url.startsWith(labelBandcampOrigin)) return true
         if (!al.labelName) return false // no label = exclude when filter is active

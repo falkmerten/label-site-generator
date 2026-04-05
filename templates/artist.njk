@@ -208,7 +208,8 @@
       {% if artist.albums and artist.albums.length %}
         <div class="release-grid">
           {% for album in artist.albums %}
-            <a href="{{ album.slug }}/" class="release-card">
+            <a href="{{ album.slug }}/" class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}">
+              {% if album.releaseDate | isFuture %}<span class="coming-soon-badge">Coming Soon</span>{% endif %}
               {% if album.artwork | isLocal %}
                 <picture>
                   <source srcset="{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">

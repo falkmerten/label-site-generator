@@ -26,9 +26,11 @@
       {% if allAlbums and allAlbums.length %}
         <div class="release-grid">
           {% for album in allAlbums %}
-            <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card">
+            <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}">
+              {% if album.releaseDate | isFuture %}<span class="coming-soon-badge">Coming Soon</span>{% endif %}
               {% if album.artwork | isLocal %}
                 <picture>
+                  <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                   <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
                   <img src="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
                 </picture>

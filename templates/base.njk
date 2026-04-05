@@ -40,7 +40,11 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{{ rootPath }}apple-touch-icon.png">
   <link rel="icon" href="{{ rootPath }}favicon.ico" sizes="any">
   <link rel="manifest" href="{{ rootPath }}site.webmanifest">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+
+  {# Font Awesome — self-hosted, preload woff2 to avoid chain delay #}
+  <link rel="preload" href="{{ rootPath }}fa/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ rootPath }}fa/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ rootPath }}fa/css/all.min.css">
 
   {# Google Analytics 4 — cookieless mode (no consent banner needed) #}
   {% if gaMeasurementId %}
@@ -65,9 +69,17 @@
   <!-- Banner + overlapping logo hero -->
   {% block hero %}
   <div class="site-hero">
-    <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner">
+    <picture>
+      <source srcset="{{ rootPath }}banner-mobile.webp" media="(max-width: 640px)" type="image/webp">
+      <source srcset="{{ rootPath }}banner.webp" type="image/webp">
+      <source srcset="{{ rootPath }}banner-mobile.jpg" media="(max-width: 640px)">
+      <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner" fetchpriority="high">
+    </picture>
     <a href="{{ rootPath }}">
-      <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
+      <picture>
+        <source srcset="{{ rootPath }}logo-round.webp" type="image/webp">
+        <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
+      </picture>
     </a>
   </div>
   {% endblock %}

@@ -108,6 +108,29 @@ async function deploy(outputDir) {
   const regionFlag = region ? ` --region ${region}` : '';
 
   console.log(`Syncing ${outputDir} to s3://${bucket}${region ? ` (${region})` : ''} ...`);
+
+  // Sync with cache headers by file type:
+  // 1. Images, fonts, WebP — immutable, 1 year cache
+  execSync(
+    `aws s3 sync ${outputDir} s3://${bucket} --delete${regionFlag} --exclude "*" --include "*.jpg" --include "*.jpeg" --include "*.png" --include "*.webp" --include "*.svg" --include "*.ico" --include "*.woff2" --include "*.woff" --cache-control "public, max-age=31536000, immutable"`,
+    { stdio: 'inherit' }
+  );
+  // 2. CSS, JS — 1 week cache with revalidation
+  execSync(
+    `aws s3 sync ${outputDir} s3://${bucket}${regionFlag} --exclude "*" --include "*.css" --include "*.js" --cache-control "public, max-age=604800, must-revalidate"`,
+    { stdio: 'inherit' }
+  );
+  // 3. XML, txt — 1 day cache (sitemap, robots)
+  execSync(
+    `aws s3 sync ${outputDir} s3://${bucket}${regionFlag} --exclude "*" --include "*.xml" --include "*.txt" --include "*.webmanifest" --cache-control "public, max-age=86400"`,
+    { stdio: 'inherit' }
+  );
+  // 4. HTML — no-cache (always revalidate via CloudFront)
+  execSync(
+    `aws s3 sync ${outputDir} s3://${bucket}${regionFlag} --exclude "*" --include "*.html" --cache-control "public, max-age=0, must-revalidate"`,
+    { stdio: 'inherit' }
+  );
+  // 5. Everything else (catch-all, no --delete to avoid removing files from previous syncs)
   execSync(
     `aws s3 sync ${outputDir} s3://${bucket} --delete${regionFlag}`,
     { stdio: 'inherit' }

@@ -593,13 +593,15 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
         const rawDate = (cur && cur.release_date) || bcMatch.raw.album_release_date || (cur && cur.new_date)
         if (rawDate) releaseDate = new Date(rawDate).toISOString()
       }
+      // Spotify release date is authoritative — use it when available
+      const finalReleaseDate = sa.releaseDate || releaseDate || null
       const merged = {
         ...bcMatch,
         title: sa.title,
         streamingLinks: { ...(bcMatch.streamingLinks || {}), spotify: sa.spotifyUrl },
         upc: sa.upc || bcMatch.upc || null,
         slug: toSlug(sa.title),
-        releaseDate: releaseDate || sa.releaseDate || null,
+        releaseDate: finalReleaseDate,
         artwork: bcMatch.artwork || bcMatch.imageUrl || null
       }
       result.push(merged)
@@ -779,8 +781,47 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     const slug = toSlug(artist.name)
     const config = artistConfig[slug] || {}
 
+    // Skip enrichment for Various Artists / compilations — only gap-fill and Discogs
+    const isCompilationArtist = artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various'
+    if (isCompilationArtist) {
+      console.log('  → Compilation artist — applying compilations.json, then gap-fill + Discogs')
+      // Apply compilations.json — direct Spotify ID mapping for compilations
+      let compilationConfig = {}
+      try {
+        const raw = await fs.readFile(path.join(contentDir, 'compilations.json'), 'utf8')
+        compilationConfig = JSON.parse(raw)
+      } catch { /* no compilations.json */ }
+      for (const album of artist.albums || []) {
+        const key = album.slug || toSlug(album.title)
+        const cfg = compilationConfig[key]
+        if (cfg) {
+          if (cfg.spotifyUrl) {
+            album.streamingLinks = album.streamingLinks || {}
+            if (!album.streamingLinks.spotify) {
+              album.streamingLinks.spotify = cfg.spotifyUrl
+              console.log(`    ✓ Compilation Spotify (config): "${album.title}" → ${cfg.spotifyUrl}`)
+            }
+          }
+          if (cfg.upc && !album.upc) {
+            album.upc = cfg.upc
+            console.log(`    ✓ Compilation UPC (config): "${album.title}" → ${cfg.upc}`)
+          }
+        }
+      }
+      // Fetch Spotify metadata for compilations that have Spotify URLs
+      if (hasSpotify && spotifyToken) {
+        const needsMeta = (artist.albums || []).filter(al =>
+          al.streamingLinks && al.streamingLinks.spotify && !al.spotifyLabel
+        )
+        if (needsMeta.length > 0) {
+          try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
+          await enrichSpotifyOnlyAlbums(needsMeta, spotifyToken)
+        }
+      }
+    }
+
     // Determine if SC is available for this artist (may have been disabled mid-run)
-    let useScForThisArtist = scAvailable && !fallbackState.soundchartsDisabled
+    let useScForThisArtist = scAvailable && !fallbackState.soundchartsDisabled && !isCompilationArtist
 
     // ══════════════════════════════════════════════════════════════════════════
     // SOUNDCHARTS MODE
@@ -994,7 +1035,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
 
       // ── Step 1: Spotify ─────────────────────────────────────────────────────
-      if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled) {
+      if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled && !isCompilationArtist) {
         try {
 
         // 1a. Artist-level Spotify URL
@@ -1220,19 +1261,30 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     }
 
     // ── Spotify label fallback — runs when not using SC for this artist ────
-    if (!useScForThisArtist && hasSpotify && spotifyToken && !options.tidalOnly && !fallbackState.spotifyDisabled) {
-      const needsLabel = (artist.albums || []).filter(al =>
-        !al.labelName && al.streamingLinks && al.streamingLinks.spotify
+    if (!useScForThisArtist && !isCompilationArtist && hasSpotify && spotifyToken && !options.tidalOnly && !fallbackState.spotifyDisabled) {
+      // Fetch Spotify metadata for albums missing labels OR missing spotifyLabel (for comparison)
+      const needsSpotifyLabel = (artist.albums || []).filter(al =>
+        !al.spotifyLabel && al.streamingLinks && al.streamingLinks.spotify
       )
-      if (needsLabel.length > 0) {
-        console.log(`  → Spotify label fallback for ${needsLabel.length} album(s)...`)
+      if (needsSpotifyLabel.length > 0) {
+        console.log(`  → Spotify label check for ${needsSpotifyLabel.length} album(s)...`)
         try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
-        await enrichSpotifyOnlyAlbums(needsLabel, spotifyToken)
+        await enrichSpotifyOnlyAlbums(needsSpotifyLabel, spotifyToken)
       }
 
+      // Spotify label vs Discogs label — keep both when they differ AND Discogs has physical formats
       for (const al of artist.albums || []) {
-        if (al.labelName && al.spotifyLabel && al.labelName !== al.spotifyLabel) {
-          console.warn(`    ⚠ Label mismatch: "${al.title}" — Discogs: "${al.labelName}", Spotify: "${al.spotifyLabel}"`)
+        if (al.spotifyLabel && al.labelName && al.labelName !== al.spotifyLabel) {
+          // Only store discogsLabel if the album has physical formats (real physical release)
+          const hasPhysical = al.physicalFormats && al.physicalFormats.length > 0
+          if (hasPhysical && !al.discogsLabel) {
+            al.discogsLabel = al.labelName
+            console.log(`    ✓ Dual label: "${al.title}" — digital: "${al.spotifyLabel}", physical: "${al.labelName}"`)
+          }
+          // Spotify (digital) is the primary label
+          al.labelName = al.spotifyLabel
+        } else if (al.spotifyLabel && !al.labelName) {
+          al.labelName = al.spotifyLabel
         }
       }
     }

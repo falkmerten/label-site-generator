@@ -1,6 +1,6 @@
 {
   "name": "label-site-generator",
-  "version": "3.1.2",
+  "version": "3.2.0",
   "description": "Static site generator for music labels — scrapes Bandcamp, enriches with Soundcharts/Discogs, generates a branded HTML site.",
   "main": "generate.js",
   "scripts": {
@@ -27,6 +27,7 @@
     "standard": "^16.0.3"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "cheerio": "^0.22.0",
     "dotenv": "^17.3.1",
     "isomorphic-dompurify": "^2.0.0",
