@@ -144,12 +144,18 @@ function parseArticle (md, slug, date, yearPath) {
     // Auto-detect: look for {slug}.jpg, .jpeg, .png, .webp in the year folder
     const fs = require('fs')
     for (const ext of ['.jpg', '.jpeg', '.png', '.webp']) {
-      const candidate = path.join(yearPath, slug + ext)
-      try {
-        fs.accessSync(candidate)
-        image = candidate
-        break
-      } catch { /* not found */ }
+      const candidates = [
+        path.join(yearPath, slug + ext),
+        path.join(yearPath, date.slice(5, 7) + '-' + date.slice(8, 10) + '-' + slug + ext)
+      ]
+      for (const candidate of candidates) {
+        try {
+          fs.accessSync(candidate)
+          image = candidate
+          break
+        } catch { /* not found */ }
+      }
+      if (image) break
     }
   }
 

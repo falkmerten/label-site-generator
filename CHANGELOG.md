@@ -4,6 +4,13 @@
 
 ---
 
+### v3.2.3 — 2026-04-06
+
+**Bug fixes**
+- Fixed news article image auto-detection not finding date-prefixed image files (e.g. `02-27-my-article.jpg`) — now checks both `{slug}.ext` and `{MM-DD-slug}.ext` naming conventions
+
+---
+
 ### v3.2.2 — 2026-04-06
 
 **Bug fixes — Mobile image variants**
