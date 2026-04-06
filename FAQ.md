@@ -73,7 +73,10 @@ Reports orphaned content folders that don't match any album in the cache. Dry-ru
 When enriching, the enricher fetches the artist's full album list from Soundcharts and adds any releases not already in the cache (matched by title, UPC, and Soundcharts UUID). This catches streaming-only releases not on Bandcamp.
 
 **How does Bandcamp URL verification work?**
-After Spotify adds releases to the catalog, the enricher checks each Spotify-only album (no Bandcamp URL) by constructing a Bandcamp URL from the title and verifying it exists with a HEAD request. This catches albums that exist on Bandcamp but weren't found by the scraper — for example, older releases not listed on the `/music` page. The verification uses Bandcamp-style slugs (apostrophes dropped, not hyphenated).
+After Spotify adds releases to the catalog, the enricher checks each Spotify-only album (no Bandcamp URL) by constructing a Bandcamp URL from the title and verifying it exists with a HEAD request. This catches albums that exist on Bandcamp but weren't found by the scraper — for example, older releases not listed on the `/music` page. The verification uses Bandcamp-style slugs (apostrophes dropped, not hyphenated). Verified albums are fully scraped (tracks, tags, album ID for embedded player).
+
+**What is the Spotify searchAlbum fallback?**
+After `fetchArtistAlbums` builds the album list, Bandcamp albums that didn't match any Spotify release get a title-based search fallback. This catches albums that Spotify's artist endpoint doesn't return (e.g., one artist had 9 of 20 albums missing). The search uses strict scoring: artist name must match exactly, and for short artist names (≤3 chars) an exact album title match is required. Artists that normalize to fewer than 2 characters (e.g., `Artist` → `a`) skip the search entirely to prevent false positives. Albums belonging to other artists on shared Bandcamp pages are also excluded.
 
 **What's the difference between Soundcharts mode and legacy mode?**
 When `SOUNDCHARTS_APP_ID` and `SOUNDCHARTS_API_KEY` are set, the enricher uses Soundcharts as the primary source for streaming links, social media, events, and metadata. Missing links are filled by iTunes/Deezer/Tidal as needed. When Soundcharts credentials are absent, the full legacy pipeline (Spotify → iTunes → Deezer → Tidal → MusicFetch) runs instead. No CLI flags needed — the mode is automatic.
@@ -108,8 +111,15 @@ For a specific album with a direct product URL, create `content/{artist-slug}/{a
 **How do I deploy to AWS S3 + CloudFront?**
 Run `node generate.js --deploy`. Requires `AWS_S3_BUCKET` and optionally `AWS_CLOUDFRONT_DISTRIBUTION_ID` in `.env`. The AWS CLI must be installed and configured with appropriate credentials.
 
+**What cache headers does `--deploy` set?**
+The deploy command uses per-file-type Cache-Control headers:
+- Images, fonts, WebP: `max-age=31536000, immutable` (1 year)
+- CSS, JS: `max-age=604800, must-revalidate` (1 week)
+- XML, TXT, webmanifest: `max-age=86400` (1 day)
+- HTML: `max-age=0, must-revalidate` (always revalidate)
+
 **How do I get Google to index my site?**
-Submit your sitemap at [Google Search Console](https://search.google.com/search-console). The sitemap is auto-generated at `/sitemap.xml` when `SITE_URL` is set in `.env`.
+Submit your sitemap at [Google Search Console](https://search.google.com/search-console). The sitemap is auto-generated at `/sitemap.xml` when `SITE_URL` is set in `.env`. The sitemap includes video entries for albums with YouTube videos.
 
 ---
 
@@ -166,10 +176,35 @@ Create markdown files in `content/news/{year}/` with the naming pattern `MM-DD-s
 From front-matter `title:` field first, then the first `#` or `##` heading in the markdown, then derived from the filename slug.
 
 **How do I add a feature image to a news article?**
-Either add `image: filename.jpg` to the front-matter (file in the same year folder), or place a file named `{slug}.jpg` in the year folder for auto-detection.
+Either add `image: filename.jpg` to the front-matter (file in the same year folder), or place a file named `{slug}.jpg` or `{MM-DD-slug}.jpg` in the year folder for auto-detection. Both naming conventions work.
 
 **Where do news articles appear?**
 The latest 10 appear on the homepage in the News section. All articles are listed on the `/news/` page with pagination. Each article gets its own page at `/news/{slug}/`.
+
+---
+
+## Newsletter
+
+**Which newsletter systems are supported?**
+Sendy and Listmonk. Set `NEWSLETTER_PROVIDER=sendy` or `NEWSLETTER_PROVIDER=listmonk` in `.env`. If `NEWSLETTER_PROVIDER` is not set but `NEWSLETTER_ACTION_URL` is, it defaults to Sendy for backward compatibility.
+
+**What happens when someone subscribes with an already-subscribed email?**
+Sendy returns "Already subscribed." which is shown as "You are already subscribed to this list." Listmonk returns HTTP 409 with the same message.
+
+**What about bounced or suppressed emails?**
+Sendy returns specific error messages for bounced and suppressed emails. The form shows a message asking the user to contact the label email directly.
+
+**Can a user re-subscribe after unsubscribing?**
+Yes. Sendy allows re-subscription — the user gets a new double opt-in confirmation email. No manual intervention needed.
+
+**I get "Something went wrong" when subscribing on the live site**
+This is a CORS issue. Your Sendy server needs to send `Access-Control-Allow-Origin` headers for your site domain. See the CORS section in `API-SETUP.md`. Listmonk supports CORS by default.
+
+**How do auto-campaign drafts work?**
+Set `NEWSLETTER_AUTO_CAMPAIGN=true` in `.env`. When you run `node generate.js` and new news articles are detected, a campaign draft is automatically created in your newsletter system. Campaigns are never auto-sent — you review and send manually. Tracking is via `content/news/.campaigns-created` so articles only trigger one campaign each.
+
+**Do I need different credentials for subscribe vs campaigns?**
+For Sendy: the same `NEWSLETTER_API_KEY` works for both. For Listmonk: the subscribe form uses the public API (no auth), but campaign creation requires `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` (BasicAuth).
 
 ---
 

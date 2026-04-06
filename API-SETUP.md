@@ -22,9 +22,9 @@ Note: API access is only available to Bandcamp label accounts, not individual ar
 
 ---
 
-## Spotify (optional — legacy mode only)
+## Spotify (recommended)
 
-Used as fallback enrichment when Soundcharts credentials are not configured. Not needed when using Soundcharts mode.
+Used for album catalog matching (title-based matching of Bandcamp albums to Spotify releases), UPC extraction, and title normalization. In Soundcharts mode, Spotify builds the album list and Soundcharts fills the metadata. In legacy mode, Spotify is the primary enrichment source.
 
 1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
 2. Log in with your Spotify account
@@ -38,7 +38,7 @@ Used as fallback enrichment when Soundcharts credentials are not configured. Not
    SPOTIFY_CLIENT_SECRET=your_client_secret
    ```
 
-Rate limits: Development Mode apps have a rolling 30-second window. The generator uses 200ms delays between requests. If you hit a long rate limit (hours), wait and retry.
+Rate limits: Development Mode apps have a rolling 30-second window. The generator uses 200ms delays between requests. If you hit a long rate limit (hours), the enricher automatically disables Spotify for remaining artists and falls back to other sources.
 
 ---
 
@@ -186,3 +186,61 @@ Used by `--sync-elasticstage` to sync on-demand vinyl/CD release links.
    ```
 
 Note: ElasticStage pages require JavaScript rendering. The sync command reports existing `stores.json` files when scraping fails. Add new releases manually via `content/{artist}/{album}/stores.json`.
+
+---
+
+## Sendy (optional — newsletter)
+
+Self-hosted email marketing. Used for the subscribe form on the homepage and auto-campaign drafts from news articles.
+
+1. Install Sendy on your server ([sendy.co](https://sendy.co))
+2. Go to **Settings** and copy your **API Key**
+3. Go to **View all lists** and copy the **encrypted list ID** for your list
+4. Add to `.env`:
+   ```
+   NEWSLETTER_PROVIDER=sendy
+   NEWSLETTER_ACTION_URL=https://your-sendy-installation.com
+   NEWSLETTER_API_KEY=your_api_key
+   NEWSLETTER_LIST_ID=your_encrypted_list_id
+   NEWSLETTER_DOUBLE_OPTIN=true
+   ```
+
+**CORS requirement**: The subscribe form uses `fetch()` from the browser. Your Sendy server must send `Access-Control-Allow-Origin` headers for your site domain. Add to your Nginx config for the Sendy server:
+
+```nginx
+location = /subscribe.php {
+    add_header 'Access-Control-Allow-Origin' 'https://your-site.com' always;
+    add_header 'Access-Control-Allow-Methods' 'POST, OPTIONS' always;
+    add_header 'Access-Control-Allow-Headers' 'Content-Type' always;
+    # ... existing PHP/FastCGI config ...
+}
+```
+
+**Auto-campaign drafts** (optional): Set `NEWSLETTER_AUTO_CAMPAIGN=true` to automatically create a campaign draft in Sendy for each new news article. Campaigns are never auto-sent — review and send manually in the Sendy dashboard. Requires `NEWSLETTER_FROM_EMAIL` (or `LABEL_EMAIL`) and `NEWSLETTER_BRAND_ID` (default: `1`).
+
+---
+
+## Listmonk (optional — newsletter)
+
+Self-hosted newsletter manager (alternative to Sendy). Uses the public subscription API for the subscribe form and the authenticated API for campaign creation.
+
+1. Install Listmonk ([listmonk.app](https://listmonk.app))
+2. Create a **public** list in the admin panel
+3. Copy the **list UUID** from the list settings
+4. Add to `.env`:
+   ```
+   NEWSLETTER_PROVIDER=listmonk
+   NEWSLETTER_ACTION_URL=https://your-listmonk-installation.com
+   NEWSLETTER_LIST_ID=your-list-uuid
+   NEWSLETTER_DOUBLE_OPTIN=true
+   ```
+
+The public subscription endpoint (`/api/public/subscription`) requires no authentication and supports CORS by default.
+
+**Auto-campaign drafts** (optional): Set `NEWSLETTER_AUTO_CAMPAIGN=true` and add API credentials:
+```
+NEWSLETTER_API_USER=your_api_username
+NEWSLETTER_API_TOKEN=your_api_token
+NEWSLETTER_FROM_EMAIL=newsletter@your-label.com
+```
+Create API users in Listmonk under **Admin → Users**.
