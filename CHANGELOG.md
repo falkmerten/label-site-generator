@@ -4,6 +4,14 @@
 
 ---
 
+### v3.2.5 — 2026-04-06
+
+**Improvements**
+- Spotify title normalization during `--artist` refresh (LSG-10) — after re-scraping, titles are normalized against Spotify catalog if artist has a configured Spotify URL
+- Cache integrity property-based tests (LSG-4) — 20 tests covering backup rotation, enrichment preservation, conflict detection, content-first priority, and audit report completeness
+
+---
+
 ### v3.2.4 — 2026-04-06
 
 **Bug fixes**

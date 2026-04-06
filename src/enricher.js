@@ -1354,6 +1354,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
 module.exports = {
   enrichCache,
+  loadArtistConfig,
   // Exported for testing
   extractSpotifyId,
   hasAllAlbumLinks,

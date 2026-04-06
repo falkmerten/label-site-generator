@@ -19,7 +19,7 @@ const ALBUM_ENRICHMENT_FIELDS = [
   'discogsSellUrlVinyl', 'discogsSellUrlCd', 'discogsSellUrlCassette',
   'physicalFormats', 'catalogNumber', 'labelName', 'labelUrl', 'labelUrls',
   'videos', 'soundchartsUuid', 'soundchartsEnriched', 'spotifyLabel',
-  'distributor', 'copyright', 'description', 'releaseDate', 'slug', 'discogsLabel'
+  'distributor', 'copyright', 'description', 'releaseDate', 'slug', 'discogsLabel', 'presaveUrl'
 ]
 
 /**
@@ -305,6 +305,38 @@ async function refreshArtist (cachePath, artistFilter) {
   }
 
   data.artists[idx] = updatedArtist
+
+  // Spotify title normalization — if artist has a Spotify URL, normalize titles
+  try {
+    const { loadArtistConfig } = require('./enricher')
+    const { getAccessToken, fetchArtistAlbums } = require('./spotify')
+    const contentDir = process.env.CONTENT_DIR || './content'
+    const artistConfig = await loadArtistConfig(contentDir)
+    const artistSlug = toSlug(updatedArtist.name)
+    const config = artistConfig[artistSlug] || artistConfig[updatedArtist.name]
+    const spotifyUrl = config && config.spotifyArtistUrl
+
+    if (spotifyUrl && process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) {
+      console.log('  → Normalizing titles against Spotify...')
+      const token = await getAccessToken()
+      const spotifyAlbums = await fetchArtistAlbums(token, spotifyUrl)
+      if (spotifyAlbums.length > 0) {
+        const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+        let normalized = 0
+        for (const album of updatedArtist.albums) {
+          const match = spotifyAlbums.find(sa => normalise(sa.title) === normalise(album.title))
+          if (match && match.title !== album.title) {
+            console.log(`    ✓ Title: "${album.title}" → "${match.title}"`)
+            album.title = match.title
+            normalized++
+          }
+        }
+        if (normalized > 0) console.log(`  ✓ Normalized ${normalized} title(s)`)
+      }
+    }
+  } catch (err) {
+    console.warn(`  ⚠ Spotify title normalization skipped: ${err.message}`)
+  }
 
   // Load upcoming releases for this artist from upcoming.json
   const { loadUpcoming } = require('./upcoming')
