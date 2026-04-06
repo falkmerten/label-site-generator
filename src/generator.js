@@ -67,6 +67,15 @@ async function generate(options) {
     console.log(`Loaded ${newsArticles.length} news article(s).`);
   }
 
+  // Step 5c: Create newsletter campaign drafts for new articles
+  if (process.env.NEWSLETTER_AUTO_CAMPAIGN === 'true' && newsArticles.length > 0) {
+    const { createCampaignDrafts } = require('./newsletterCampaign');
+    const campaignCount = await createCampaignDrafts(newsArticles, contentDir);
+    if (campaignCount > 0) {
+      console.log(`Created ${campaignCount} newsletter campaign draft(s).`);
+    }
+  }
+
   // Step 6: Assign slugs
   mergedData.artists = assignSlugs(mergedData.artists);
 

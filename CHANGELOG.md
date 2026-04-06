@@ -4,6 +4,18 @@
 
 ---
 
+### v3.5.0 — 2026-04-06
+
+**Auto-create newsletter campaign drafts from news articles (LSG-28)**
+- When `NEWSLETTER_AUTO_CAMPAIGN=true`, new news articles automatically create campaign drafts
+- Sendy: POST to `/api/campaigns/create.php` with `send_campaign=0` (draft only)
+- Listmonk: POST to `/api/campaigns` with `status: draft` (requires BasicAuth via `NEWSLETTER_API_USER`/`NEWSLETTER_API_TOKEN`)
+- Campaign contains: title, excerpt, "Read more" button linking to article, feature image
+- Tracking via `content/news/.campaigns-created` file — only new articles trigger campaigns
+- Campaigns are never auto-sent — always created as drafts for manual review
+
+---
+
 ### v3.4.0 — 2026-04-06
 
 **Newsletter API Integration (LSG-27)**
