@@ -279,6 +279,15 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     hasEvents: allEvents.length > 0,
   };
 
+  // --- Pre-set news imageUrl so homepage and listing pages can use it ---
+  for (const article of newsArticles) {
+    if (article.imagePath && !article.imagePath.startsWith('http')) {
+      article.imageUrl = path.basename(article.imagePath)
+    } else if (article.image) {
+      article.imageUrl = article.image
+    }
+  }
+
   // --- index ---
   await fs.mkdir(outputDir, { recursive: true });
   const sitemapUrls = [];

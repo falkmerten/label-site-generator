@@ -15,6 +15,7 @@
               <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-image">
                 {% if article.imageUrl | isLocal %}
                 <picture>
+                  <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
                   <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toWebp }}" type="image/webp">
                   <img src="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
                 </picture>
