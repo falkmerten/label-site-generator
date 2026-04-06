@@ -45,14 +45,25 @@ async function optimizeImages (outputDir) {
       const mobilePath = path.join(dir, baseName + '-mobile' + ext)
       const mobileWebpPath = path.join(dir, baseName + '-mobile.webp')
 
-      // Check what already exists
+      // Check what already exists and whether source is newer
       let hasWebp = false
       let hasMobile = false
-      try { await fs.access(webpPath); hasWebp = true } catch { /* needs creating */ }
-      try { await fs.access(mobileWebpPath); hasMobile = true } catch { /* needs creating */ }
+      let webpStale = false
+      let mobileStale = false
+      const srcStat = await fs.stat(fullPath)
+      try {
+        const webpStat = await fs.stat(webpPath)
+        hasWebp = true
+        webpStale = srcStat.mtimeMs > webpStat.mtimeMs
+      } catch { /* needs creating */ }
+      try {
+        const mobileStat = await fs.stat(mobileWebpPath)
+        hasMobile = true
+        mobileStale = srcStat.mtimeMs > mobileStat.mtimeMs
+      } catch { /* needs creating */ }
 
-      // Skip if WebP exists — mobile check happens after we know the image width
-      if (hasWebp && hasMobile) {
+      // Skip if WebP exists and is up-to-date
+      if (hasWebp && !webpStale && hasMobile && !mobileStale) {
         skipped++
         continue
       }
@@ -67,8 +78,8 @@ async function optimizeImages (outputDir) {
         const resizeOpts = needsResize ? { width: MAX_WIDTH } : {}
         const effectiveWidth = needsResize ? MAX_WIDTH : metadata.width
 
-        // Create full-size WebP if missing
-        if (!hasWebp) {
+        // Create full-size WebP if missing or stale
+        if (!hasWebp || webpStale) {
           const webpBuffer = await sharp(input)
             .resize(resizeOpts)
             .webp({ quality: WEBP_QUALITY })
@@ -87,8 +98,8 @@ async function optimizeImages (outputDir) {
           }
         }
 
-        // Create mobile versions if missing
-        if (!hasMobile) {
+        // Create mobile versions if missing or stale
+        if (!hasMobile || mobileStale) {
           const mobileResizeOpts = effectiveWidth > MOBILE_WIDTH
             ? { width: MOBILE_WIDTH }
             : {}
