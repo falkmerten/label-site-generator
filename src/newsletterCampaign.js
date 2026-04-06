@@ -46,7 +46,9 @@ async function createCampaignDrafts (articles, contentDir) {
   for (const article of newArticles) {
     try {
       const articleUrl = siteUrl ? `${siteUrl}news/${article.slug}/` : ''
-      const imageUrl = article.image && siteUrl ? `${siteUrl}news/${article.slug}/${path.basename(article.image)}` : ''
+      // Use original image path (not WebP) for email compatibility
+      const imgBase = article.imagePath ? path.basename(article.imagePath) : (article.image ? path.basename(article.image) : '')
+      const imageUrl = imgBase && siteUrl ? `${siteUrl}news/${article.slug}/${imgBase}` : ''
 
       const htmlBody = buildCampaignHtml(article, articleUrl, imageUrl, labelName, articles)
       const plainText = `${article.title}\n\n${article.excerpt}\n\nRead more: ${articleUrl}`
@@ -89,7 +91,7 @@ function buildCampaignHtml (article, articleUrl, imageUrl, labelName, allArticle
       title: a.title,
       dateFormatted: new Date(a.date).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }),
       url: siteUrl ? `${siteUrl}news/${a.slug}/` : '',
-      imageUrl: a.image && siteUrl ? `${siteUrl}news/${a.slug}/${path.basename(a.image)}` : ''
+      imageUrl: a.imagePath && siteUrl ? `${siteUrl}news/${a.slug}/${path.basename(a.imagePath)}` : (a.image && siteUrl ? `${siteUrl}news/${a.slug}/${path.basename(a.image)}` : '')
     }))
 
   const logoUrl = siteUrl ? `${siteUrl}logo-round.png` : ''
