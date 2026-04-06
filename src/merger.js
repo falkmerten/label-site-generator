@@ -19,6 +19,25 @@ function pickFirst (...values) {
 }
 
 /**
+ * Deduplicates events by date (same day) + city.
+ * Keeps the entry with the longer venue name (more specific).
+ */
+function deduplicateEvents (events) {
+  if (!events || events.length === 0) return events
+  const seen = new Map()
+  for (const e of events) {
+    const day = (e.date || '').slice(0, 10)
+    const city = (e.cityName || '').toLowerCase().trim()
+    const key = `${day}|${city}`
+    const existing = seen.get(key)
+    if (!existing || (e.venueName || '').length > (existing.venueName || '').length) {
+      seen.set(key, e)
+    }
+  }
+  return [...seen.values()]
+}
+
+/**
  * Strips Bandcamp's "... more" truncation suffix from bio text.
  */
 function stripMoreSuffix (text) {
@@ -131,6 +150,7 @@ async function mergeData (rawData, content) {
               labelUrl: album.labelUrl || null,
               discogsLabel: album.discogsLabel || null,
               upcoming: album.upcoming || false,
+              presaveUrl: album.presaveUrl || null,
               labelUrls: album.labelUrls || (album.labelUrl
                 ? [album.labelUrl, ...Array(
                     Math.max(0, (album.labelName || '').split(' / ').length - 1)
@@ -153,7 +173,7 @@ async function mergeData (rawData, content) {
           socialLinks: artist.socialLinks || null,
           discoveryLinks: artist.discoveryLinks || null,
           eventLinks: artist.eventLinks || null,
-          events: artist.events || null,
+          events: deduplicateEvents(artist.events || []),
           slug: artistSlug,
           albums
         }
@@ -258,6 +278,7 @@ async function mergeData (rawData, content) {
             labelUrl: album.labelUrl || null,
             discogsLabel: album.discogsLabel || null,
             upcoming: album.upcoming || false,
+            presaveUrl: album.presaveUrl || null,
             labelUrls: album.labelUrls || (album.labelUrl
               ? [album.labelUrl, ...Array(
                   Math.max(0, (album.labelName || '').split(' / ').length - 1)
@@ -302,7 +323,7 @@ async function mergeData (rawData, content) {
         socialLinks: artist.socialLinks || null,
         discoveryLinks: artist.discoveryLinks || null,
         eventLinks: artist.eventLinks || null,
-        events: artist.events || null,
+        events: deduplicateEvents(artist.events || []),
         slug: artistSlug,
         albums
       }
@@ -390,4 +411,4 @@ async function mergeData (rawData, content) {
   }
 }
 
-module.exports = { mergeData, extractAlbumId, pickFirst }
+module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist }

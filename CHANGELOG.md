@@ -9,6 +9,7 @@
 **Spotify searchAlbum fallback (LSG-2)**
 - After `fetchArtistAlbums` builds the album list, Bandcamp albums without a Spotify match now get a title-based search fallback via `searchAlbum`
 - Catches albums that Spotify's artist page doesn't list (e.g., one artist had 9 of 20 albums missing from the artist endpoint)
+- `albumBelongsToArtist` filter applied to search fallback — skips albums from other artists on shared Bandcamp pages (e.g., other artists' releases on shared Bandcamp pages)
 - Works in both Soundcharts and legacy enrichment paths
 - Rate limit (429) propagated correctly — disables Spotify for remaining artists
 - Hardened `searchAlbum` scoring validation:
@@ -17,6 +18,7 @@
   - Artists normalising to <2 chars (e.g. `Artist` → `a`) skip search entirely
   - Partial album match (score 2) requires target album ≥6 chars and only accepted with single candidate
   - `scoreSearchResult` extracted as testable function with 20 property-based tests
+- Verified against live Spotify API: missing albums confirmed not on Spotify, short-name artist correctly blocked by short-name protection
 
 ---
 

@@ -12,7 +12,7 @@ const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
 const { enrichAlbumsWithMusicFetch, enrichArtistWithMusicFetch } = require('./musicfetch')
 const { enrichAlbumsWithDiscogs } = require('./discogs')
 const { toSlug } = require('./slugs')
-const { extractAlbumId } = require('./merger')
+const { extractAlbumId, albumBelongsToArtist } = require('./merger')
 const bandcamp = require('./bandcamp')
 
 function delay (ms) {
@@ -883,7 +883,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
             // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
             const unmatchedBc = (artist.albums || []).filter(a =>
-              a.url && (!a.streamingLinks || !a.streamingLinks.spotify)
+              a.url && (!a.streamingLinks || !a.streamingLinks.spotify) && albumBelongsToArtist(a, artist.name)
             )
             if (unmatchedBc.length > 0) {
               console.log(`  → Spotify search fallback for ${unmatchedBc.length} unmatched album(s)...`)
@@ -1120,7 +1120,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
           // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
           const unmatchedBcLegacy = (artist.albums || []).filter(a =>
-            a.url && (!a.streamingLinks || !a.streamingLinks.spotify)
+            a.url && (!a.streamingLinks || !a.streamingLinks.spotify) && albumBelongsToArtist(a, artist.name)
           )
           if (unmatchedBcLegacy.length > 0) {
             console.log(`  → Spotify search fallback for ${unmatchedBcLegacy.length} unmatched album(s)...`)
