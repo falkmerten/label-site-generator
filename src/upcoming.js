@@ -47,7 +47,12 @@ async function loadUpcoming (contentDir, rawData, artistFilter) {
       continue
     }
 
-    for (const privateUrl of urls) {
+    for (const entry of urls) {
+      // Support both string format ("url") and object format ({ url, presaveUrl })
+      const privateUrl = typeof entry === 'string' ? entry : entry.url
+      const presaveUrl = typeof entry === 'object' ? entry.presaveUrl || null : null
+      if (!privateUrl) continue
+
       try {
         await new Promise(r => setTimeout(r, DELAY_MS))
         const info = await bandcamp.getAlbumInfo(privateUrl)
@@ -60,15 +65,20 @@ async function loadUpcoming (contentDir, rawData, artistFilter) {
 
         // Check if already in artist's albums (by title match)
         const titleNorm = norm(info.title)
-        const exists = artist.albums.some(a => norm(a.title) === titleNorm)
-        if (exists) {
-          console.log(`  – Upcoming "${info.title}" already in cache — skipping`)
+        const existing = artist.albums.find(a => norm(a.title) === titleNorm)
+        if (existing) {
+          // Update presaveUrl from config (may have been added or removed)
+          existing.presaveUrl = presaveUrl
+          if (existing.upcoming) {
+            console.log(`  – Upcoming "${info.title}" already in cache — updated presaveUrl`)
+          }
           continue
         }
 
         artist.albums.push({
           url: null, // no public URL yet
           privateUrl,
+          presaveUrl,
           title: info.title,
           artist: info.artist,
           imageUrl: info.imageUrl,

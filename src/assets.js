@@ -322,6 +322,8 @@ main { min-height: 60vh; }
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .news-item {
@@ -397,6 +399,17 @@ main { min-height: 60vh; }
 }
 
 /* News article page */
+.news-article-page {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.news-article-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
 .news-article-header {
   margin-bottom: 1.5rem;
 }
@@ -420,6 +433,7 @@ main { min-height: 60vh; }
   max-width: 800px;
   height: auto;
   border-radius: 4px;
+  display: block;
 }
 
 .news-article-body {
@@ -470,6 +484,34 @@ main { min-height: 60vh; }
   color: var(--text);
 }
 
+/* Pre-save button for upcoming releases */
+.presave-section {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.presave-btn {
+  display: inline-block;
+  padding: 0.8rem 2rem;
+  background: var(--text);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.presave-btn:hover {
+  background: var(--accent, #8a8aff);
+  text-decoration: none;
+  color: #fff;
+}
+
+.presave-btn i {
+  margin-right: 0.5rem;
+}
+
 /* Pagination */
 .pagination {
   display: flex;
@@ -480,6 +522,9 @@ main { min-height: 60vh; }
   padding-top: 1.5rem;
   border-top: 1px solid rgba(255,255,255,0.1);
   font-size: 0.9rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .pagination a {
@@ -1114,7 +1159,37 @@ main { min-height: 60vh; }
 }
 
 /* ── News / About sections ── */
-.news-section, .about-section { background: var(--bg); }
+.news-section, .about-section, .shows-section { background: var(--bg); }
+
+/* ── Shows section (homepage) ── */
+.event-artist-link {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.event-artist-link:hover { color: var(--accent, #8a8aff); }
+
+.event-separator {
+  color: var(--text-muted);
+  margin: 0 0.25rem;
+}
+
+.event-name-light {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.event-tickets {
+  font-size: 0.8rem;
+  color: var(--accent, #8a8aff);
+  text-decoration: none;
+  margin-left: auto;
+}
+
+.event-tickets:hover { text-decoration: underline; }
+.event-tickets i { margin-right: 0.3rem; }
 
 /* ── Newsletter form ── */
 .newsletter-form { margin-top: 2rem; }
