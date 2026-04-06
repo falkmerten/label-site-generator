@@ -415,7 +415,7 @@ async function enrichSpotifyOnlyAlbums (albums, token) {
           const cLine = data.copyrights.find(c => c.type === 'C')
           const pLine = data.copyrights.find(c => c.type === 'P')
           const line = cLine || pLine || data.copyrights[0]
-          if (line && line.text) spotifyLabelName = line.text.replace(/^[©℗(CP)]*\s*\d{4}\s*/i, '').replace(/^\d{3,4}\s+/, '').trim()
+          if (line && line.text) spotifyLabelName = line.text.replace(/^[\u00A9\u2117\u2120\uFFFD©℗]+\s*\d{0,4}\s*/i, '').replace(/^\(\s*[CP]\s*\)\s*\d{0,4}\s*/i, '').replace(/^\d{3,4}\s+/, '').trim()
         }
         if (spotifyLabelName) {
           album.spotifyLabel = spotifyLabelName
@@ -444,4 +444,4 @@ function formatDuration (ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc }
+module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum }

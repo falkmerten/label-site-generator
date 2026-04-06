@@ -5,7 +5,7 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const { readCache, writeCache } = require('./cache')
-const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums } = require('./spotify')
+const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify } = require('./spotify')
 const { enrichAlbumsWithItunes } = require('./itunes')
 const { enrichAlbumsWithDeezer } = require('./deezer')
 const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
@@ -880,6 +880,32 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             if (spotifyAlbums.length > 0) {
               artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
             }
+
+            // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
+            const unmatchedBc = (artist.albums || []).filter(a =>
+              a.url && (!a.streamingLinks || !a.streamingLinks.spotify)
+            )
+            if (unmatchedBc.length > 0) {
+              console.log(`  → Spotify search fallback for ${unmatchedBc.length} unmatched album(s)...`)
+              let found = 0
+              for (const album of unmatchedBc) {
+                try {
+                  await delay(400)
+                  const result = await searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type))
+                  if (result) {
+                    album.streamingLinks = album.streamingLinks || {}
+                    album.streamingLinks.spotify = result.spotifyUrl
+                    if (result.upc && !album.upc) album.upc = result.upc
+                    found++
+                    console.log(`    ✓ Search match: "${album.title}" → ${result.spotifyUrl}`)
+                  }
+                } catch (err) {
+                  if (err.statusCode === 429) throw err // propagate rate limit
+                  console.warn(`    ⚠ Search failed for "${album.title}": ${err.message}`)
+                }
+              }
+              if (found > 0) console.log(`  ✓ Found ${found} album(s) via search fallback`)
+            }
           } catch (spotifyErr) {
             if (spotifyErr.statusCode === 429 || (spotifyErr.message && spotifyErr.message.includes('429'))) {
               fallbackState.spotifyDisabled = true
@@ -1090,6 +1116,36 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
           const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
           if (spotifyAlbums.length > 0) {
             artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+          }
+
+          // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
+          const unmatchedBcLegacy = (artist.albums || []).filter(a =>
+            a.url && (!a.streamingLinks || !a.streamingLinks.spotify)
+          )
+          if (unmatchedBcLegacy.length > 0) {
+            console.log(`  → Spotify search fallback for ${unmatchedBcLegacy.length} unmatched album(s)...`)
+            let found = 0
+            for (const album of unmatchedBcLegacy) {
+              try {
+                await delay(400)
+                const result = await searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type))
+                if (result) {
+                  album.streamingLinks = album.streamingLinks || {}
+                  album.streamingLinks.spotify = result.spotifyUrl
+                  if (result.upc && !album.upc) album.upc = result.upc
+                  found++
+                  console.log(`    ✓ Search match: "${album.title}" → ${result.spotifyUrl}`)
+                }
+              } catch (err) {
+                if (err.statusCode === 429) {
+                  fallbackState.spotifyDisabled = true
+                  console.warn(`  ⚠ Spotify rate limited during search fallback. Disabling.`)
+                  break
+                }
+                console.warn(`    ⚠ Search failed for "${album.title}": ${err.message}`)
+              }
+            }
+            if (found > 0) console.log(`  ✓ Found ${found} album(s) via search fallback`)
           }
         }
 

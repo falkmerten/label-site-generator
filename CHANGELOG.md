@@ -4,6 +4,16 @@
 
 ---
 
+### v3.3.0 — 2026-04-06
+
+**Spotify searchAlbum fallback (LSG-2)**
+- After `fetchArtistAlbums` builds the album list, Bandcamp albums without a Spotify match now get a title-based search fallback via `searchAlbum`
+- Catches albums that Spotify's artist page doesn't list (e.g., one artist had 9 of 20 albums missing from the artist endpoint)
+- Works in both Soundcharts and legacy enrichment paths
+- Rate limit (429) propagated correctly — disables Spotify for remaining artists
+
+---
+
 ### v3.2.5 — 2026-04-06
 
 **Improvements**
