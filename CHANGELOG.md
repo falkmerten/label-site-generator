@@ -4,6 +4,25 @@
 
 ---
 
+### v3.4.0 — 2026-04-06
+
+**Newsletter API Integration (LSG-27)**
+- Provider-agnostic newsletter integration with `NEWSLETTER_PROVIDER` env var (sendy, listmonk)
+- Sendy: switched from `mode: 'no-cors'` HTML endpoint to API mode (`boolean=true` + `api_key`) with real response parsing
+- Listmonk: JSON POST to `/api/public/subscription` (no auth required) with proper HTTP status handling
+- Specific error messages for subscriber states:
+  - "Already subscribed" (Sendy plain-text / Listmonk HTTP 409)
+  - "Bounced email address" → contact label email
+  - "Email is suppressed" → contact label email
+- Honeypot spam protection: Sendy sends `hp` field server-side, Listmonk checks client-side
+- Double opt-in: DOI-aware success messages ("Check your inbox" vs "Successfully subscribed")
+- Sendy `silent=true` parameter when DOI is disabled
+- Backward compatible: no `NEWSLETTER_PROVIDER` + `NEWSLETTER_ACTION_URL` set = sendy default
+- Provider config via extensible `NEWSLETTER_PROVIDERS` map in renderer (add new providers with one entry)
+- `resolveNewsletter()` exported for testing
+
+---
+
 ### v3.3.0 — 2026-04-06
 
 **Spotify searchAlbum fallback (LSG-2)**

@@ -5,6 +5,58 @@ const path = require('path');
 const nunjucks = require('nunjucks');
 const { renderMarkdown } = require('./markdown');
 
+// Provider configuration map — add new providers here
+const NEWSLETTER_PROVIDERS = {
+  sendy: {
+    required: ['NEWSLETTER_ACTION_URL', 'NEWSLETTER_LIST_ID'],
+    resolve: () => ({
+      provider: 'sendy',
+      actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
+      listId: process.env.NEWSLETTER_LIST_ID || '',
+      apiKey: process.env.NEWSLETTER_API_KEY || '',
+      doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
+    })
+  },
+  listmonk: {
+    required: ['NEWSLETTER_ACTION_URL', 'NEWSLETTER_LIST_ID'],
+    resolve: () => ({
+      provider: 'listmonk',
+      actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
+      listId: process.env.NEWSLETTER_LIST_ID || '',
+      doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
+    })
+  }
+};
+
+function resolveNewsletter() {
+  let provider = (process.env.NEWSLETTER_PROVIDER || '').toLowerCase();
+
+  // Backward compat: no provider set but action URL exists → sendy
+  if (!provider && process.env.NEWSLETTER_ACTION_URL) {
+    provider = 'sendy';
+  }
+
+  if (!provider) {
+    return { provider: '', actionUrl: '' };
+  }
+
+  const config = NEWSLETTER_PROVIDERS[provider];
+  if (!config) {
+    console.warn(`[newsletter] Unsupported NEWSLETTER_PROVIDER "${provider}". Skipping newsletter form.`);
+    return { provider: '', actionUrl: '' };
+  }
+
+  // Check required env vars
+  for (const key of config.required) {
+    if (!process.env[key]) {
+      console.warn(`[newsletter] ${key} is required for provider "${provider}" but not set. Skipping newsletter form.`);
+      return { provider: '', actionUrl: '' };
+    }
+  }
+
+  return config.resolve();
+}
+
 /**
  * Render the full static site from merged site data.
  * @param {object} data - MergedSiteData
@@ -155,6 +207,17 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     return new Date(b.releaseDate) - new Date(a.releaseDate);
   });
 
+  // Collect all upcoming events across all artists, sorted by date
+  const allEvents = []
+  for (const artist of data.artists || []) {
+    const eventUrl = (artist.eventLinks && artist.eventLinks.bandsintown) ||
+      (artist.eventLinks && artist.eventLinks.songkick) || null
+    for (const event of artist.events || []) {
+      allEvents.push({ ...event, artistName: artist.name, artistSlug: artist.slug, eventUrl })
+    }
+  }
+  allEvents.sort((a, b) => new Date(a.date) - new Date(b.date))
+
   // Filter albums for homepage/releases page by label if configured
   const labelBandcampOrigin = (() => {
     const url = process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || ''
@@ -188,11 +251,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     physicalStores,
     customStoreDefs,
     currentYear: new Date().getFullYear(),
-    newsletter: {
-      actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
-      listId: process.env.NEWSLETTER_LIST_ID || '',
-      doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
-    },
+    newsletter: resolveNewsletter(),
     latestReleases: homepageAlbums.slice(0, 12),
     totalReleases: homepageAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
@@ -216,6 +275,8 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     newsArticles: newsArticles.slice(0, 10),
     hasNews: newsArticles.length > 0,
     totalNews: newsArticles.length,
+    allEvents: allEvents.slice(0, 10),
+    hasEvents: allEvents.length > 0,
   };
 
   // --- index ---
@@ -422,7 +483,43 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   if (siteUrl) robotsLines.push(`Sitemap: ${siteUrl}sitemap.xml`);
   await fs.writeFile(path.join(outputDir, 'robots.txt'), robotsLines.join('\n') + '\n', 'utf8');
 
+  // --- RSS feed (news articles) ---
+  if (siteUrl && newsArticles.length > 0) {
+    const escXml = s => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const rssItems = newsArticles.slice(0, 20).map(a => {
+      const articleUrl = `${siteUrl}news/${a.slug}/`
+      let imageTag = ''
+      if (a.imageUrl) {
+        const imgUrl = (a.imageUrl && !a.imageUrl.startsWith('http'))
+          ? `${siteUrl}news/${a.slug}/${a.imageUrl}`
+          : a.imageUrl
+        imageTag = `\n      <enclosure url="${escXml(imgUrl)}" type="image/jpeg" />`
+      }
+      return `    <item>
+      <title>${escXml(a.title)}</title>
+      <link>${escXml(articleUrl)}</link>
+      <guid>${escXml(articleUrl)}</guid>
+      <pubDate>${new Date(a.date).toUTCString()}</pubDate>
+      <description>${escXml(a.excerpt)}</description>${imageTag}
+    </item>`
+    }).join('\n')
+
+    const rss = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>${escXml(labelName)} — News</title>
+    <link>${escXml(siteUrl)}news/</link>
+    <description>Latest news from ${escXml(labelName)}</description>
+    <language>en</language>
+    <atom:link href="${escXml(siteUrl)}feed.xml" rel="self" type="application/rss+xml" />
+${rssItems}
+  </channel>
+</rss>`
+    await fs.writeFile(path.join(outputDir, 'feed.xml'), rss, 'utf8')
+  }
+
   return count;
 }
 
 module.exports.renderSite = renderSite;
+module.exports.resolveNewsletter = resolveNewsletter;
