@@ -19,6 +19,19 @@ function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/**
+ * Validates and normalizes a date string to ISO 8601.
+ * Returns null for invalid or missing dates.
+ * @param {string|null} dateStr
+ * @returns {string|null}
+ */
+function normalizeDate (dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return null
+  return d.toISOString()
+}
+
 const {
   getArtistBySpotifyId,
   getArtistIdentifiers,
@@ -570,6 +583,8 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
     if (noSingleInParen !== title) set.add(noSingleInParen)
     const noSingleInParenNoParen = noSingleInParen.replace(/\s*\([^)]*\)\s*.*$/, '').trim()
     if (noSingleInParenNoParen) set.add(noSingleInParenNoParen)
+    const noRemixSuffix = title.replace(/\s*[-–—]\s*(remix|remixed|mix)\s*(version|edit)?\s*$/i, '').trim()
+    if (noRemixSuffix !== title) set.add(noRemixSuffix)
     return [...set]
   }
 
@@ -622,10 +637,10 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
       if (!releaseDate && bcMatch.raw) {
         const cur = bcMatch.raw.current
         const rawDate = (cur && cur.release_date) || bcMatch.raw.album_release_date || (cur && cur.new_date)
-        if (rawDate) releaseDate = new Date(rawDate).toISOString()
+        if (rawDate) releaseDate = normalizeDate(rawDate)
       }
       // Spotify release date is authoritative — use it when available
-      const finalReleaseDate = sa.releaseDate || releaseDate || null
+      const finalReleaseDate = normalizeDate(sa.releaseDate) || normalizeDate(releaseDate) || null
       const merged = {
         ...bcMatch,
         title: sa.title,
@@ -647,7 +662,7 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
         tags: [],
         albumId: null,
         itemType: sa.albumType === 'single' ? 'track' : 'album',
-        releaseDate: sa.releaseDate || null,
+        releaseDate: normalizeDate(sa.releaseDate) || null,
         description: null,
         credits: null,
         streamingLinks: { spotify: sa.spotifyUrl },
@@ -807,8 +822,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     catch (err) { console.warn(`  [spotify] Auth failed: ${err.message}`) }
   }
 
-  for (const artist of artists) {
-    console.log(`\n[${artist.name}]`)
+  const totalArtists = artists.length
+  for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
+    const artist = artists[artistIndex]
+    console.log(`\n[${artistIndex + 1}/${totalArtists}] ${artist.name}`)
     const slug = toSlug(artist.name)
     const config = artistConfig[slug] || {}
 

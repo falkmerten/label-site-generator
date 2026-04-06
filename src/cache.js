@@ -12,7 +12,9 @@ async function readCache(cachePath) {
 
 async function writeCache(cachePath, data) {
   await fs.mkdir(path.dirname(cachePath), { recursive: true });
-  await fs.writeFile(cachePath, JSON.stringify(data, null, 2), 'utf8');
+  const tmpPath = cachePath + '.tmp';
+  await fs.writeFile(tmpPath, JSON.stringify(data, null, 2), 'utf8');
+  await fs.rename(tmpPath, cachePath);
 }
 
 /**

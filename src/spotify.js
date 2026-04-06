@@ -40,7 +40,7 @@ async function getAccessToken (clientId, clientSecret) {
       res.on('end', () => {
         try {
           const data = JSON.parse(raw)
-          if (!data.access_token) return reject(new Error(`Spotify token error: ${raw}`))
+          if (!data.access_token) return reject(new Error(`Spotify token error: ${data.error || 'unknown error'}`))
           _tokenCache = {
             token: data.access_token,
             expiresAt: Date.now() + (data.expires_in - 60) * 1000
@@ -345,12 +345,12 @@ async function fetchArtistAlbums (token, artistUrl) {
       try {
         const data = JSON.parse(result.raw)
         if (result.statusCode !== 200) {
-          console.warn(`[warn] fetchArtistAlbums: HTTP ${result.statusCode} — ${JSON.stringify(data).slice(0, 200)}`)
+          console.warn(`[warn] fetchArtistAlbums: HTTP ${result.statusCode} — ${JSON.stringify(data).slice(0, 100)}`)
           return null
         }
         return data
       } catch {
-        console.warn(`[warn] fetchArtistAlbums: unexpected response — ${result.raw.slice(0, 200)}`)
+        console.warn(`[warn] fetchArtistAlbums: unexpected response — ${result.raw.slice(0, 100)}`)
         return null
       }
     }

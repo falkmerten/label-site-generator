@@ -33,6 +33,7 @@ Options:
   --sync-youtube       Search YouTube and create videos.json for albums without one
   --resolve-youtube    Resolve @handle entries in youtube.json to channel IDs
   --cleanup            Report orphaned content folders not matching any album in cache
+  --rollback           Restore the most recent cache backup
   --help               Print this help message and exit
 `);
 }
@@ -87,6 +88,8 @@ function parseArgs(argv) {
       options.resolveYouTube = true;
     } else if (arg === '--cleanup') {
       options.cleanup = true;
+    } else if (arg === '--rollback') {
+      options.rollback = true;
     }
   }
 
@@ -153,6 +156,24 @@ async function deploy(outputDir) {
 const options = parseArgs(process.argv);
 
 async function run() {
+  if (options.rollback) {
+    const fsNode = require('fs/promises');
+    const pathNode = require('path');
+    const dir = pathNode.dirname(options.cachePath) || '.';
+    const ext = pathNode.extname(options.cachePath);
+    const base = pathNode.basename(options.cachePath, ext);
+    const entries = await fsNode.readdir(dir);
+    const backups = entries.filter(f => f.startsWith(`${base}.backup.`) && f.endsWith(ext)).sort();
+    if (backups.length === 0) {
+      console.error('No backup files found.');
+      process.exit(1);
+    }
+    const latest = backups[backups.length - 1];
+    const latestPath = pathNode.join(dir, latest);
+    await fsNode.copyFile(latestPath, options.cachePath);
+    console.log(`Restored ${latest} → ${options.cachePath}`);
+    return;
+  }
   if (options.initArtists) {
     console.log('Initialising artists config...');
     await initArtistsConfig(options.cachePath, options.contentDir);

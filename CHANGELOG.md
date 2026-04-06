@@ -4,6 +4,21 @@
 
 ---
 
+### v3.6.0 — 2026-04-06
+
+**Production Hardening — 15 Verbesserungen aus Review (LSG-29)**
+- Atomic cache writes: `writeCache` schreibt in Temp-Datei, dann atomares Rename (verhindert Korruption bei Crash)
+- Per-artist cache checkpoints im Enrichment (verifiziert — bereits implementiert)
+- Bandcamp exponential backoff: 429 Retry mit 5s × 2^attempt, max 3 Retries, capped 30s
+- `--rollback` CLI Flag: stellt den neuesten Cache-Backup wieder her
+- `.env` Validierung: Warnung wenn BANDCAMP_CLIENT_ID/SECRET oder SITE_URL fehlt
+- Credential-Leakage: Spotify/Bandcamp API Fehler-Responses werden vor dem Logging gekürzt
+- Release-Date-Validierung: `normalizeDate()` Helper validiert ISO 8601 Format
+- Fortschrittsanzeige: `[1/N] ArtistName` Counter im Enrichment
+- Remix-Suffix-Normalisierung: "Track - Remix Version" matched jetzt "Track (Remix)"
+
+---
+
 ### v3.5.0 — 2026-04-06
 
 **Auto-create newsletter campaign drafts from news articles (LSG-28)**

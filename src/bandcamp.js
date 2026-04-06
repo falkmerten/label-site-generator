@@ -9,7 +9,7 @@ const urlHelper = require('url')
  * Fetches a URL over HTTPS, following up to maxRedirects redirects.
  * Returns the response body as a string.
  */
-function fetchPage (pageUrl, maxRedirects = 5) {
+function fetchPage (pageUrl, maxRedirects = 5, _retryCount = 0) {
   return new Promise((resolve, reject) => {
     const protocol = pageUrl.startsWith('https') ? https : http
     protocol.get(pageUrl, (res) => {
@@ -17,7 +17,16 @@ function fetchPage (pageUrl, maxRedirects = 5) {
         if (maxRedirects <= 0) return reject(new Error('Too many redirects'))
         const redirectUrl = new URL(res.headers.location, pageUrl).toString()
         res.resume()
-        return resolve(fetchPage(redirectUrl, maxRedirects - 1))
+        return resolve(fetchPage(redirectUrl, maxRedirects - 1, _retryCount))
+      }
+      if (res.statusCode === 429) {
+        res.resume()
+        if (_retryCount >= 3) return reject(new Error(`HTTP 429 for ${pageUrl} after ${_retryCount} retries`))
+        const backoff = Math.min(5000 * Math.pow(2, _retryCount), 30000)
+        console.warn(`[bandcamp] 429 rate limited — waiting ${backoff / 1000}s (attempt ${_retryCount + 1}/3)`)
+        return setTimeout(() => {
+          resolve(fetchPage(pageUrl, maxRedirects, _retryCount + 1))
+        }, backoff)
       }
       if (res.statusCode !== 200) {
         res.resume()

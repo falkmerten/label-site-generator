@@ -52,7 +52,7 @@ async function getAccessToken (clientId, clientSecret) {
     client_secret: clientSecret
   }, { 'Content-Type': 'application/x-www-form-urlencoded' })
   if (!res.body.ok) {
-    throw new Error(`Bandcamp OAuth error: ${res.body.error_description || JSON.stringify(res.body)}`)
+    throw new Error(`Bandcamp OAuth error: ${res.body.error_description || res.body.error || 'unknown error'}`)
   }
   return res.body.access_token
 }
@@ -67,7 +67,7 @@ async function getMyBands (accessToken) {
     'Content-Type': 'application/json'
   })
   if (res.status !== 200) {
-    throw new Error(`Bandcamp my_bands API error: HTTP ${res.status} — ${JSON.stringify(res.body)}`)
+    throw new Error(`Bandcamp my_bands API error: HTTP ${res.status}`)
   }
   const bands = res.body.bands || []
 

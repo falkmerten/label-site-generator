@@ -22,6 +22,14 @@ async function generate(options) {
   const opts = { ...DEFAULTS, ...options };
   const { labelUrl, labelName, outputDir, contentDir, cachePath, refresh } = opts;
 
+  // Environment validation warnings
+  if (!process.env.BANDCAMP_CLIENT_ID || !process.env.BANDCAMP_CLIENT_SECRET) {
+    console.warn('[warn] BANDCAMP_CLIENT_ID/SECRET not set — falling back to HTML scraping (slower, less reliable)');
+  }
+  if (!process.env.SITE_URL) {
+    console.warn('[warn] SITE_URL not set — canonical URLs, sitemap, and OG tags will be incomplete');
+  }
+
   // Step 1-3: Resolve raw data from cache or scrape
   let rawData = null;
 
