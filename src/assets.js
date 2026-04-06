@@ -1431,24 +1431,29 @@ async function copyAssets (data, contentDir, outputDir) {
         // then strip numeric dedup suffix (e.g. center-of-your-world-2 → center-of-your-world),
         // then artwork as-is
         const baseSlug = album.slug.replace(/-\d+$/, '')
+        const isDeduped = baseSlug !== album.slug
         const candidates = [
-          path.join(contentDir, artist.slug, album.slug, filename),
-          path.join(contentDir, artist.slug, baseSlug, filename)
+          path.join(contentDir, artist.slug, album.slug, filename)
         ]
-        // URL-derived slug (e.g. principe-valiente-ep from Bandcamp URL)
+        // For collision-suffixed slugs (e.g. principe-valiente-2), try URL-derived
+        // and year-deduped candidates BEFORE the base slug to avoid picking up
+        // the wrong same-named release's artwork
         if (album.url) {
           const urlMatch = album.url.match(/\/(album|track)\/([^/?#]+)/)
           if (urlMatch && urlMatch[2] !== album.slug && urlMatch[2] !== baseSlug) {
             candidates.push(path.join(contentDir, artist.slug, urlMatch[2], filename))
           }
         }
-        // Year-deduped slug (e.g. principe-valiente-2007)
         if (album.releaseDate) {
           const year = new Date(album.releaseDate).getFullYear()
           const yearSlug = `${baseSlug}-${year}`
           if (yearSlug !== album.slug) {
             candidates.push(path.join(contentDir, artist.slug, yearSlug, filename))
           }
+        }
+        // Base slug fallback only when slug was deduped (otherwise it's the same as album.slug)
+        if (isDeduped) {
+          candidates.push(path.join(contentDir, artist.slug, baseSlug, filename))
         }
         candidates.push(album.artwork)
         let src = null
