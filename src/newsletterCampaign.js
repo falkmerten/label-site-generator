@@ -5,16 +5,6 @@ const http = require('http')
 const fs = require('fs/promises')
 const path = require('path')
 const querystring = require('querystring')
-const nunjucks = require('nunjucks')
-
-// Configure Nunjucks for newsletter template
-const templatesDir = path.join(__dirname, '..', 'templates')
-const njkEnv = nunjucks.configure(templatesDir, { autoescape: false })
-
-njkEnv.addFilter('formatDate', (iso) => {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })
-})
 
 /**
  * Creates newsletter campaign drafts for new news articles.
@@ -46,11 +36,9 @@ async function createCampaignDrafts (articles, contentDir) {
   for (const article of newArticles) {
     try {
       const articleUrl = siteUrl ? `${siteUrl}news/${article.slug}/` : ''
-      // Use original image path (not WebP) for email compatibility
-      const imgBase = article.imagePath ? path.basename(article.imagePath) : (article.image ? path.basename(article.image) : '')
-      const imageUrl = imgBase && siteUrl ? `${siteUrl}news/${article.slug}/${imgBase}` : ''
+      const imageUrl = article.image && siteUrl ? `${siteUrl}news/${article.slug}/${path.basename(article.image)}` : ''
 
-      const htmlBody = buildCampaignHtml(article, articleUrl, imageUrl, labelName, articles)
+      const htmlBody = buildCampaignHtml(article, articleUrl, imageUrl, labelName)
       const plainText = `${article.title}\n\n${article.excerpt}\n\nRead more: ${articleUrl}`
 
       if (provider === 'sendy') {
@@ -77,48 +65,23 @@ async function createCampaignDrafts (articles, contentDir) {
 }
 
 /**
- * Builds HTML email body using the newsletter.njk template.
- * Includes full article HTML, feature image, and older news as CTA cards.
+ * Builds a simple HTML email body for a news article.
  */
-function buildCampaignHtml (article, articleUrl, imageUrl, labelName, allArticles) {
-  const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/')
-
-  // Build older articles for CTA section (up to 3, excluding current)
-  const olderArticles = (allArticles || [])
-    .filter(a => a.slug !== article.slug)
-    .slice(0, 3)
-    .map(a => ({
-      title: a.title,
-      dateFormatted: new Date(a.date).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }),
-      url: siteUrl ? `${siteUrl}news/${a.slug}/` : '',
-      imageUrl: a.imagePath && siteUrl ? `${siteUrl}news/${a.slug}/${path.basename(a.imagePath)}` : (a.image && siteUrl ? `${siteUrl}news/${a.slug}/${path.basename(a.image)}` : '')
-    }))
-
-  const logoUrl = siteUrl ? `${siteUrl}logo-round.png` : ''
-
-  return nunjucks.render('newsletter.njk', {
-    subject: article.title,
-    labelName,
-    siteUrl,
-    logoUrl,
-    articleUrl,
-    article: {
-      title: article.title,
-      dateFormatted: new Date(article.date).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' }),
-      heroImageUrl: imageUrl,
-      html: article.html || `<p>${article.excerpt}</p>`
-    },
-    olderArticles,
-    social: {
-      bandcamp: process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
-      spotify: process.env.LABEL_SPOTIFY_URL || '',
-      youtube: process.env.LABEL_YOUTUBE_URL || '',
-      soundcloud: process.env.LABEL_SOUNDCLOUD_URL || '',
-      instagram: process.env.LABEL_INSTAGRAM_URL || ''
-    },
-    labelAddress: process.env.LABEL_ADDRESS || '',
-    currentYear: new Date().getFullYear()
-  })
+function buildCampaignHtml (article, articleUrl, imageUrl, labelName) {
+  let html = `<div style="max-width:600px;margin:0 auto;font-family:system-ui,-apple-system,sans-serif;">`
+  if (imageUrl) {
+    html += `<img src="${imageUrl}" alt="${article.title}" style="width:100%;max-width:600px;height:auto;border-radius:4px;margin-bottom:16px;">`
+  }
+  html += `<h1 style="font-size:24px;margin:0 0 8px;">${article.title}</h1>`
+  html += `<p style="color:#6b6b8a;font-size:14px;margin:0 0 16px;">${article.date}</p>`
+  html += `<p style="font-size:16px;line-height:1.6;margin:0 0 24px;">${article.excerpt}</p>`
+  if (articleUrl) {
+    html += `<a href="${articleUrl}" style="display:inline-block;padding:12px 24px;background:#0c0032;color:#fff;text-decoration:none;border-radius:4px;font-weight:700;">Read more</a>`
+  }
+  html += `<hr style="margin:32px 0;border:none;border-top:1px solid #dcdce8;">`
+  html += `<p style="font-size:12px;color:#6b6b8a;">${labelName}</p>`
+  html += `</div>`
+  return html
 }
 
 /**
