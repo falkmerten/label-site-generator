@@ -34,6 +34,7 @@ Options:
   --resolve-youtube    Resolve @handle entries in youtube.json to channel IDs
   --cleanup            Report orphaned content folders not matching any album in cache
   --rollback           Restore the most recent cache backup
+  --create-campaigns   Create newsletter campaign drafts for new news articles (without generating site)
   --help               Print this help message and exit
 `);
 }
@@ -90,6 +91,8 @@ function parseArgs(argv) {
       options.cleanup = true;
     } else if (arg === '--rollback') {
       options.rollback = true;
+    } else if (arg === '--create-campaigns') {
+      options.createCampaigns = true;
     }
   }
 
@@ -172,6 +175,22 @@ async function run() {
     const latestPath = pathNode.join(dir, latest);
     await fsNode.copyFile(latestPath, options.cachePath);
     console.log(`Restored ${latest} → ${options.cachePath}`);
+    return;
+  }
+  if (options.createCampaigns) {
+    const { loadNews } = require('./src/news');
+    const { createCampaignDrafts } = require('./src/newsletterCampaign');
+    const articles = await loadNews(options.contentDir);
+    if (articles.length === 0) {
+      console.log('No news articles found.');
+      return;
+    }
+    const count = await createCampaignDrafts(articles, options.contentDir);
+    if (count > 0) {
+      console.log(`Created ${count} newsletter campaign draft(s).`);
+    } else {
+      console.log('No new articles to create campaigns for.');
+    }
     return;
   }
   if (options.initArtists) {
