@@ -608,4 +608,10 @@ Old URL redirects are handled by static HTML pages in `dist/` (meta-refresh + JS
 
 ---
 
+## Acknowledgments
+
+This project was inspired by [bandcamp-scraper](https://github.com/masterT/bandcamp-scraper) by [masterT](https://github.com/masterT). While the Label Site Generator uses its own Bandcamp scraping implementation, the original project provided the foundation and idea for programmatic access to Bandcamp data.
+
+---
+
 GPL-3.0 — see [LICENSE](LICENSE) for details.
