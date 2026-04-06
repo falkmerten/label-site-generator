@@ -56,6 +56,35 @@ async function getAccessToken (clientId, clientSecret) {
 }
 
 /**
+ * Scores a Spotify search result against target artist/album.
+ * Exported for testing. Used internally by searchAlbum.
+ *
+ * @param {object} item - Spotify album search result
+ * @param {string} targetArtist - normalised target artist name
+ * @param {string} targetAlbum - normalised target album title
+ * @param {string|null} expectedAlbumType - 'album', 'single', or null
+ * @returns {number} 0-4 score
+ */
+function scoreSearchResult (item, targetArtist, targetAlbum, expectedAlbumType) {
+  const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const iArtist = normalise((item.artists && item.artists[0] ? item.artists[0].name : '') || '')
+  const iAlbum = normalise(item.name || '')
+  const artistMatch = iArtist === targetArtist
+  const albumMatch = iAlbum === targetAlbum
+  const typeMatch = expectedAlbumType ? item.album_type === expectedAlbumType : true
+
+  // For short artist names (≤3 chars after normalisation), require exact album match too
+  const shortArtist = targetArtist.length <= 3
+
+  if (artistMatch && albumMatch && typeMatch) return 4
+  if (artistMatch && albumMatch) return 3
+  // Partial album match only allowed for longer artist names
+  if (!shortArtist && artistMatch && typeMatch && targetAlbum.length >= 6 && iAlbum.includes(targetAlbum.slice(0, Math.min(targetAlbum.length, 12)))) return 2
+  // Artist-only match is NOT sufficient — too many false positives
+  return 0
+}
+
+/**
  * Searches Spotify for an album by artist name + album title.
  * Returns { spotifyUrl, upc } or null if not found.
  * UPC comes from the full album object fetched via /albums/{id}.
@@ -70,6 +99,9 @@ async function searchAlbum (token, artistName, albumTitle, itemType) {
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const targetArtist = normalise(artistName)
   const targetAlbum = normalise(albumTitle)
+
+  // Safety: skip search if normalised artist or album is too short to be meaningful
+  if (targetArtist.length < 2 || targetAlbum.length < 2) return null
 
   // Try field search first, then plain text fallback
   const queries = [
@@ -102,22 +134,15 @@ async function searchAlbum (token, artistName, albumTitle, itemType) {
 
     const expectedAlbumType = itemType === 'track' ? 'single' : itemType === 'album' ? 'album' : null
 
-    const score = (item) => {
-      const iArtist = normalise((item.artists[0] || {}).name || '')
-      const iAlbum = normalise(item.name || '')
-      const artistMatch = iArtist === targetArtist
-      const albumMatch = iAlbum === targetAlbum
-      const typeMatch = expectedAlbumType ? item.album_type === expectedAlbumType : true
-      if (artistMatch && albumMatch && typeMatch) return 4
-      if (artistMatch && albumMatch) return 3
-      if (artistMatch && typeMatch && iAlbum.includes(targetAlbum.slice(0, 8))) return 2
-      if (artistMatch) return 1
-      return 0
-    }
-
-    const scored = items.map(item => ({ item, score: score(item) })).filter(x => x.score > 0)
+    const scored = items.map(item => ({ item, score: scoreSearchResult(item, targetArtist, targetAlbum, expectedAlbumType) })).filter(x => x.score > 0)
     if (scored.length === 0) continue
     scored.sort((a, b) => b.score - a.score)
+
+    // Only accept matches with score >= 3 (artist + album match) for safety
+    // Score 2 (partial album) is only accepted if there's exactly one candidate
+    if (scored[0].score < 2) continue
+    if (scored[0].score === 2 && scored.length > 1) continue
+
     const match = scored[0].item
     const upc = await getAlbumUpc(token, match.id)
     return { spotifyUrl: match.external_urls.spotify, upc }
@@ -444,4 +469,4 @@ function formatDuration (ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum }
+module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult }

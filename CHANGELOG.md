@@ -11,6 +11,12 @@
 - Catches albums that Spotify's artist page doesn't list (e.g., one artist had 9 of 20 albums missing from the artist endpoint)
 - Works in both Soundcharts and legacy enrichment paths
 - Rate limit (429) propagated correctly — disables Spotify for remaining artists
+- Hardened `searchAlbum` scoring validation:
+  - Artist-only match (score 1) removed — was causing false positives
+  - Short artist names (≤3 chars after normalisation) require exact album match
+  - Artists normalising to <2 chars (e.g. `Artist` → `a`) skip search entirely
+  - Partial album match (score 2) requires target album ≥6 chars and only accepted with single candidate
+  - `scoreSearchResult` extracted as testable function with 20 property-based tests
 
 ---
 
