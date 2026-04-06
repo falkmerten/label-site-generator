@@ -32,10 +32,33 @@ Generates a complete static website for a Bandcamp music label. Scrapes artist a
 ## Requirements
 
 - Node.js 18+
-- A Bandcamp label account with API access (see note below)
-- Soundcharts API credentials (recommended — free tier: 1,000 credits/month)
+- npm (comes with Node.js)
 
-> **Bandcamp API access**: The generator uses the Bandcamp API to fetch your label's artist roster. API access is available to Bandcamp label accounts — go to your Bandcamp label settings → **API Access** to obtain your `CLIENT_ID` and `CLIENT_SECRET`. Without API credentials the generator falls back to HTML scraping of your label page, which is less reliable.
+### Required
+
+- **Bandcamp label account** with API access — go to your Bandcamp label settings → **API Access** to obtain `CLIENT_ID` and `CLIENT_SECRET`. Without API credentials the generator falls back to HTML scraping, which is less reliable.
+
+### Recommended (Enrichment)
+
+- **Soundcharts API** — all streaming links, social media, events, and metadata in ~2 API calls per album. Free tier: 1,000 credits/month. [developers.soundcharts.com](https://developers.soundcharts.com)
+- **Spotify API** — album catalog matching, UPC extraction, title normalization. Required for legacy mode (without Soundcharts). Free. [developer.spotify.com](https://developer.spotify.com/dashboard)
+- **Discogs API** — physical release formats (Vinyl, CD, Cassette), label names, sell links. Free with personal access token. [discogs.com/settings/developers](https://www.discogs.com/settings/developers)
+
+### Optional (Enrichment)
+
+- **Tidal API** — Tidal streaming links. [developer.tidal.com](https://developer.tidal.com)
+- **YouTube Data API** — auto-sync YouTube videos to album pages (`--sync-youtube`). [console.cloud.google.com](https://console.cloud.google.com)
+- **MusicFetch API** — additional streaming platform links via RapidAPI. [rapidapi.com/musicfetch](https://rapidapi.com/musicfetch-musicfetch-default/api/musicfetch2)
+
+### Optional (Hosting & Deployment)
+
+- **AWS S3 + CloudFront** — static site hosting with CDN. Requires AWS CLI configured. `--deploy` flag syncs `dist/` to S3 and invalidates CloudFront.
+- **Google Analytics 4** — page tracking via `GA_MEASUREMENT_ID`
+
+### Optional (Newsletter)
+
+- **Sendy** — self-hosted email marketing. Subscribe form on homepage, auto-campaign drafts from news articles. [sendy.co](https://sendy.co)
+- **Listmonk** — self-hosted newsletter manager (Sendy alternative). Public subscription API, campaign creation via REST API. [listmonk.app](https://listmonk.app)
 
 ---
 
@@ -62,23 +85,30 @@ All label-specific settings live in `.env` (gitignored, never committed).
 
 | Variable | Description |
 |---|---|
+| **Bandcamp (required)** | |
 | `BANDCAMP_CLIENT_ID` | Bandcamp API client ID (Settings → API Access) |
 | `BANDCAMP_CLIENT_SECRET` | Bandcamp API client secret |
 | `BANDCAMP_LABEL_URL` | Label Bandcamp URL — used as fallback for artist roster |
+| **Label identity** | |
 | `LABEL_NAME` | Display name shown in header, titles, footer |
-| `LABEL_EMAIL` | Contact email |
+| `LABEL_EMAIL` | Contact email (also shown in newsletter error messages) |
 | `LABEL_ADDRESS` | Postal address for Imprint |
 | `LABEL_VAT_ID` | VAT ID for Imprint |
-| `EXTRA_ARTIST_URLS` | Comma-separated extra Bandcamp artist URLs |
-| `SPOTIFY_CLIENT_ID` | Spotify app client ID ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
-| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret |
-| `TIDAL_CLIENT_ID` | Tidal API client ID ([developer.tidal.com](https://developer.tidal.com)) |
-| `TIDAL_CLIENT_SECRET` | Tidal API client secret |
-| `DISCOGS_TOKEN` | Discogs personal access token ([discogs.com/settings/developers](https://www.discogs.com/settings/developers)) |
+| `SITE_URL` | Full site URL with trailing slash (e.g. `https://aenaos-records.com/`) — used for canonical URLs, sitemap, OG tags |
+| `EXTRA_ARTIST_URLS` | Comma-separated extra Bandcamp artist URLs not on the label account |
+| `HOMEPAGE_LABELS` | Comma-separated label names — filter which releases appear on homepage (empty = show all) |
+| **Enrichment APIs** | |
 | `SOUNDCHARTS_APP_ID` | Soundcharts API app ID ([developers.soundcharts.com](https://developers.soundcharts.com)) |
 | `SOUNDCHARTS_API_KEY` | Soundcharts API key (free tier: 1,000 credits/month) |
+| `SPOTIFY_CLIENT_ID` | Spotify app client ID ([developer.spotify.com](https://developer.spotify.com/dashboard)) |
+| `SPOTIFY_CLIENT_SECRET` | Spotify app client secret |
+| `DISCOGS_TOKEN` | Discogs personal access token ([discogs.com/settings/developers](https://www.discogs.com/settings/developers)) |
+| `TIDAL_CLIENT_ID` | Tidal API client ID ([developer.tidal.com](https://developer.tidal.com)) |
+| `TIDAL_CLIENT_SECRET` | Tidal API client secret |
 | `MUSICFETCH_RAPIDAPI_KEY` | MusicFetch API key via RapidAPI (optional, legacy fallback) |
-| `LABEL_BANDCAMP_URL` | Label Bandcamp URL (footer social links) |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 key — for `--sync-youtube` ([console.cloud.google.com](https://console.cloud.google.com)) |
+| **Social links (footer)** | |
+| `LABEL_BANDCAMP_URL` | Label Bandcamp URL |
 | `LABEL_SPOTIFY_URL` | Spotify profile URL |
 | `LABEL_SOUNDCLOUD_URL` | SoundCloud URL |
 | `LABEL_YOUTUBE_URL` | YouTube channel URL |
@@ -86,9 +116,30 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `LABEL_FACEBOOK_URL` | Facebook page URL |
 | `LABEL_TIKTOK_URL` | TikTok profile URL |
 | `LABEL_TWITTER_URL` | X / Twitter profile URL |
-| `NEWSLETTER_ACTION_URL` | Newsletter subscribe endpoint URL (Sendy, Listmonk etc.) |
-| `NEWSLETTER_LIST_ID` | Mailing list ID for the subscribe form |
+| **Newsletter** | |
+| `NEWSLETTER_PROVIDER` | Newsletter backend: `sendy` or `listmonk` (defaults to `sendy` if `NEWSLETTER_ACTION_URL` is set) |
+| `NEWSLETTER_ACTION_URL` | Newsletter installation URL (without `/subscribe`) |
+| `NEWSLETTER_API_KEY` | Sendy API key (from Sendy Settings) — required for Sendy |
+| `NEWSLETTER_LIST_ID` | Mailing list ID (Sendy encrypted ID / Listmonk list UUID) |
 | `NEWSLETTER_DOUBLE_OPTIN` | Set to `true` for GDPR double opt-in confirmation email |
+| `NEWSLETTER_AUTO_CAMPAIGN` | Set to `true` to auto-create campaign drafts from new news articles |
+| `NEWSLETTER_FROM_NAME` | Campaign sender name (defaults to `LABEL_NAME`) |
+| `NEWSLETTER_FROM_EMAIL` | Campaign sender email (defaults to `LABEL_EMAIL`) |
+| `NEWSLETTER_REPLY_TO` | Campaign reply-to email (defaults to `NEWSLETTER_FROM_EMAIL`) |
+| `NEWSLETTER_BRAND_ID` | Sendy brand ID (default: `1`) |
+| `NEWSLETTER_API_USER` | Listmonk API username — required for Listmonk campaign creation |
+| `NEWSLETTER_API_TOKEN` | Listmonk API token — required for Listmonk campaign creation |
+| **Physical stores** | |
+| `PHYSICAL_STORES` | Comma-separated store IDs in display order (default: `bandcamp,discogs`) |
+| `ELASTICSTAGE_LABEL_URL` | ElasticStage label page URL for on-demand vinyl/CD |
+| `STORE_{ID}_URL` | Custom store search URL template (`{artist}` and `{album}` placeholders) |
+| `STORE_{ID}_LABEL` | Custom store display label |
+| `STORE_{ID}_ICON` | Custom store Font Awesome icon class |
+| **Deployment** | |
+| `AWS_S3_BUCKET` | S3 bucket name for `--deploy` |
+| `AWS_S3_REGION` | S3 bucket region (optional) |
+| `AWS_CLOUDFRONT_DISTRIBUTION_ID` | CloudFront distribution ID for cache invalidation |
+| `GA_MEASUREMENT_ID` | Google Analytics 4 measurement ID (e.g. `G-XXXXXXXXXX`) |
 
 ---
 
@@ -512,6 +563,7 @@ Custom Nunjucks filters:
 | `src/enricher.js` | Orchestrates the full enrichment pipeline (Soundcharts or legacy mode) |
 | `src/cleanup.js` | Reports orphaned content folders and runs data quality audit on cache |
 | `src/news.js` | Loads news articles from `content/news/` markdown files |
+| `src/newsletterCampaign.js` | Auto-creates newsletter campaign drafts for new news articles (Sendy/Listmonk) |
 | `src/upcoming.js` | Loads upcoming releases from `content/upcoming.json` private Bandcamp links |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
