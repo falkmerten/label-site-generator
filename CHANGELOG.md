@@ -4,6 +4,13 @@
 
 ---
 
+### v3.2.4 — 2026-04-06
+
+**Bug fixes**
+- Fixed Bandcamp URL verification not scraping album data after HEAD request (LSG-25) — verified albums now get full metadata (albumId for embedded player, tracks, tags, artwork)
+
+---
+
 ### v3.2.3 — 2026-04-06
 
 **Bug fixes**

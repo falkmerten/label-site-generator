@@ -13,6 +13,7 @@ const { enrichAlbumsWithMusicFetch, enrichArtistWithMusicFetch } = require('./mu
 const { enrichAlbumsWithDiscogs } = require('./discogs')
 const { toSlug } = require('./slugs')
 const { extractAlbumId } = require('./merger')
+const bandcamp = require('./bandcamp')
 
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -205,6 +206,18 @@ async function verifyBandcampUrls (artist) {
       album.url = `${bcBase}/album/${slug}`
       matched++
       console.log(`    ✓ BC verified: "${album.title}" → ${album.url}`)
+      try {
+        await delay(300)
+        const info = await bandcamp.getAlbumInfo(album.url)
+        if (info) {
+          if (info.raw) album.raw = info.raw
+          if (info.tracks && info.tracks.length) album.tracks = info.tracks
+          if (info.tags && info.tags.length) album.tags = info.tags
+          if (info.imageUrl) album.imageUrl = info.imageUrl
+        }
+      } catch (err) {
+        console.warn(`    ⚠ Could not scrape album data: ${err.message}`)
+      }
       continue
     }
 
@@ -215,6 +228,18 @@ async function verifyBandcampUrls (artist) {
       album.url = `${bcBase}/track/${slug}`
       matched++
       console.log(`    ✓ BC verified (track): "${album.title}" → ${album.url}`)
+      try {
+        await delay(300)
+        const info = await bandcamp.getAlbumInfo(album.url)
+        if (info) {
+          if (info.raw) album.raw = info.raw
+          if (info.tracks && info.tracks.length) album.tracks = info.tracks
+          if (info.tags && info.tags.length) album.tags = info.tags
+          if (info.imageUrl) album.imageUrl = info.imageUrl
+        }
+      } catch (err) {
+        console.warn(`    ⚠ Could not scrape track data: ${err.message}`)
+      }
     }
   }
   return matched
