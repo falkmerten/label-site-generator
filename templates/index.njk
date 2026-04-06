@@ -141,8 +141,8 @@
       {% endif %}
       {% if newsletter.actionUrl %}
         <div class="newsletter-form" id="newsletter-wrapper">
+          <h3>Stay in the loop</h3>
           <form id="newsletter-form" class="newsletter">
-            <h3>Stay in the loop</h3>
             <div class="newsletter-fields">
               <div class="newsletter-field">
                 <label for="nl-name">Name</label>
@@ -209,7 +209,7 @@
                     msg.className = 'newsletter-msg newsletter-error';
                   } else {
                     msg.style.display = 'block';
-                    msg.textContent = result;
+                    msg.textContent = result || 'Something went wrong. Please try again.';
                     msg.className = 'newsletter-msg newsletter-error';
                   }
                 })
