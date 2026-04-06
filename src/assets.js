@@ -1433,9 +1433,24 @@ async function copyAssets (data, contentDir, outputDir) {
         const baseSlug = album.slug.replace(/-\d+$/, '')
         const candidates = [
           path.join(contentDir, artist.slug, album.slug, filename),
-          path.join(contentDir, artist.slug, baseSlug, filename),
-          album.artwork
+          path.join(contentDir, artist.slug, baseSlug, filename)
         ]
+        // URL-derived slug (e.g. principe-valiente-ep from Bandcamp URL)
+        if (album.url) {
+          const urlMatch = album.url.match(/\/(album|track)\/([^/?#]+)/)
+          if (urlMatch && urlMatch[2] !== album.slug && urlMatch[2] !== baseSlug) {
+            candidates.push(path.join(contentDir, artist.slug, urlMatch[2], filename))
+          }
+        }
+        // Year-deduped slug (e.g. principe-valiente-2007)
+        if (album.releaseDate) {
+          const year = new Date(album.releaseDate).getFullYear()
+          const yearSlug = `${baseSlug}-${year}`
+          if (yearSlug !== album.slug) {
+            candidates.push(path.join(contentDir, artist.slug, yearSlug, filename))
+          }
+        }
+        candidates.push(album.artwork)
         let src = null
         for (const candidate of candidates) {
           try { await fs.access(candidate); src = candidate; break } catch { /* try next */ }
