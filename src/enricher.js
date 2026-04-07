@@ -1367,10 +1367,18 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
     // ── Discogs — always runs (both modes), conservative concurrency ────────
     if (hasDiscogs && !options.tidalOnly) {
-      const needsDiscogs = (artist.albums || []).filter(al => !al.discogsUrl)
-      if (needsDiscogs.length > 0) {
-        console.log(`  → Discogs for ${needsDiscogs.length} album(s)...`)
-        await enrichAlbumsWithDiscogs(needsDiscogs, artist.name, discogsToken)
+      const allAlbums = artist.albums || []
+      const needsDiscogs = allAlbums.filter(al => !al.discogsUrl && !al.upcoming)
+      // Also include albums needing per-format sell link re-fetch
+      const needsSellLinks = allAlbums.filter(al =>
+        al.discogsUrl && !al.upcoming &&
+        al.physicalFormats && al.physicalFormats.length > 1 &&
+        !al.discogsSellUrlVinyl && !al.discogsSellUrlCd && !al.discogsSellUrlCassette
+      )
+      const discogsAlbums = [...needsDiscogs, ...needsSellLinks]
+      if (discogsAlbums.length > 0) {
+        console.log(`  → Discogs for ${needsDiscogs.length} new + ${needsSellLinks.length} sell-link album(s)...`)
+        await enrichAlbumsWithDiscogs(discogsAlbums, artist.name, discogsToken)
       }
     }
 
