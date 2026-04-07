@@ -58,10 +58,13 @@ async function generate(options) {
   const content = await loadContent(contentDir);
 
   // Step 4b: Load upcoming releases from private Bandcamp links
-  const { loadUpcoming } = require('./upcoming');
-  const upcomingCount = await loadUpcoming(contentDir, rawData);
-  if (upcomingCount > 0) {
-    console.log(`Loaded ${upcomingCount} upcoming release(s).`);
+  // Only fetch from Bandcamp on fresh scrape — otherwise data is already in cache
+  if (refresh) {
+    const { loadUpcoming } = require('./upcoming');
+    const upcomingCount = await loadUpcoming(contentDir, rawData);
+    if (upcomingCount > 0) {
+      console.log(`Loaded ${upcomingCount} upcoming release(s).`);
+    }
   }
 
   // Step 5: Merge scraped data with content
