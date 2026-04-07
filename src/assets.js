@@ -923,14 +923,15 @@ main { min-height: 60vh; }
 .store-search-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--brand-dark);
-  border-radius: 4px;
+  gap: 0.4rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--brand-mid);
+  border-radius: 2rem;
   background: transparent;
   color: var(--brand-dark);
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
@@ -1432,10 +1433,11 @@ async function copyAssets (data, contentDir, outputDir) {
       for (const imgPath of artist.galleryImages) {
         if (!imgPath.startsWith('http')) {
           const filename = path.basename(imgPath)
+          const src = path.join(contentDir, artist.slug, 'images', filename)
           try {
-            await fs.copyFile(imgPath, path.join(galleryOutDir, filename))
+            await fs.copyFile(src, path.join(galleryOutDir, filename))
           } catch (err) {
-            if (err.code !== 'ENOENT') console.warn(`[assets] Could not copy gallery image ${filename}:`, err.message)
+            console.warn(`[assets] Gallery image not found for "${artist.name}": ${filename}`)
           }
         }
       }
