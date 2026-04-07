@@ -324,8 +324,19 @@ async function lookupRelease (token, upc, artistName, albumTitle, catalogNumber)
  * Mutates each album in place.
  */
 async function enrichAlbumsWithDiscogs (albums, artistName, token) {
-  const pending = albums.filter(al => !al.discogsUrl && !al.discogsChecked)
-  for (const album of pending) {
+  const pending = albums.filter(al => !al.discogsUrl && !al.discogsChecked && !al.upcoming)
+
+  // Also re-fetch sell links for albums with multiple physical formats but missing per-format URLs
+  const needsSellLinks = albums.filter(al =>
+    al.discogsUrl && !al.upcoming &&
+    al.physicalFormats && al.physicalFormats.length > 1 &&
+    !al.discogsSellUrlVinyl && !al.discogsSellUrlCd && !al.discogsSellUrlCassette
+  )
+  if (needsSellLinks.length > 0) {
+    console.log(`  [discogs] ${needsSellLinks.length} album(s) need per-format sell links`)
+  }
+
+  for (const album of [...pending, ...needsSellLinks]) {
     try {
       await throttle()
       const result = await lookupRelease(token, album.upc, artistName, album.title, album.catalogNumber)
