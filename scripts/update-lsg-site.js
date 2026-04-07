@@ -38,7 +38,10 @@ for (let i = 0; i < versionPositions.length; i++) {
     const trimmed = line.trim()
     if (trimmed.startsWith('- ')) {
       let text = trimmed.slice(2)
-      // Convert inline code `...` to <code>...</code>
+      // HTML-escape < and > first (before code conversion)
+      text = text.replace(/&/g, '&amp;')
+      text = text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      // Convert inline code `...` to <code>...</code> (after escaping)
       text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
       // Strip markdown links [text](url) → text
       text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
