@@ -196,9 +196,14 @@ try {
   console.log('Updated index.html')
 
   run('git add index.html')
-  run(`git commit -m "Update changelog to ${latestVersion}"`)
-  run('git push origin gh-pages')
-  console.log(`Pushed gh-pages with ${latestVersion}`)
+  const diff = run('git diff --cached --name-only')
+  if (diff) {
+    run(`git commit -m "Update changelog to ${latestVersion}"`)
+    run('git push origin gh-pages')
+    console.log(`Pushed gh-pages with ${latestVersion}`)
+  } else {
+    console.log('gh-pages already up to date, nothing to push.')
+  }
 } finally {
   // Always return to original branch
   run(`git checkout ${currentBranch}`)
