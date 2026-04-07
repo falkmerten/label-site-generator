@@ -290,7 +290,7 @@
           <li><code>--refresh</code> and <code>--artist</code> alone still work as deprecated aliases</li>
           <li>Updated <code>--help</code> with common workflows and clearer descriptions</li>
           <li>Discogs labels now rendered as clickable links to their Discogs label pages</li>
-          <li>Multi-label releases (e.g. "Aenaos Records / Poisonic / T&amp;E Records") — each label linked individually</li>
+          <li>Multi-label releases (e.g. "Label A / Label B / Label C") — each label linked individually</li>
           <li>Duplicate labels filtered (label appearing in both Spotify and Discogs not shown twice)</li>
           <li><code>discogsLabelUrls</code> array stored alongside <code>discogsLabel</code> for per-label URLs</li>
           <li>Label URL map in merger backfills missing URLs from other albums in the cache</li>
@@ -363,7 +363,7 @@
           <li>Hardened <code>searchAlbum</code> scoring validation:</li>
           <li>Artist-only match (score 1) removed — was causing false positives</li>
           <li>Short artist names (≤3 chars after normalisation) require exact album match</li>
-          <li>Artists normalising to &lt;2 chars (e.g. <code>(((S)))</code> → <code>s</code>) skip search entirely</li>
+          <li>Artists normalising to &lt;2 chars (e.g. <code>Artist</code> → <code>a</code>) skip search entirely</li>
           <li>Partial album match (score 2) requires target album ≥6 chars and only accepted with single candidate</li>
           <li><code>scoreSearchResult</code> extracted as testable function with 20 property-based tests</li>
           <li>Verified against live Spotify API: missing albums confirmed not on Spotify, short-name artist correctly blocked by short-name protection</li>
@@ -433,7 +433,7 @@
           <li><code>albumBelongsToArtist</code> uses NFD normalization for accented artist names (fixes accented artist names)</li>
           <li><code>refreshArtist</code> preserves Spotify-only and upcoming albums during re-scrape</li>
           <li><code>releaseDate</code> and <code>slug</code> added to enrichment field preservation list</li>
-          <li>Fernando's Eyes slug mismatch fixed in <code>artists.json</code></li>
+          <li>Artist slug mismatch fixed in <code>artists.json</code></li>
           <li>Inconsistent label name normalized</li>
           <li>Self-hosted Font Awesome (no CDN dependency, served from own CloudFront)</li>
           <li>Font preloading (<code>woff2</code> files) + <code>font-display: swap</code> override</li>
@@ -453,7 +453,7 @@
           <li>Front-matter parsing handles Windows CRLF line endings</li>
           <li>Compilation album pages link back to <code>/releases/</code> (not non-existent VA artist page)</li>
           <li>Duplicate detection considers item type and URL (no false positives)</li>
-          <li>Removed VOYNA "Homecoming (Remix)" <code>appears_on</code> artifact</li>
+          <li>Removed spurious <code>appears_on</code> artifact from cache</li>
           <li>Cleaned up licensing: single <code>LICENSE</code> file with dual-license header</li>
           <li>FAQ updated with troubleshooting section</li>
           <li>YouTrack project tracking (LSG)</li>
@@ -493,7 +493,7 @@
           <li>Fixed renderer label filter excluding label Bandcamp albums without a matching homepage label — albums from <code>BANDCAMP_LABEL_URL</code> origin always included</li>
           <li>Fixed duplicate album detection false positives for album+single pairs with same title (multiple artists) — now considers item type and URL</li>
           <li>Normalized inconsistent label names across catalog</li>
-          <li>Removed VOYNA "Homecoming (Remix)" <code>appears_on</code> artifact from cache</li>
+          <li>Removed spurious <code>appears_on</code> artifact from cache</li>
           <li>Restored missing album from cache backup</li>
           <li>Scraped and added missing EP from Bandcamp</li>
           <li>Added "Join the dark side, we have the music!" compilation under Various Artists</li>
