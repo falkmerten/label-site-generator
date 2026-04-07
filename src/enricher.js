@@ -684,7 +684,11 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
     const cands = candidates(ba.title).map(normalise)
     if (!cands.some(c => resultTitles.has(c))) {
       result.push({ ...ba, slug: toSlug(ba.title) })
-      console.log(`    ↩ Kept Bandcamp-only: "${ba.title}"`)
+      if (ba.url) {
+        console.log(`    ↩ Kept Bandcamp-only: "${ba.title}"`)
+      } else {
+        console.log(`    ↩ Kept (no Spotify match): "${ba.title}"`)
+      }
     }
   }
 
