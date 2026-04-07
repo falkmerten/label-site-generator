@@ -74,11 +74,17 @@ async function loadUpcoming (contentDir, rawData, artistFilter) {
           if (info.tags && info.tags.length > 0) existing.tags = info.tags
           if (info.imageUrl) existing.imageUrl = info.imageUrl
           if (releaseDate) existing.releaseDate = releaseDate
+          // Set default label if not yet assigned
+          if (!existing.labelName && existing.upcoming) {
+            existing.labelName = process.env.LABEL_NAME || null
+          }
           if (existing.upcoming) {
             console.log(`  ✓ Upcoming "${info.title}" re-scraped from private link`)
           }
           continue
         }
+
+        const defaultLabel = process.env.LABEL_NAME || null
 
         artist.albums.push({
           url: null, // no public URL yet
@@ -91,6 +97,7 @@ async function loadUpcoming (contentDir, rawData, artistFilter) {
           tags: info.tags || [],
           raw: info.raw,
           releaseDate,
+          labelName: defaultLabel,
           slug: toSlug(info.title),
           upcoming: true
         })
