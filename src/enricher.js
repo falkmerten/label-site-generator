@@ -10,7 +10,7 @@ const { enrichAlbumsWithItunes } = require('./itunes')
 const { enrichAlbumsWithDeezer } = require('./deezer')
 const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
 const { enrichAlbumsWithMusicFetch, enrichArtistWithMusicFetch } = require('./musicfetch')
-const { enrichAlbumsWithDiscogs } = require('./discogs')
+const { enrichAlbumsWithDiscogs, lookupLabelUrl } = require('./discogs')
 const { toSlug } = require('./slugs')
 const { extractAlbumId, albumBelongsToArtist } = require('./merger')
 const bandcamp = require('./bandcamp')
@@ -827,6 +827,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   }
 
   const totalArtists = artists.length
+  const labelUrlCache = {} // shared across artists — avoids duplicate Discogs label lookups
   for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
     const artist = artists[artistIndex]
     console.log(`\n[${artistIndex + 1}/${totalArtists}] ${artist.name}`)
@@ -1423,6 +1424,68 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       // Clean up temporary Discogs fields
       delete al._discogsLabelName
       delete al._discogsLabelUrls
+    }
+
+    // ── Discogs label URL lookup — resolve missing label URLs ───────────────
+    if (hasDiscogs && !options.tidalOnly) {
+      const labelsToLookup = new Set()
+      for (const al of artist.albums || []) {
+        // Check discogsLabel parts
+        if (al.discogsLabel) {
+          const parts = al.discogsLabel.split(' / ')
+          const urls = al.discogsLabelUrls || []
+          for (let i = 0; i < parts.length; i++) {
+            if (!urls[i] && parts[i].trim()) labelsToLookup.add(parts[i].trim())
+          }
+        }
+        // Check labelName parts
+        if (al.labelName) {
+          const parts = al.labelName.split(' / ')
+          const urls = al.labelUrls || []
+          for (let i = 0; i < parts.length; i++) {
+            if (!urls[i] && parts[i].trim()) labelsToLookup.add(parts[i].trim())
+          }
+        }
+      }
+      if (labelsToLookup.size > 0) {
+        let resolved = 0
+        for (const name of labelsToLookup) {
+          if (labelUrlCache[name] !== undefined) continue
+          const url = await lookupLabelUrl(discogsToken, name, labelUrlCache)
+          if (url) resolved++
+        }
+        if (resolved > 0) console.log(`  ✓ Resolved ${resolved} label URL(s) via Discogs`)
+        // Apply resolved URLs
+        for (const al of artist.albums || []) {
+          if (al.discogsLabel) {
+            const parts = al.discogsLabel.split(' / ')
+            const urls = al.discogsLabelUrls || new Array(parts.length).fill(null)
+            let changed = false
+            for (let i = 0; i < parts.length; i++) {
+              if (!urls[i] && labelUrlCache[parts[i].trim()]) {
+                urls[i] = labelUrlCache[parts[i].trim()]
+                changed = true
+              }
+            }
+            if (changed) al.discogsLabelUrls = urls
+          }
+          if (al.labelName) {
+            const parts = al.labelName.split(' / ')
+            const urls = al.labelUrls || new Array(parts.length).fill(null)
+            let changed = false
+            for (let i = 0; i < parts.length; i++) {
+              if (!urls[i] && labelUrlCache[parts[i].trim()]) {
+                urls[i] = labelUrlCache[parts[i].trim()]
+                changed = true
+              }
+            }
+            if (changed) {
+              al.labelUrls = urls
+              al.labelUrl = urls[0] || al.labelUrl
+            }
+          }
+        }
+      }
     }
 
     // ── Per-artist cache save (progress preservation) ───────────────────────

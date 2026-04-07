@@ -442,4 +442,29 @@ function buildLabelData (rawLabels) {
   }
 }
 
-module.exports = { enrichAlbumsWithDiscogs, buildLabelData }
+/**
+ * Looks up a label on Discogs by name and returns its URL.
+ * Uses the search API with type=label. Caches results in the provided map.
+ * @param {string} token - Discogs API token
+ * @param {string} labelName - Label name to search for
+ * @param {Object} cache - Mutable map of labelName → url (for dedup across calls)
+ * @returns {Promise<string|null>} Discogs label URL or null
+ */
+async function lookupLabelUrl (token, labelName, cache) {
+  if (cache[labelName] !== undefined) return cache[labelName]
+  await throttle()
+  const results = await searchDiscogs(token, { q: labelName, type: 'label' })
+  if (!results) { cache[labelName] = null; return null }
+  const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const target = norm(labelName)
+  const match = results.find(r => norm(r.title) === target)
+  if (match && match.id) {
+    const url = `https://www.discogs.com/label/${match.id}`
+    cache[labelName] = url
+    return url
+  }
+  cache[labelName] = null
+  return null
+}
+
+module.exports = { enrichAlbumsWithDiscogs, buildLabelData, lookupLabelUrl }
