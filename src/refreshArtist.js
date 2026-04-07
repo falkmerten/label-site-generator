@@ -19,7 +19,10 @@ const ALBUM_ENRICHMENT_FIELDS = [
   'discogsSellUrlVinyl', 'discogsSellUrlCd', 'discogsSellUrlCassette',
   'physicalFormats', 'catalogNumber', 'labelName', 'labelUrl', 'labelUrls',
   'videos', 'soundchartsUuid', 'soundchartsEnriched', 'spotifyLabel',
-  'distributor', 'copyright', 'description', 'releaseDate', 'slug', 'discogsLabel', 'discogsLabelUrls', 'presaveUrl'
+  'distributor', 'copyright', 'discogsLabel', 'discogsLabelUrls', 'presaveUrl'
+  // NOTE: description, releaseDate, slug are NOT enrichment fields — they come
+  // from Bandcamp scrape and should be updated when the artist page changes.
+  // Discogs notes are stored in raw, not in description directly.
 ]
 
 /**
@@ -256,6 +259,17 @@ async function refreshArtist (cachePath, artistFilter) {
         if (existing[field] !== undefined && existing[field] !== null) {
           album[field] = existing[field]
         }
+      }
+
+      // Preserve releaseDate — Spotify/Soundcharts dates (set during enrichment)
+      // are authoritative over Bandcamp dates. Always keep the existing date if set.
+      if (existing.releaseDate) {
+        album.releaseDate = existing.releaseDate
+      }
+
+      // Preserve slug from existing if title didn't change
+      if (existing.slug && album.title === existing.title) {
+        album.slug = existing.slug
       }
 
       // If resolution is 'keep-cached', keep cached scraped fields too
