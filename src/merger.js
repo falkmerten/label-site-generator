@@ -394,6 +394,17 @@ async function mergeData (rawData, content) {
           }
         }
       }
+      // Also collect from discogsLabelUrls
+      if (album.discogsLabel && album.discogsLabelUrls) {
+        const dNames = album.discogsLabel.split(' / ')
+        for (let i = 0; i < dNames.length; i++) {
+          const name = dNames[i].trim()
+          const url = album.discogsLabelUrls[i]
+          if (name && url && !labelUrlMap[name]) {
+            labelUrlMap[name] = url
+          }
+        }
+      }
     }
   }
 
@@ -406,6 +417,14 @@ async function mergeData (rawData, content) {
         if (urls.some(u => u)) {
           album.labelUrls = urls
           album.labelUrl = urls[0]
+        }
+      }
+      // Backfill discogsLabelUrls from known label URL map
+      if (album.discogsLabel && !album.discogsLabelUrls) {
+        const dNames = album.discogsLabel.split(' / ')
+        const dUrls = dNames.map(n => labelUrlMap[n.trim()] || null)
+        if (dUrls.some(u => u)) {
+          album.discogsLabelUrls = dUrls
         }
       }
     }

@@ -998,10 +998,13 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       // NO Spotify calls in Soundcharts mode (Task 3.7)
       const albums = artist.albums || []
       const needsGapFill = albums.filter(al =>
-        !(al.streamingLinks && al.streamingLinks.appleMusic) ||
-        !(al.streamingLinks && al.streamingLinks.deezer) ||
-        (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
-        (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+        !al.upcoming &&
+        (
+          !(al.streamingLinks && al.streamingLinks.appleMusic) ||
+          !(al.streamingLinks && al.streamingLinks.deezer) ||
+          (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
+          (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+        )
       )
 
       if (needsGapFill.length > 0) {
@@ -1217,10 +1220,13 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       // ── Steps 2–4+6: iTunes, Deezer, Tidal, MusicFetch ─────────────────────
       const albums = artist.albums || []
       const needsEnrichment = albums.filter(al =>
-        !(al.streamingLinks && al.streamingLinks.appleMusic) ||
-        !(al.streamingLinks && al.streamingLinks.deezer) ||
-        (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
-        (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+        !al.upcoming &&
+        (
+          !(al.streamingLinks && al.streamingLinks.appleMusic) ||
+          !(al.streamingLinks && al.streamingLinks.deezer) ||
+          (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
+          (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+        )
       )
 
       if (needsEnrichment.length > 0) {
@@ -1399,6 +1405,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
           al.labelName = al.spotifyLabel
         } else if (al.spotifyLabel && !al.labelName) {
           al.labelName = al.spotifyLabel
+        }
+        // Backfill discogsLabelUrls for entries where labelName was already overwritten
+        // (previous runs set discogsLabel but not discogsLabelUrls)
+        if (al.discogsLabel && !al.discogsLabelUrls) {
+          al.discogsLabelUrls = al._discogsLabelUrls || []
         }
         // Clean up temporary Discogs fields (not persisted to cache)
         delete al._discogsLabelName
