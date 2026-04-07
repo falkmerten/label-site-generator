@@ -192,7 +192,19 @@
               <li><a href="{{ album.discogsSellUrlCassette }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
             {% endif %}
             {% if not album.discogsSellUrlVinyl and not album.discogsSellUrlCd and not album.discogsSellUrlCassette and album.discogsSellUrl %}
+              {% if album.physicalFormats and album.physicalFormats.length == 1 %}
+                {% if album.physicalFormats[0] == 'Vinyl' %}
+              <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy Vinyl on Discogs</a></li>
+                {% elif album.physicalFormats[0] == 'CD' %}
+              <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-compact-disc"></i> Buy CD on Discogs</a></li>
+                {% elif album.physicalFormats[0] == 'Cassette' %}
+              <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
+                {% else %}
+              <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy {{ album.physicalFormats[0] }} on Discogs</a></li>
+                {% endif %}
+              {% else %}
               <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
+              {% endif %}
             {% endif %}
           {% endif %}
           {% if 'elasticstage' in physicalStores %}
