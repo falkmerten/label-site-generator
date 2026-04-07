@@ -10,7 +10,7 @@ const { enrichAlbumsWithItunes } = require('./itunes')
 const { enrichAlbumsWithDeezer } = require('./deezer')
 const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
 const { enrichAlbumsWithMusicFetch, enrichArtistWithMusicFetch } = require('./musicfetch')
-const { enrichAlbumsWithDiscogs, lookupLabelUrl } = require('./discogs')
+const { enrichAlbumsWithDiscogs, lookupLabelUrl, hasActiveListings } = require('./discogs')
 const { toSlug } = require('./slugs')
 const { extractAlbumId, albumBelongsToArtist } = require('./merger')
 const bandcamp = require('./bandcamp')
@@ -830,6 +830,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
   const totalArtists = artists.length
   const labelUrlCache = {} // shared across artists — avoids duplicate Discogs label lookups
+  const sellListingCache = {} // shared across artists — releaseId → boolean (has active listings)
   for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
     const artist = artists[artistIndex]
     console.log(`\n[${artistIndex + 1}/${totalArtists}] ${artist.name}`)
@@ -1413,6 +1414,38 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         if (needsSellLinks.length > 0) parts.push(`${needsSellLinks.length} sell-link update(s)`)
         console.log(`  → Discogs for ${parts.join(' + ')}...`)
         await enrichAlbumsWithDiscogs(discogsAlbums, artist.name, discogsToken)
+      }
+
+      // ── Verify sell URLs have active listings ─────────────────────────────
+      const withSellUrls = allAlbums.filter(al =>
+        !al.upcoming && (al.discogsSellUrl || al.discogsSellUrlVinyl || al.discogsSellUrlCd || al.discogsSellUrlCassette)
+      )
+      if (withSellUrls.length > 0) {
+        // Deduplicate: collect unique release IDs across all sell URLs
+        let cleared = 0
+        for (const album of withSellUrls) {
+          const urls = [
+            ['discogsSellUrlVinyl', album.discogsSellUrlVinyl],
+            ['discogsSellUrlCd', album.discogsSellUrlCd],
+            ['discogsSellUrlCassette', album.discogsSellUrlCassette]
+          ]
+          for (const [field, url] of urls) {
+            if (!url) continue
+            const idMatch = url.match(/\/release\/(\d+)/)
+            if (!idMatch) continue
+            const releaseId = idMatch[1]
+            if (sellListingCache[releaseId] === undefined) {
+              sellListingCache[releaseId] = await hasActiveListings(discogsToken, url)
+            }
+            if (!sellListingCache[releaseId]) {
+              album[field] = null
+              cleared++
+            }
+          }
+          // Recalculate primary sell URL from remaining per-format URLs
+          album.discogsSellUrl = album.discogsSellUrlVinyl || album.discogsSellUrlCd || album.discogsSellUrlCassette || null
+        }
+        if (cleared > 0) console.log(`  ✓ Cleared ${cleared} sell link(s) with no active listings`)
       }
     }
 

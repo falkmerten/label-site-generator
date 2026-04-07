@@ -39,6 +39,23 @@ function httpsGet (url, token) {
 }
 
 /**
+ * Checks if a Discogs sell URL has active listings.
+ * Extracts the release ID from the URL and checks num_for_sale.
+ * @param {string} token - Discogs API token
+ * @param {string} sellUrl - e.g. "https://www.discogs.com/sell/release/35745427"
+ * @returns {Promise<boolean>} true if there are items for sale
+ */
+async function hasActiveListings (token, sellUrl) {
+  if (!sellUrl) return false
+  const match = sellUrl.match(/\/release\/(\d+)/)
+  if (!match) return false
+  await throttle()
+  const data = await httpsGet(`https://api.discogs.com/releases/${match[1]}`, token)
+  if (!data) return false
+  return (data.num_for_sale || 0) > 0
+}
+
+/**
  * Returns the physical format type for a release result, or null if digital-only.
  * Checks both search result format array and full release formats array.
  */
@@ -469,4 +486,4 @@ async function lookupLabelUrl (token, labelName, cache) {
   return null
 }
 
-module.exports = { enrichAlbumsWithDiscogs, buildLabelData, lookupLabelUrl }
+module.exports = { enrichAlbumsWithDiscogs, buildLabelData, lookupLabelUrl, hasActiveListings }
