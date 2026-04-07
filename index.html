@@ -113,7 +113,7 @@
     }
 
     /* Features grid */
-    .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+    .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
     .feature {
       background: var(--card-bg);
       border: 1px solid rgba(255,255,255,0.06);
@@ -167,6 +167,9 @@
       border-top: 1px solid rgba(255,255,255,0.06);
     }
 
+    @media (max-width: 640px) {
+      .features { grid-template-columns: 1fr; }
+    }
     @media (max-width: 640px) {
       .hero h1 { font-size: 2rem; }
       .hero p { font-size: 1.05rem; }
