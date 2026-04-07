@@ -19,7 +19,7 @@ const ALBUM_ENRICHMENT_FIELDS = [
   'discogsSellUrlVinyl', 'discogsSellUrlCd', 'discogsSellUrlCassette',
   'physicalFormats', 'catalogNumber', 'labelName', 'labelUrl', 'labelUrls',
   'videos', 'soundchartsUuid', 'soundchartsEnriched', 'spotifyLabel',
-  'distributor', 'copyright', 'description', 'releaseDate', 'slug', 'discogsLabel', 'presaveUrl'
+  'distributor', 'copyright', 'description', 'releaseDate', 'slug', 'discogsLabel', 'discogsLabelUrls', 'presaveUrl'
 ]
 
 /**

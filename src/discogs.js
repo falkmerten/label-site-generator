@@ -362,6 +362,9 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
         if (result.labelName && !album.labelName) album.labelName = result.labelName
         if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
         if (result.labelUrls && !album.labelUrls) album.labelUrls = result.labelUrls
+        // Always store Discogs label data for dual-label resolution in enricher
+        if (result.labelName) album._discogsLabelName = result.labelName
+        if (result.labelUrls) album._discogsLabelUrls = result.labelUrls
         if (result.country && !album.country) album.country = result.country
         if (!album.description && result.notes) album.description = result.notes
         const method = album.upc && result.matchedByUpc ? 'UPC' : 'search'

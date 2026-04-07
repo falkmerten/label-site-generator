@@ -1386,14 +1386,23 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
           // Only store discogsLabel if the album has physical formats (real physical release)
           const hasPhysical = al.physicalFormats && al.physicalFormats.length > 0
           if (hasPhysical && !al.discogsLabel) {
+            // Save Discogs label URLs before overwriting with Spotify label
             al.discogsLabel = al.labelName
+            al.discogsLabelUrls = al.labelUrls || al._discogsLabelUrls || []
             console.log(`    ✓ Dual label: "${al.title}" — digital: "${al.spotifyLabel}", physical: "${al.labelName}"`)
+          }
+          // Backfill discogsLabelUrls for existing entries that have discogsLabel but no URLs
+          if (al.discogsLabel && !al.discogsLabelUrls) {
+            al.discogsLabelUrls = al._discogsLabelUrls || al.labelUrls || []
           }
           // Spotify (digital) is the primary label
           al.labelName = al.spotifyLabel
         } else if (al.spotifyLabel && !al.labelName) {
           al.labelName = al.spotifyLabel
         }
+        // Clean up temporary Discogs fields (not persisted to cache)
+        delete al._discogsLabelName
+        delete al._discogsLabelUrls
       }
     }
 

@@ -150,6 +150,7 @@ async function mergeData (rawData, content) {
               labelName: album.labelName || null,
               labelUrl: album.labelUrl || null,
               discogsLabel: album.discogsLabel || null,
+              discogsLabelUrls: album.discogsLabelUrls || null,
               upcoming: album.upcoming || false,
               presaveUrl: album.presaveUrl || null,
               labelUrls: album.labelUrls || (album.labelUrl
@@ -279,6 +280,7 @@ async function mergeData (rawData, content) {
             labelName: album.labelName || null,
             labelUrl: album.labelUrl || null,
             discogsLabel: album.discogsLabel || null,
+            discogsLabelUrls: album.discogsLabelUrls || null,
             upcoming: album.upcoming || false,
             presaveUrl: album.presaveUrl || null,
             labelUrls: album.labelUrls || (album.labelUrl

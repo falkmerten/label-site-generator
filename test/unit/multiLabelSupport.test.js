@@ -10,6 +10,8 @@ const env = new nunjucks.Environment(null, { autoescape: true })
 
 const labelTemplate = '{% if album.labelName %}{% set labelParts = album.labelName.split(\' / \') %}{% for part in labelParts %}{% if album.labelUrls and album.labelUrls[loop.index0] %}<a href="{{ album.labelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ part }}</a>{% else %}{{ part }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}{% endif %}'
 
+const discogsLabelTemplate = '{% if album.discogsLabel and album.discogsLabel != album.labelName %}{% set discogsParts = album.discogsLabel.split(\' / \') %}{% for dpart in discogsParts %}{% if dpart != album.labelName %} / {% if album.discogsLabelUrls and album.discogsLabelUrls[loop.index0] %}<a href="{{ album.discogsLabelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ dpart }}</a>{% else %}{{ dpart }}{% endif %}{% endif %}{% endfor %}{% endif %}'
+
 // ---------------------------------------------------------------------------
 // Merger normalization logic (extracted from src/merger.js)
 // ---------------------------------------------------------------------------
@@ -134,5 +136,91 @@ describe('Merger normalization: backward compatibility', () => {
     const result = normalizeLabelUrls(album)
 
     expect(result).toBeNull()
+  })
+})
+
+// ===========================================================================
+// Discogs label linking tests (LSG-50)
+// Validates: discogsLabel rendered with URLs, duplicates filtered
+// ===========================================================================
+describe('Template rendering: discogsLabel linking', () => {
+  test('single discogsLabel with URL renders as linked', () => {
+    const album = {
+      labelName: 'Aenaos Records',
+      labelUrls: null,
+      discogsLabel: 'Icy Cold Records',
+      discogsLabelUrls: ['https://www.discogs.com/label/555']
+    }
+    const rendered = env.renderString(discogsLabelTemplate, { album })
+
+    expect(rendered).toContain('<a href="https://www.discogs.com/label/555" target="_blank" rel="noopener noreferrer">Icy Cold Records</a>')
+  })
+
+  test('multi-label discogsLabel filters out duplicate of labelName and links the rest', () => {
+    // (((S))) Black Dog case: labelName=Aenaos Records, discogsLabel=Label A / Label B / Label C
+    const album = {
+      labelName: 'Aenaos Records',
+      labelUrls: ['https://www.discogs.com/label/1648817'],
+      discogsLabel: 'Label A / Label B / Label C',
+      discogsLabelUrls: [
+        'https://www.discogs.com/label/1648817',
+        'https://www.discogs.com/label/222',
+        'https://www.discogs.com/label/333'
+      ]
+    }
+    const rendered = env.renderString(discogsLabelTemplate, { album })
+
+    // Aenaos Records should be filtered out (already in labelName)
+    expect(rendered).not.toMatch(/>Aenaos Records</)
+    // Poisonic and T&E Records should be linked
+    expect(rendered).toContain('<a href="https://www.discogs.com/label/222" target="_blank" rel="noopener noreferrer">Poisonic</a>')
+    expect(rendered).toContain('<a href="https://www.discogs.com/label/333" target="_blank" rel="noopener noreferrer">T&amp;E Records</a>')
+  })
+
+  test('discogsLabel with null URL renders as plain text', () => {
+    const album = {
+      labelName: 'Spotify Label',
+      discogsLabel: 'Some Discogs Label',
+      discogsLabelUrls: [null]
+    }
+    const rendered = env.renderString(discogsLabelTemplate, { album })
+
+    expect(rendered).toContain('Some Discogs Label')
+    expect(rendered).not.toMatch(/<a [^>]*>Some Discogs Label<\/a>/)
+  })
+
+  test('no discogsLabel renders nothing', () => {
+    const album = {
+      labelName: 'Aenaos Records',
+      discogsLabel: null,
+      discogsLabelUrls: null
+    }
+    const rendered = env.renderString(discogsLabelTemplate, { album })
+
+    expect(rendered.trim()).toBe('')
+  })
+
+  test('discogsLabel same as labelName renders nothing', () => {
+    const album = {
+      labelName: 'Aenaos Records',
+      discogsLabel: 'Aenaos Records',
+      discogsLabelUrls: ['https://www.discogs.com/label/1648817']
+    }
+    const rendered = env.renderString(discogsLabelTemplate, { album })
+
+    expect(rendered.trim()).toBe('')
+  })
+
+  test('discogsLabel without discogsLabelUrls renders as plain text', () => {
+    // Backward compatibility: old cache entries without discogsLabelUrls
+    const album = {
+      labelName: 'Spotify Label',
+      discogsLabel: 'Icy Cold Records',
+      discogsLabelUrls: undefined
+    }
+    const rendered = env.renderString(discogsLabelTemplate, { album })
+
+    expect(rendered).toContain('Icy Cold Records')
+    expect(rendered).not.toMatch(/<a [^>]*>Icy Cold Records<\/a>/)
   })
 })
