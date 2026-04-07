@@ -1421,6 +1421,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     }
   }
 
+  // NOTE: Track-level ISRCs from Spotify require user-scoped auth (/v1/tracks endpoint).
+  // The client_credentials flow used here doesn't have access. ISRCs come from:
+  // 1. Bandcamp CSV import (--fill-gaps)
+  // 2. Future: Spotify authorization code flow
+
   await writeCache(cachePath, data)
   console.log('\nEnrichment complete. Cache updated.')
 }

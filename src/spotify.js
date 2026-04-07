@@ -469,4 +469,9 @@ function formatDuration (ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// NOTE: Track-level ISRCs from Spotify require the /v1/tracks endpoint which needs
+// user-scoped auth (authorization code flow). The client_credentials flow used here
+// only returns simplified track objects without external_ids. ISRCs come from the
+// Bandcamp CSV import (--fill-gaps) instead.
+
 module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult }
