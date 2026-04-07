@@ -251,4 +251,4 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   }
 }
 
-module.exports = { scrapeLabel }
+module.exports = { scrapeLabel, loadExtraArtistUrls }

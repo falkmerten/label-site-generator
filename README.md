@@ -574,6 +574,7 @@ Custom Nunjucks filters:
 | `src/assets.js` | Copies static assets, writes default stylesheet |
 | `src/generator.js` | Top-level pipeline: cache → merge → render → assets |
 | `src/slugs.js` | Slug generation (NFD normalisation for accented characters) |
+| `src/importCsv.js` | Bandcamp CSV import: parser, gap analysis, gap filling, full import |
 | `src/markdown.js` | Markdown rendering |
 
 ---
@@ -583,6 +584,66 @@ Custom Nunjucks filters:
 Scraped data is saved to `cache.json` (gitignored). Delete it or use `--refresh` to re-scrape everything. Use `--artist <name>` to re-scrape a single artist.
 
 Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing.
+
+---
+
+## CSV Import (Bandcamp Digital Export)
+
+Import metadata from a Bandcamp digital catalog CSV export to fill gaps in your cache. The CSV provides catalog numbers, UPCs, ISRCs, Bandcamp IDs, and release dates that the scraper/enricher pipeline doesn't capture.
+
+### Setup
+
+1. In your Bandcamp label backend, go to **Tools → Digital Catalog Report → Export**
+2. Place the downloaded CSV file in the `import/` directory (gitignored — contains label-specific data)
+
+### Modes
+
+**Gap analysis** (read-only — shows what's missing and what the CSV can fill):
+```bash
+node generate.js --analyze-csv import/digital-catalog.csv
+```
+
+**Gap filling** (backfills missing fields into existing cache entries):
+```bash
+node generate.js --fill-gaps import/digital-catalog.csv
+```
+
+**Full import** (bootstraps a new cache entirely from CSV — requires roster source):
+```bash
+node generate.js --import-csv import/digital-catalog.csv --roster-source cache
+node generate.js --import-csv import/digital-catalog.csv --roster-source api
+```
+
+### Flags
+
+| Flag | Description |
+|---|---|
+| `--analyze-csv <path>` | Compare CSV against cache, print gap report |
+| `--fill-gaps <path>` | Fill missing UPC, catalog number, Bandcamp ID, release date, ISRC from CSV |
+| `--import-csv <path>` | Bootstrap cache from CSV (requires `--roster-source`) |
+| `--roster-source <cache\|api>` | Where to get the active artist roster (with `--import-csv`) |
+| `--dry-run` | Preview changes without writing to cache (with `--fill-gaps` or `--import-csv`) |
+
+### Typical workflow
+
+```bash
+# 1. Export CSV from Bandcamp and place in import/
+# 2. Analyze gaps first
+node generate.js --analyze-csv import/digital-catalog.csv
+
+# 3. Preview what would be filled
+node generate.js --fill-gaps import/digital-catalog.csv --dry-run
+
+# 4. Fill the gaps
+node generate.js --fill-gaps import/digital-catalog.csv
+
+# 5. Regenerate the site
+node generate.js
+```
+
+Gap filling only writes to fields that are `null` or missing — existing enriched data (streaming links, artwork, Discogs data) is never overwritten. A timestamped backup of `cache.json` is created before any write.
+
+Artists no longer on the label's active roster are automatically filtered out from the CSV data.
 
 ---
 

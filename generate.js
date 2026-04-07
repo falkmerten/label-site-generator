@@ -12,7 +12,8 @@ const { refreshArtist } = require('./src/refreshArtist');
 const { downloadArtwork } = require('./src/downloadArtwork');
 const { syncElasticStage } = require('./src/elasticstage');
 const { syncYouTube, resolveYouTubeHandles } = require('./src/youtube');
-const { backupCache } = require('./src/cache');
+const { readCache, writeCache, backupCache } = require('./src/cache');
+const { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary } = require('./src/importCsv');
 
 function printUsage() {
   console.log(`Usage: node generate.js [options]
@@ -35,6 +36,11 @@ Options:
   --cleanup            Report orphaned content folders not matching any album in cache
   --rollback           Restore the most recent cache backup
   --create-campaigns   Create newsletter campaign drafts for new news articles (without generating site)
+  --analyze-csv <path>   Analyze CSV against cache (read-only gap report)
+  --fill-gaps <path>     Fill missing metadata in cache from CSV
+  --import-csv <path>    Bootstrap cache from CSV (requires --roster-source)
+  --roster-source <src>  Active roster source: cache or api (with --import-csv)
+  --dry-run              Preview changes without writing (with --fill-gaps or --import-csv)
   --help               Print this help message and exit
 `);
 }
@@ -51,6 +57,11 @@ function parseArgs(argv) {
     initContent: false,
     artistFilter: null,
     deploy: false,
+    analyzeCsv: null,
+    fillGaps: null,
+    importCsv: null,
+    rosterSource: null,
+    dryRun: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -93,7 +104,34 @@ function parseArgs(argv) {
       options.rollback = true;
     } else if (arg === '--create-campaigns') {
       options.createCampaigns = true;
+    } else if (arg === '--analyze-csv') {
+      options.analyzeCsv = args[++i]
+    } else if (arg === '--fill-gaps') {
+      options.fillGaps = args[++i]
+    } else if (arg === '--import-csv') {
+      options.importCsv = args[++i]
+    } else if (arg === '--roster-source') {
+      options.rosterSource = args[++i]
+    } else if (arg === '--dry-run') {
+      options.dryRun = true
     }
+  }
+
+  // Validate CSV flags have a file path
+  for (const flag of ['analyzeCsv', 'fillGaps', 'importCsv']) {
+    if (options[flag] !== null && (options[flag] === undefined || options[flag].startsWith('--'))) {
+      const cliFlag = flag === 'analyzeCsv' ? '--analyze-csv'
+        : flag === 'fillGaps' ? '--fill-gaps'
+        : '--import-csv'
+      console.error(`Usage: ${cliFlag} <path-to-csv>`)
+      process.exit(1)
+    }
+  }
+
+  // Full import requires --roster-source
+  if (options.importCsv && !options.rosterSource) {
+    console.error('Full import requires --roster-source <cache|api> to filter inactive artists')
+    process.exit(1)
   }
 
   return options;
@@ -191,6 +229,67 @@ async function run() {
     } else {
       console.log('No new articles to create campaigns for.');
     }
+    return;
+  }
+  if (options.analyzeCsv) {
+    const rows = await parseCsv(options.analyzeCsv)
+    const csvArtists = groupByArtist(rows)
+    printParseSummary(csvArtists)
+    const roster = await buildActiveRoster({ cachePath: options.cachePath, contentDir: options.contentDir })
+    const cache = await readCache(options.cachePath)
+    const report = analyzeGaps(csvArtists, cache, roster)
+    console.log(`\nAnalysis Report:`)
+    console.log(`  Matched albums:    ${report.matched.length}`)
+    console.log(`  Fillable UPCs:     ${report.fillable.upc}`)
+    console.log(`  Fillable catalogs: ${report.fillable.catalogNumber}`)
+    console.log(`  Fillable BC IDs:   ${report.fillable.bandcampId}`)
+    console.log(`  Fillable dates:    ${report.fillable.releaseDate}`)
+    console.log(`  Fillable ISRCs:    ${report.fillable.isrc}`)
+    console.log(`  Not in cache:      ${report.notInCache.length}`)
+    console.log(`  Not in CSV:        ${report.notInCsv.length}`)
+    console.log(`  Inactive artists:  ${report.inactive.length}`)
+    return;
+  }
+  if (options.fillGaps) {
+    const rows = await parseCsv(options.fillGaps)
+    const csvArtists = groupByArtist(rows)
+    printParseSummary(csvArtists)
+    const roster = await buildActiveRoster({ cachePath: options.cachePath, contentDir: options.contentDir })
+    const cache = await readCache(options.cachePath)
+    const report = fillGaps(csvArtists, cache, roster)
+    if (!options.dryRun) {
+      await backupCache(options.cachePath)
+      await writeCache(options.cachePath, cache)
+    }
+    console.log(`\nFill Gaps Report${options.dryRun ? ' (dry run)' : ''}:`)
+    console.log(`  UPCs filled:        ${report.upc}`)
+    console.log(`  Catalogs filled:    ${report.catalogNumber}`)
+    console.log(`  BC IDs filled:      ${report.bandcampId}`)
+    console.log(`  Dates filled:       ${report.releaseDate}`)
+    console.log(`  ISRCs filled:       ${report.isrc}`)
+    console.log(`  Unmatched CSV:      ${report.unmatchedCsv}`)
+    console.log(`  Skipped (inactive): ${report.skippedInactive}`)
+    return;
+  }
+  if (options.importCsv) {
+    const rows = await parseCsv(options.importCsv)
+    const csvArtists = groupByArtist(rows)
+    printParseSummary(csvArtists)
+    const roster = await buildActiveRoster({ cachePath: options.cachePath, contentDir: options.contentDir, rosterSource: options.rosterSource })
+    const activeCsvArtists = csvArtists.filter(a => roster.has(a.slug))
+    const filteredCount = csvArtists.length - activeCsvArtists.length
+    if (filteredCount > 0) {
+      console.log(`Filtered out ${filteredCount} inactive artist(s)`)
+    }
+    const newCache = fullImport(activeCsvArtists)
+    if (!options.dryRun) {
+      await backupCache(options.cachePath)
+      await writeCache(options.cachePath, newCache)
+    }
+    const importedAlbums = activeCsvArtists.reduce((sum, a) => sum + a.albums.length, 0)
+    console.log(`\nImport Summary${options.dryRun ? ' (dry run)' : ''}:`)
+    console.log(`  Artists imported: ${activeCsvArtists.length}`)
+    console.log(`  Albums imported:  ${importedAlbums}`)
     return;
   }
   if (options.initArtists) {

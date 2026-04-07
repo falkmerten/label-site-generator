@@ -208,6 +208,22 @@ For Sendy: the same `NEWSLETTER_API_KEY` works for both. For Listmonk: the subsc
 
 ---
 
+## CSV Import
+
+**Where do I put the CSV file?**
+Place it in the `import/` directory at the project root. This directory is gitignored since it contains label-specific data.
+
+**How do I export the CSV from Bandcamp?**
+In your Bandcamp label backend, go to **Tools → Digital Catalog Report → Export**. This produces a CSV with all your digital releases, including catalog numbers, UPCs, ISRCs, and release dates.
+
+**What about other distributors (Believe Digital, etc.)?**
+Currently only Bandcamp digital export CSVs are supported. Support for other distributor formats is planned as a future feature.
+
+**Will it overwrite my enriched data?**
+No. Gap filling only writes to fields that are `null` or missing. Existing data (streaming links, artwork, Discogs metadata, etc.) is never overwritten. A timestamped backup is created before any write.
+
+---
+
 ## Licensing
 
 **Can I use this commercially?**
