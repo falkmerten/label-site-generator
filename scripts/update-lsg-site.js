@@ -163,6 +163,19 @@ try {
     '.imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.65; }'
   )
 
+  // Force features grid to 2 columns (4 rows × 2)
+  indexHtml = indexHtml.replace(
+    /\.features \{[^}]*\}/,
+    '.features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }'
+  )
+  // Mobile: stack to 1 column
+  if (!indexHtml.includes('.features { grid-template-columns: 1fr; }')) {
+    indexHtml = indexHtml.replace(
+      '@media (max-width: 640px)',
+      '@media (max-width: 640px) {\n      .features { grid-template-columns: 1fr; }\n    }\n    @media (max-width: 640px)'
+    )
+  }
+
   // Add imprint to footer if not present
   if (!indexHtml.includes('imprint')) {
     indexHtml = indexHtml.replace(
