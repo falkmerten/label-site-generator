@@ -409,6 +409,17 @@ function fuzzyMatchAlbum (albumMap, csvSlug) {
       return { slug: cacheSlug, album }
     }
   }
+  // Pass 3: match by Bandcamp URL path (handles title mismatches where the URL matches)
+  for (const [cacheSlug, album] of albumMap) {
+    if (album.url) {
+      try {
+        const urlPath = new URL(album.url).pathname.replace(/^\/(album|track)\//, '')
+        if (urlPath && urlPath === csvSlug) {
+          return { slug: cacheSlug, album }
+        }
+      } catch {}
+    }
+  }
   return null
 }
 
