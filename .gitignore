@@ -18,6 +18,9 @@ content/
 # Brand assets — label-specific images (logo, banner, etc.)
 assets/
 
+# Import files — CSV exports from Bandcamp, distributors, etc.
+import/
+
 # Generated label copy — contains release metadata
 label-copy/
 
