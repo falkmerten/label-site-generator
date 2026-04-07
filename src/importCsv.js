@@ -332,7 +332,16 @@ async function buildActiveRoster (options = {}) {
     const cache = await readCache(cachePath)
     if (cache && cache.artists) {
       for (const artist of cache.artists) {
+        // Add explicit slug if present
         if (artist.slug) slugs.add(artist.slug)
+        // Derive slug from artist name
+        const nameSlug = toSlug(artist.name)
+        if (nameSlug) slugs.add(nameSlug)
+        // Derive slug from Bandcamp URL subdomain
+        if (artist.url) {
+          const urlSlug = slugFromUrl(artist.url)
+          if (urlSlug) slugs.add(urlSlug)
+        }
       }
     }
   }
@@ -377,12 +386,13 @@ function analyzeGaps (csvArtists, cache, activeRoster) {
   const cacheAlbumSeen = new Set()
   if (cache && cache.artists) {
     for (const artist of cache.artists) {
+      const artistSlug = artist.slug || toSlug(artist.name)
       const albumMap = new Map()
       for (const album of artist.albums || []) {
         const albumSlug = album.slug || toSlug(album.title)
         albumMap.set(albumSlug, album)
       }
-      cacheIndex.set(artist.slug, { artist, albumMap })
+      cacheIndex.set(artistSlug, { artist, albumMap })
     }
   }
 
@@ -453,10 +463,11 @@ function analyzeGaps (csvArtists, cache, activeRoster) {
   const notInCsv = []
   if (cache && cache.artists) {
     for (const artist of cache.artists) {
-      if (!activeRoster.has(artist.slug)) continue
+      const artistSlug = artist.slug || toSlug(artist.name)
+      if (!activeRoster.has(artistSlug)) continue
       for (const album of artist.albums || []) {
         const albumSlug = album.slug || toSlug(album.title)
-        const key = `${artist.slug}::${albumSlug}`
+        const key = `${artistSlug}::${albumSlug}`
         if (!cacheAlbumSeen.has(key)) {
           notInCsv.push(`${artist.name} - ${album.title}`)
         }
@@ -494,12 +505,13 @@ function fillGaps (csvArtists, cache, activeRoster) {
   const cacheIndex = new Map()
   if (cache && cache.artists) {
     for (const artist of cache.artists) {
+      const artistSlug = artist.slug || toSlug(artist.name)
       const albumMap = new Map()
       for (const album of artist.albums || []) {
         const albumSlug = album.slug || toSlug(album.title)
         albumMap.set(albumSlug, album)
       }
-      cacheIndex.set(artist.slug, albumMap)
+      cacheIndex.set(artistSlug, albumMap)
     }
   }
 
