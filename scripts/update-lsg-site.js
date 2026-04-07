@@ -49,7 +49,11 @@ for (let i = 0; i < versionPositions.length; i++) {
   }
 
   if (items.length > 0) {
-    releases.push({ version, date, items })
+    // Skip versions before 3.0.0
+    const major = parseInt(version.replace('v', '').split('.')[0], 10)
+    if (major >= 3) {
+      releases.push({ version, date, items })
+    }
   }
 }
 
@@ -141,6 +145,30 @@ try {
     /Label Site Generator v[\d.]+ —/,
     `Label Site Generator ${latestVersion} —`
   )
+
+  // Fix changelog hover underline — add CSS rule if not present
+  if (!indexHtml.includes('text-decoration: none !important')) {
+    indexHtml = indexHtml.replace(
+      '.release li::before',
+      `.release li, .release li * { text-decoration: none !important; }\n    .release li::before`
+    )
+  }
+
+  // Add imprint to footer if not present
+  if (!indexHtml.includes('imprint')) {
+    indexHtml = indexHtml.replace(
+      '</footer>',
+      `  <p class="imprint">Aenaos Records · Owner: Falk Merten · Herrnhuter Str. 2, 04318 Leipzig (Germany) · VAT ID DE267690157</p>\n  </footer>`
+    )
+    // Add imprint styling if not present
+    if (!indexHtml.includes('.imprint')) {
+      indexHtml = indexHtml.replace(
+        '/* Footer */',
+        `/* Footer */
+    .imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.4; }`
+      )
+    }
+  }
 
   fs.writeFileSync(indexPath, indexHtml)
   console.log('Updated index.html')
