@@ -157,6 +157,12 @@ try {
     )
   }
 
+  // Update imprint opacity if too low
+  indexHtml = indexHtml.replace(
+    '.imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.4; }',
+    '.imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.65; }'
+  )
+
   // Add imprint to footer if not present
   if (!indexHtml.includes('imprint')) {
     indexHtml = indexHtml.replace(
@@ -168,7 +174,7 @@ try {
       indexHtml = indexHtml.replace(
         '/* Footer */',
         `/* Footer */
-    .imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.4; }`
+    .imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.65; }`
       )
     }
   }
