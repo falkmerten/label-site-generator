@@ -1001,6 +1001,8 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       const albums = artist.albums || []
       const needsGapFill = albums.filter(al =>
         !al.upcoming &&
+        // Skip Bandcamp-only albums with no Spotify/UPC — nothing to search with
+        (al.upc || (al.streamingLinks && al.streamingLinks.spotify)) &&
         (
           !(al.streamingLinks && al.streamingLinks.appleMusic) ||
           !(al.streamingLinks && al.streamingLinks.deezer) ||
@@ -1223,6 +1225,8 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       const albums = artist.albums || []
       const needsEnrichment = albums.filter(al =>
         !al.upcoming &&
+        // Skip Bandcamp-only albums with no Spotify/UPC — nothing to search with
+        (al.upc || (al.streamingLinks && al.streamingLinks.spotify)) &&
         (
           !(al.streamingLinks && al.streamingLinks.appleMusic) ||
           !(al.streamingLinks && al.streamingLinks.deezer) ||
