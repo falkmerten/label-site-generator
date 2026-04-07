@@ -137,7 +137,7 @@ async function getMasterVersionSellLinks (token, masterId) {
  * Tries UPC first, then artist+title fallback.
  * Uses master release to find per-format physical sell links.
  */
-async function lookupRelease (token, upc, artistName, albumTitle) {
+async function lookupRelease (token, upc, artistName, albumTitle, catalogNumber) {
   let results = null
   let matchedByUpc = false
 
@@ -146,7 +146,13 @@ async function lookupRelease (token, upc, artistName, albumTitle) {
     if (results) matchedByUpc = true
   }
 
-  // Title search fallback — always try if UPC returned nothing
+  // Catalog number search fallback
+  if (!results && catalogNumber && artistName) {
+    await throttle()
+    results = await searchDiscogs(token, { catno: catalogNumber, artist: artistName })
+  }
+
+  // Title search fallback — always try if UPC and catno returned nothing
   if (!results && artistName && albumTitle) {
     await throttle()
     results = await searchDiscogs(token, { artist: artistName, release_title: albumTitle })
@@ -322,7 +328,7 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
   for (const album of pending) {
     try {
       await throttle()
-      const result = await lookupRelease(token, album.upc, artistName, album.title)
+      const result = await lookupRelease(token, album.upc, artistName, album.title, album.catalogNumber)
       if (result) {
         album.discogsUrl = result.discogsUrl
 
