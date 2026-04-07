@@ -152,6 +152,20 @@ function emptyToNull (val) {
 }
 
 /**
+ * Strip zero-width characters and common Bandcamp CSV title suffixes.
+ * @param {string} title
+ * @returns {string}
+ */
+function normalizeTitle (title) {
+  if (!title) return title
+  return title
+    .replace(/[\u200b\u200c\u200d\ufeff]/g, '') // strip zero-width chars
+    .replace(/,\s*(ALBUM|SINGLE)\s*$/i, '')      // strip trailing ", ALBUM" / ", SINGLE"
+    .replace(/\s*\(Single\)\s*$/i, '')            // strip trailing "(Single)"
+    .trim()
+}
+
+/**
  * Group flat CSV rows into a structured artist → album → tracks hierarchy.
  *
  * @param {CsvRow[]} rows - Parsed CSV rows from parseCsv()
@@ -177,10 +191,10 @@ function groupByArtist (rows) {
   // Helper: get or create album entry for album/licensed_album rows
   function getAlbum (row) {
     const artistSlug = toSlug(row.release_artist)
-    const key = `${artistSlug}::${row.release_title}::${row.id}`
+    const title = normalizeTitle(row.release_title)
+    const key = `${artistSlug}::${title}::${row.id}`
 
     if (seenAlbums.has(key)) {
-      // Already processed — check if this is a true duplicate (not first occurrence)
       if (albumMap.has(key)) {
         return albumMap.get(key)
       }
@@ -190,8 +204,8 @@ function groupByArtist (rows) {
     seenAlbums.add(key)
 
     const album = {
-      title: row.release_title,
-      slug: toSlug(row.release_title),
+      title,
+      slug: toSlug(title),
       catalogNumber: emptyToNull(row.catalog_number),
       upc: emptyToNull(row.upc),
       releaseDate: emptyToNull(row.release_date),
@@ -210,7 +224,8 @@ function groupByArtist (rows) {
   for (const row of rows) {
     if (row.type === 'album' || row.type === 'licensed_album') {
       const artistSlug = toSlug(row.release_artist)
-      const key = `${artistSlug}::${row.release_title}::${row.id}`
+      const title = normalizeTitle(row.release_title)
+      const key = `${artistSlug}::${title}::${row.id}`
 
       if (albumMap.has(key)) {
         console.warn(`Warning: duplicate album "${row.release_title}" by "${row.release_artist}" (id: ${row.id}), keeping first occurrence`)
@@ -225,10 +240,11 @@ function groupByArtist (rows) {
   for (const row of rows) {
     if (row.type === 'album_track') {
       const artistSlug = toSlug(row.release_artist)
-      // Find parent album — match by artist slug + release_title (tracks don't carry album id directly)
+      const title = normalizeTitle(row.release_title)
+      // Find parent album — match by artist slug + release_title
       let parentAlbum = null
       for (const [key, album] of albumMap) {
-        if (key.startsWith(`${artistSlug}::${row.release_title}::`)) {
+        if (key.startsWith(`${artistSlug}::${title}::`)) {
           parentAlbum = album
           break
         }
@@ -250,23 +266,24 @@ function groupByArtist (rows) {
   for (const row of rows) {
     if (row.type === 'track') {
       const artistSlug = toSlug(row.release_artist)
-      const key = `${artistSlug}::${row.release_title}::${row.id}`
+      const title = normalizeTitle(row.release_title)
+      const key = `${artistSlug}::${title}::${row.id}`
 
       if (albumMap.has(key)) {
-        console.warn(`Warning: duplicate album "${row.release_title}" by "${row.release_artist}" (id: ${row.id}), keeping first occurrence`)
+        console.warn(`Warning: duplicate album "${title}" by "${row.release_artist}" (id: ${row.id}), keeping first occurrence`)
         continue
       }
 
       const album = {
-        title: row.release_title,
-        slug: toSlug(row.release_title),
+        title,
+        slug: toSlug(title),
         catalogNumber: emptyToNull(row.catalog_number),
         upc: emptyToNull(row.upc),
         releaseDate: emptyToNull(row.release_date),
         bandcampId: emptyToNull(String(row.id)),
         licensed: false,
         tracks: [{
-          name: row.release_title,
+          name: title,
           isrc: emptyToNull(row.isrc)
         }]
       }
@@ -367,6 +384,24 @@ async function buildActiveRoster (options = {}) {
 }
 
 /**
+ * Try to find a cache album by fuzzy slug matching.
+ * Checks if the CSV slug ends with a cache slug or vice versa (handles prefix differences
+ * like "Demo Pt. I" in CSV vs "Pt. I" in cache).
+ * @param {Map<string, Object>} albumMap - Cache album map (slug → album)
+ * @param {string} csvSlug - CSV album slug
+ * @returns {{ slug: string, album: Object }|null}
+ */
+function fuzzyMatchAlbum (albumMap, csvSlug) {
+  if (!albumMap) return null
+  for (const [cacheSlug, album] of albumMap) {
+    if (csvSlug.endsWith(cacheSlug) || cacheSlug.endsWith(csvSlug)) {
+      return { slug: cacheSlug, album }
+    }
+  }
+  return null
+}
+
+/**
  * Compare CSV data against cache and produce a gap analysis report.
  * Does not modify cache.
  *
@@ -416,13 +451,26 @@ function analyzeGaps (csvArtists, cache, activeRoster) {
     for (const csvAlbum of csvArtist.albums) {
       const albumSlug = csvAlbum.slug || toSlug(csvAlbum.title)
 
-      if (!cacheEntry || !cacheEntry.albumMap.has(albumSlug)) {
+      let cacheAlbum = null
+      let matchedSlug = albumSlug
+
+      if (cacheEntry && cacheEntry.albumMap.has(albumSlug)) {
+        cacheAlbum = cacheEntry.albumMap.get(albumSlug)
+      } else if (cacheEntry) {
+        // Fuzzy fallback: try suffix matching
+        const fuzzy = fuzzyMatchAlbum(cacheEntry.albumMap, albumSlug)
+        if (fuzzy) {
+          cacheAlbum = fuzzy.album
+          matchedSlug = fuzzy.slug
+        }
+      }
+
+      if (!cacheAlbum) {
         notInCache.push(`${csvArtist.name} - ${csvAlbum.title}`)
         continue
       }
 
-      const cacheAlbum = cacheEntry.albumMap.get(albumSlug)
-      const key = `${csvArtist.slug}::${albumSlug}`
+      const key = `${csvArtist.slug}::${matchedSlug}`
       cacheAlbumSeen.add(key)
 
       // Check each fillable field
@@ -527,12 +575,18 @@ function fillGaps (csvArtists, cache, activeRoster) {
     for (const csvAlbum of csvArtist.albums) {
       const albumSlug = csvAlbum.slug || toSlug(csvAlbum.title)
 
-      if (!albumMap || !albumMap.has(albumSlug)) {
+      let cacheAlbum = null
+      if (albumMap && albumMap.has(albumSlug)) {
+        cacheAlbum = albumMap.get(albumSlug)
+      } else if (albumMap) {
+        const fuzzy = fuzzyMatchAlbum(albumMap, albumSlug)
+        if (fuzzy) cacheAlbum = fuzzy.album
+      }
+
+      if (!cacheAlbum) {
         report.unmatchedCsv++
         continue
       }
-
-      const cacheAlbum = albumMap.get(albumSlug)
 
       // Fill album-level fields (only when cache value is null/undefined)
       for (const field of ['upc', 'catalogNumber', 'bandcampId', 'releaseDate']) {

@@ -12,6 +12,7 @@
 function toSlug (name) {
   if (!name) return ''
   return name
+    .replace(/[\u200b\u200c\u200d\ufeff]/g, '') // strip zero-width chars
     .toLowerCase()
     .normalize('NFD')                    // decompose accented chars: á → a + ́
     .replace(/[\u0300-\u036f]/g, '')     // strip combining diacritics
