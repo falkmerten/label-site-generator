@@ -4,6 +4,15 @@
 
 ---
 
+### v4.1.0 — 2026-04-07
+
+**Discogs sell URL verification (LSG-59)**
+- Sell URLs are now verified against Discogs marketplace on every `--enrich` run
+- Albums with zero active listings have their sell URLs cleared — no more "Buy on Discogs" buttons for unavailable releases
+- Release listing checks are deduplicated across artists (shared cache)
+
+---
+
 ### v4.0.2 — 2026-04-07
 
 **Discogs caching fix (LSG-59)**
