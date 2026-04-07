@@ -18,30 +18,44 @@ const { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullI
 function printUsage() {
   console.log(`Usage: node generate.js [options]
 
+Common workflows:
+  node generate.js                                    Generate site from cache
+  node generate.js --scrape --artist "Name"           Re-scrape one artist from Bandcamp
+  node generate.js --enrich --artist "Name"           Enrich one artist (Soundcharts/Discogs/etc.)
+  node generate.js --scrape --enrich --artist "Name"  Re-scrape + enrich one artist
+  node generate.js --enrich                           Enrich all artists
+  node generate.js --scrape --enrich                  Re-scrape + enrich all artists
+  node generate.js --enrich --deploy                  Enrich, generate, and deploy
+
 Options:
-  --output <dir>   Output directory (default: ./dist)
-  --content <dir>  Content directory (default: ./content)
-  --cache <file>   Cache file path (default: ./cache.json)
-  --refresh        Force re-scrape, ignoring cache
-  --artist <name>  Re-scrape a single artist by name or slug (updates cache in place)
-  --enrich         Fetch streaming links for cached data, then generate
-  --init-artists   Generate content/artists.json with Spotify artist URLs
-  --init-content   Scaffold content/{artist}/ folders for bios and images
-  --deploy             Sync dist/ to S3 and invalidate CloudFront after generating
-  --tidal-only         Re-check Tidal links for all albums (skips Spotify/iTunes/Deezer)
-  --download-artwork   Download remote artwork to content/ and update cache
-  --sync-elasticstage  Sync ElasticStage release links to stores.json files
-  --sync-youtube       Search YouTube and create videos.json for albums without one
-  --resolve-youtube    Resolve @handle entries in youtube.json to channel IDs
-  --cleanup            Report orphaned content folders not matching any album in cache
+  --output <dir>       Output directory (default: ./dist)
+  --content <dir>      Content directory (default: ./content)
+  --cache <file>       Cache file path (default: ./cache.json)
+  --artist <name>      Filter to a single artist by name or slug
+  --scrape             Re-scrape from Bandcamp (ignoring cache)
+  --enrich             Fetch streaming links, labels, physical formats
+  --enrich --force     Re-enrich even already-enriched albums
+  --deploy             Sync dist/ to S3 and invalidate CloudFront
+  --tidal-only         Re-check Tidal links only (implies --enrich)
+  --download-artwork   Download remote artwork to content/
+  --sync-elasticstage  Sync ElasticStage release links to stores.json
+  --sync-youtube       Search YouTube and create videos.json
+  --resolve-youtube    Resolve @handle entries in youtube.json
+  --cleanup            Report orphaned content folders and audit cache
   --rollback           Restore the most recent cache backup
-  --create-campaigns   Create newsletter campaign drafts for new news articles (without generating site)
-  --analyze-csv <path>   Analyze CSV against cache (read-only gap report)
-  --fill-gaps <path>     Fill missing metadata in cache from CSV
-  --import-csv <path>    Bootstrap cache from CSV (requires --roster-source)
-  --roster-source <src>  Active roster source: cache or api (with --import-csv)
-  --dry-run              Preview changes without writing (with --fill-gaps or --import-csv)
-  --help               Print this help message and exit
+  --init-artists       Generate content/artists.json with Spotify URLs
+  --init-content       Scaffold content/{artist}/ folders
+  --create-campaigns   Create newsletter campaign drafts
+  --analyze-csv <path> Analyze CSV against cache (read-only)
+  --fill-gaps <path>   Fill missing metadata in cache from CSV
+  --import-csv <path>  Bootstrap cache from CSV (requires --roster-source)
+  --roster-source <s>  Active roster source: cache or api (with --import-csv)
+  --dry-run            Preview changes without writing
+  --help               Print this help message
+
+Deprecated (still work):
+  --refresh            Alias for --scrape (or --force when used with --enrich)
+  --artist alone       Same as --scrape --artist (backward compatible)
 `);
 }
 
@@ -51,8 +65,9 @@ function parseArgs(argv) {
     outputDir: './dist',
     contentDir: './content',
     cachePath: './cache.json',
-    refresh: false,
+    scrape: false,
     enrich: false,
+    force: false,
     initArtists: false,
     initContent: false,
     artistFilter: null,
@@ -62,6 +77,8 @@ function parseArgs(argv) {
     importCsv: null,
     rosterSource: null,
     dryRun: false,
+    // Deprecated — kept for backward compatibility
+    refresh: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -75,12 +92,17 @@ function parseArgs(argv) {
       options.contentDir = args[++i];
     } else if (arg === '--cache') {
       options.cachePath = args[++i];
+    } else if (arg === '--scrape') {
+      options.scrape = true;
     } else if (arg === '--refresh') {
+      // Deprecated: --refresh is now --scrape (or --force with --enrich)
       options.refresh = true;
     } else if (arg === '--artist') {
       options.artistFilter = args[++i];
     } else if (arg === '--enrich') {
       options.enrich = true;
+    } else if (arg === '--force') {
+      options.force = true;
     } else if (arg === '--init-artists') {
       options.initArtists = true;
     } else if (arg === '--init-content') {
@@ -115,6 +137,26 @@ function parseArgs(argv) {
     } else if (arg === '--dry-run') {
       options.dryRun = true
     }
+  }
+
+  // ── Resolve deprecated --refresh flag ──────────────────────────────────────
+  // --refresh with --enrich → --force (re-enrich already-enriched albums)
+  // --refresh without --enrich → --scrape (re-scrape from Bandcamp)
+  if (options.refresh) {
+    if (options.enrich) {
+      options.force = true
+      console.warn('⚠ --refresh with --enrich is deprecated. Use --enrich --force instead.')
+    } else {
+      options.scrape = true
+      console.warn('⚠ --refresh is deprecated. Use --scrape instead.')
+    }
+  }
+
+  // ── Backward compat: --artist alone implies --scrape ─────────────────────
+  // (Old behavior: --artist without --enrich triggered refreshArtist)
+  if (options.artistFilter && !options.enrich && !options.scrape &&
+      !options.syncYouTube && !options.syncElasticStage && !options.cleanup) {
+    options.scrape = true
   }
 
   // Validate CSV flags have a file path
@@ -312,20 +354,35 @@ async function run() {
     return;
   }
   if (options.artistFilter && !options.enrich && !options.syncYouTube && !options.syncElasticStage && !options.cleanup) {
+    // --scrape --artist (or legacy --artist alone)
     const backupPath = await backupCache(options.cachePath);
     if (backupPath) console.log(`Cache backed up to ${backupPath}`);
     console.log(`Re-scraping artist: ${options.artistFilter}`);
     await refreshArtist(options.cachePath, options.artistFilter);
     return;
   }
-  if (options.enrich) {
+  // ── Scrape + Enrich combo: --scrape --enrich [--artist] ─────────────────
+  if (options.scrape && options.enrich) {
+    const backupPath = await backupCache(options.cachePath);
+    if (backupPath) console.log(`Cache backed up to ${backupPath}`);
+    if (options.artistFilter) {
+      console.log(`Re-scraping artist: ${options.artistFilter}`);
+      await refreshArtist(options.cachePath, options.artistFilter);
+    }
+    console.log('Enriching cache with streaming links...');
+    await enrichCache(options.cachePath, options.contentDir, {
+      tidalOnly: options.tidalOnly,
+      artistFilter: options.artistFilter || null,
+      refresh: options.force || false
+    });
+  } else if (options.enrich) {
     const backupPath = await backupCache(options.cachePath);
     if (backupPath) console.log(`Cache backed up to ${backupPath}`);
     console.log('Enriching cache with streaming links...');
     await enrichCache(options.cachePath, options.contentDir, {
       tidalOnly: options.tidalOnly,
       artistFilter: options.artistFilter || null,
-      refresh: options.refresh || false
+      refresh: options.force || false
     });
   }
   if (options.downloadArtwork) {
@@ -371,12 +428,8 @@ async function run() {
   }
   // Auto-convert any bio.docx files before generating
   await convertAllDocs(options.contentDir);
-  // When --refresh is used with --enrich, don't pass refresh to the generator
-  // (refresh in that context means "re-enrich", not "re-scrape from Bandcamp")
-  const generateOptions = { ...options }
-  if (options.enrich && options.refresh) {
-    generateOptions.refresh = false
-  }
+  // Pass scrape flag to generator (full re-scrape mode)
+  const generateOptions = { ...options, refresh: options.scrape && !options.artistFilter }
   const { pageCount, outputDir } = await generate(generateOptions);
   console.log(`Generated ${pageCount} pages to ${outputDir}`);
 
