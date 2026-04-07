@@ -251,6 +251,9 @@
               {% if event.cityName or event.countryName %}
                 <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
               {% endif %}
+              {% if event.eventUrl %}
+                <a href="{{ event.eventUrl }}" target="_blank" rel="noopener noreferrer" class="event-tickets"><i class="fa-solid fa-ticket"></i> Tickets</a>
+              {% endif %}
             </span>
           </div>
         {% endfor %}

@@ -213,7 +213,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     const eventUrl = (artist.eventLinks && artist.eventLinks.bandsintown) ||
       (artist.eventLinks && artist.eventLinks.songkick) || null
     for (const event of artist.events || []) {
-      allEvents.push({ ...event, artistName: artist.name, artistSlug: artist.slug, eventUrl })
+      allEvents.push({ ...event, artistName: artist.name, artistSlug: artist.slug, eventUrl: event.eventUrl || eventUrl })
     }
   }
   allEvents.sort((a, b) => new Date(a.date) - new Date(b.date))

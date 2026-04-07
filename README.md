@@ -360,6 +360,43 @@ Use Markdown blockquotes for review excerpts:
 
 Reviews appear at the bottom of the album page under a "Press" heading.
 
+### Tour dates (`tourdates.json`)
+
+To add tour dates for an artist manually (when Soundcharts/Bandsintown/Songkick data is unavailable), create a `tourdates.json` file:
+
+```
+content/{artist-slug}/tourdates.json
+```
+
+Format:
+```json
+[
+  {
+    "date": "2026-07-15",
+    "venue": "Kulturhaus",
+    "city": "Berlin",
+    "country": "DE",
+    "url": "https://tickets.example.com/event/123"
+  },
+  {
+    "date": "2026-08-20",
+    "venue": "Le Bataclan",
+    "city": "Paris",
+    "country": "FR"
+  }
+]
+```
+
+| Field     | Required | Description                              |
+|-----------|----------|------------------------------------------|
+| `date`    | yes      | ISO 8601 date (YYYY-MM-DD)               |
+| `venue`   | yes      | Venue name                               |
+| `city`    | yes      | City name                                |
+| `country` | yes      | ISO 3166-1 alpha-2 country code          |
+| `url`     | no       | Ticket purchase URL                      |
+
+Local tour dates are merged with Soundcharts events and deduplicated. Past dates are automatically filtered out at generation time — you don't need to remove old entries. Events on the current day are still shown.
+
 ### Custom store links (`stores.json`)
 
 To add a direct product URL for a specific album (overriding the global search URL), create a `stores.json` file:

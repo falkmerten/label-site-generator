@@ -124,6 +124,17 @@ async function loadContent(contentDir) {
       }
     }
 
+    // tourdates.json — manual tour dates override
+    const tourdatesPath = path.join(artistDir, 'tourdates.json')
+    if (await exists(tourdatesPath)) {
+      try {
+        const raw = await fs.readFile(tourdatesPath, 'utf8')
+        artist.tourDates = JSON.parse(raw)
+      } catch {
+        console.warn(`[content] Failed to parse ${tourdatesPath}, skipping.`)
+      }
+    }
+
     // albums
     let artistEntries;
     try {

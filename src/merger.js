@@ -334,6 +334,17 @@ async function mergeData (rawData, content) {
         Object.assign(mergedArtist, artistContent.meta)
       }
 
+      // Merge local tour dates from tourdates.json
+      if (artistContent.tourDates) {
+        const localEvents = convertLocalTourDates(artistContent.tourDates)
+        if (localEvents.length > 0) {
+          mergedArtist.events = deduplicateEvents([
+            ...(mergedArtist.events || []),
+            ...localEvents
+          ])
+        }
+      }
+
       // Apply links.json overrides (highest priority — manual links come first)
       if (artistContent.links) {
         const cl = artistContent.links
@@ -413,4 +424,31 @@ async function mergeData (rawData, content) {
   }
 }
 
-module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist }
+/**
+ * Convert local tourdates.json entries to Soundcharts event format,
+ * filtering out past dates.
+ * @param {Array} tourDates - Raw entries from tourdates.json
+ * @returns {Array} Converted events with future dates only
+ */
+function convertLocalTourDates (tourDates) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  return (tourDates || [])
+    .filter(entry => {
+      const d = new Date(entry.date + 'T00:00:00')
+      return !isNaN(d.getTime()) && d >= today
+    })
+    .map(entry => ({
+      date: entry.date,
+      name: entry.name || null,
+      type: null,
+      venueName: entry.venue || null,
+      cityName: entry.city || null,
+      countryCode: entry.country || null,
+      countryName: entry.country || null,
+      eventUrl: entry.url || null
+    }))
+}
+
+module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist, convertLocalTourDates }
