@@ -146,6 +146,16 @@
     .cta h2 { margin-bottom: 1rem; }
     .cta p { margin-bottom: 2rem; opacity: 0.85; }
 
+    /* Changelog */
+    .changelog { max-width: 700px; margin: 0 auto; }
+    .release { margin-bottom: 2rem; }
+    .release h3 { color: #fff; font-size: 1.15rem; margin-bottom: 0.5rem; }
+    .release-date { color: var(--text); font-weight: 400; font-size: 0.9rem; opacity: 0.6; }
+    .release ul { list-style: none; padding: 0; }
+    .release li { padding: 0.25rem 0; font-size: 0.92rem; opacity: 0.8; }
+    .release li::before { content: "→ "; color: var(--link); }
+    .release code { background: rgba(255,255,255,0.08); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.85em; }
+
     /* Footer */
     footer {
       text-align: center;
@@ -245,6 +255,59 @@
     <p>If you run an independent label and want a website like this for your roster, get in touch.</p>
     <a href="mailto:info@aenaos-records.com?subject=Label%20Site%20Generator" class="btn btn-primary">Contact us</a>
   </div>
+
+  <section>
+    <h2>Changelog</h2>
+    <div class="changelog">
+      <div class="release">
+        <h3>v4.0.1 <span class="release-date">— 7 April 2026</span></h3>
+        <ul>
+          <li>Per-format Discogs sell links re-fetched for multi-format albums (separate Vinyl/CD/Cassette buy buttons)</li>
+          <li>Format name shown in Discogs buy button even for single-format releases</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v4.0.0 <span class="release-date">— 7 April 2026</span></h3>
+        <ul>
+          <li>First production-ready release</li>
+          <li>CLI overhaul: <code>--scrape</code>, <code>--enrich</code>, <code>--force</code> as clear, combinable flags</li>
+          <li>Discogs labels rendered as clickable links to their label pages</li>
+          <li>Multi-label releases: each label linked individually, duplicates filtered</li>
+          <li>Bandcamp data updates (descriptions, credits, tracks) picked up on re-scrape</li>
+          <li>Upcoming releases: re-scraped from private links, default label set, isolated from enrichment</li>
+          <li>Local tour dates via <code>tourdates.json</code> with past-date filtering</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v3.8.0 <span class="release-date">— 7 April 2026</span></h3>
+        <ul>
+          <li>Local tour dates support via <code>content/{artist}/tourdates.json</code></li>
+          <li>Merged with Soundcharts events, deduplicated by date and city</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v3.6.0 <span class="release-date">— 6 April 2026</span></h3>
+        <ul>
+          <li>Production hardening: atomic cache writes, exponential backoff, <code>--rollback</code> flag</li>
+          <li>Per-artist cache checkpoints during enrichment</li>
+          <li>Credential leakage prevention in logs</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v3.5.0 <span class="release-date">— 6 April 2026</span></h3>
+        <ul>
+          <li>Auto-create newsletter campaign drafts from news articles (Sendy + Listmonk)</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v3.3.0 <span class="release-date">— 6 April 2026</span></h3>
+        <ul>
+          <li>Spotify searchAlbum fallback for albums missed by artist endpoint</li>
+          <li>Hardened scoring validation for short artist names</li>
+        </ul>
+      </div>
+    </div>
+  </section>
 
   <footer>
     <p>Label Site Generator v4.0 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
