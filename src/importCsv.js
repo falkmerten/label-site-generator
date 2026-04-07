@@ -393,8 +393,19 @@ async function buildActiveRoster (options = {}) {
  */
 function fuzzyMatchAlbum (albumMap, csvSlug) {
   if (!albumMap) return null
+  // Pass 1: suffix match (handles prefix differences like "Demo Pt. I" vs "Pt. I")
   for (const [cacheSlug, album] of albumMap) {
     if (csvSlug.endsWith(cacheSlug) || cacheSlug.endsWith(csvSlug)) {
+      return { slug: cacheSlug, album }
+    }
+  }
+  // Pass 2: contains match for long slugs (handles remasters like "title-2023-remaster" vs "title")
+  const MIN_CONTAINS_LEN = 15
+  for (const [cacheSlug, album] of albumMap) {
+    if (cacheSlug.length >= MIN_CONTAINS_LEN && csvSlug.includes(cacheSlug)) {
+      return { slug: cacheSlug, album }
+    }
+    if (csvSlug.length >= MIN_CONTAINS_LEN && cacheSlug.includes(csvSlug)) {
       return { slug: cacheSlug, album }
     }
   }
@@ -456,8 +467,9 @@ function analyzeGaps (csvArtists, cache, activeRoster) {
 
       if (cacheEntry && cacheEntry.albumMap.has(albumSlug)) {
         cacheAlbum = cacheEntry.albumMap.get(albumSlug)
-      } else if (cacheEntry) {
+      } else if (cacheEntry && csvArtist.slug !== 'various-artists') {
         // Fuzzy fallback: try suffix matching
+        // Skip for Various Artists — compilations have intentionally distinct titles
         const fuzzy = fuzzyMatchAlbum(cacheEntry.albumMap, albumSlug)
         if (fuzzy) {
           cacheAlbum = fuzzy.album
@@ -578,7 +590,7 @@ function fillGaps (csvArtists, cache, activeRoster) {
       let cacheAlbum = null
       if (albumMap && albumMap.has(albumSlug)) {
         cacheAlbum = albumMap.get(albumSlug)
-      } else if (albumMap) {
+      } else if (albumMap && csvArtist.slug !== 'various-artists') {
         const fuzzy = fuzzyMatchAlbum(albumMap, albumSlug)
         if (fuzzy) cacheAlbum = fuzzy.album
       }
