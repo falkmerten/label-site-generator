@@ -431,6 +431,54 @@ URL templates support `{artist}` and `{album}` placeholders which are automatica
 
 Per-album `stores.json` entries always appear and are not filtered by `PHYSICAL_STORES`.
 
+### Extra search stores (`content/stores.json`)
+
+Define search-based stores that appear on all album pages with physical formats:
+
+```json
+[
+  {
+    "id": "poponaut",
+    "label": "Search on Poponaut",
+    "icon": "fa-solid fa-store",
+    "url": "https://www.poponaut.de/advanced_search_result.php?language=en",
+    "method": "POST",
+    "params": { "keywords": "{artist} {album}" }
+  },
+  {
+    "id": "goingunderground",
+    "label": "Search on Going Underground",
+    "icon": "fa-solid fa-store",
+    "url": "https://www.going-underground.de/shop/en/search",
+    "method": "GET",
+    "params": { "sSearch": "{artist} {album}" }
+  }
+]
+```
+
+- `method: "GET"` builds a URL with query parameters (standard link)
+- `method: "POST"` renders a hidden form with a submit button
+- `{artist}` and `{album}` placeholders are replaced with actual values
+
+### Hiding the physical section per album
+
+To suppress the physical section on a specific release (e.g. out-of-print, not available anywhere), create `content/{artist}/{album}/stores.json`:
+
+```json
+{ "hidePhysical": true }
+```
+
+The array format for custom store links still works. Use the object format when you need `hidePhysical`:
+
+```json
+{
+  "hidePhysical": true,
+  "stores": [
+    { "store": "elasticstage", "url": "https://..." }
+  ]
+}
+```
+
 ### Artist links override (`links.json`)
 
 To manually set social, streaming, or website links for an artist, create a `links.json` file:

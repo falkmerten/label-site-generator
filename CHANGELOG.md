@@ -4,6 +4,38 @@
 
 ---
 
+### v4.2.0 — 2026-04-07
+
+**Enrichment caching (LSG-59)**
+- Albums not found on Discogs marked `discogsChecked` — no repeated API calls on `--enrich`
+- Per-platform `enrichmentChecked` object tracks iTunes/Deezer/Tidal/MusicFetch lookups
+- Bandcamp-only albums (no Spotify, no UPC) skip gap-fill pipeline entirely
+- `--force` clears all checked flags for re-querying
+- Discogs sell URLs verified against marketplace `num_for_sale` on every `--enrich` run
+- Albums with zero active listings have sell URLs cleared automatically
+- False streaming links cleaned from 9 Bandcamp-only releases (title search false matches)
+
+**Extra search stores (`content/stores.json`)**
+- New `content/stores.json` config for search-based physical stores (Poponaut, Going Underground, etc.)
+- Supports both GET (URL with query params) and POST (hidden form) methods
+- `{artist}` and `{album}` placeholders replaced with actual values
+- Physical section now shows whenever album has physical formats (not gated on Discogs sell URLs)
+- Amazon search link no longer disappears when Discogs has no listings
+
+**Per-album `hidePhysical` flag**
+- `content/{artist}/{album}/stores.json` with `{ "hidePhysical": true }` suppresses the physical section
+- Object format supports both `hidePhysical` and custom `stores` array
+- Array format for custom store links still works (backward compatible)
+
+**LSG landing page automation**
+- `scripts/update-lsg-site.js` syncs `CHANGELOG.md` to gh-pages landing page
+- Parses changelog, converts to HTML, updates `index.html`, commits and pushes
+- Skips versions before v3.0.0
+- HTML-escapes `<` and `>` to prevent broken tags
+- Imprint added to footer
+
+---
+
 ### v4.1.0 — 2026-04-07
 
 **Discogs sell URL verification (LSG-59)**
