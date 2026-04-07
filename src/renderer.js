@@ -86,6 +86,13 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
       }
     }
   }
+
+  // Load extra stores from content/stores.json (search-based store links)
+  let extraStores = []
+  try {
+    const raw = await fs.readFile(path.join(process.env.CONTENT_DIR || './content', 'stores.json'), 'utf8')
+    extraStores = JSON.parse(raw)
+  } catch { /* no stores.json */ }
   const templatesDir = path.join(__dirname, '..', 'templates');
   const env = nunjucks.configure(templatesDir, { autoescape: true });
 
@@ -106,6 +113,19 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     return (template || '')
       .replace(/\{artist\}/g, encodeURIComponent(artistName || ''))
       .replace(/\{album\}/g, encodeURIComponent(albumTitle || ''))
+  });
+
+  // Custom filter: build search URL for extra stores (content/stores.json)
+  env.addFilter('extraStoreSearchUrl', (store, artistName, albumTitle) => {
+    if (!store || !store.url) return '#'
+    const params = store.params || {}
+    const qs = Object.entries(params).map(([k, v]) => {
+      const val = (v || '')
+        .replace(/\{artist\}/g, artistName || '')
+        .replace(/\{album\}/g, albumTitle || '')
+      return encodeURIComponent(k) + '=' + encodeURIComponent(val)
+    }).join('&')
+    return store.url + (qs ? '?' + qs : '')
   });
 
   // Custom filter: compute available format labels for an album card
@@ -250,6 +270,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     gaMeasurementId,
     physicalStores,
     customStoreDefs,
+    extraStores,
     currentYear: new Date().getFullYear(),
     newsletter: resolveNewsletter(),
     latestReleases: homepageAlbums.slice(0, 12),

@@ -920,6 +920,25 @@ main { min-height: 60vh; }
   border-color: var(--brand-dark);
   text-decoration: none;
 }
+.store-search-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--brand-dark);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--brand-dark);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.store-search-btn:hover {
+  background: var(--brand-dark);
+  color: var(--brand-light);
+  border-color: var(--brand-dark);
+}
 
 /* ── Streaming links ── */
 .streaming-links { margin-bottom: 2rem; }

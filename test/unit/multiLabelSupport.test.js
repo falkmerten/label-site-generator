@@ -170,11 +170,11 @@ describe('Template rendering: discogsLabel linking', () => {
     }
     const rendered = env.renderString(discogsLabelTemplate, { album })
 
-    // Aenaos Records should be filtered out (already in labelName)
+    // Label A should be filtered out (already in labelName)
     expect(rendered).not.toMatch(/>Aenaos Records</)
-    // Poisonic and T&E Records should be linked
-    expect(rendered).toContain('<a href="https://www.discogs.com/label/222" target="_blank" rel="noopener noreferrer">Poisonic</a>')
-    expect(rendered).toContain('<a href="https://www.discogs.com/label/333" target="_blank" rel="noopener noreferrer">T&amp;E Records</a>')
+    // Label B and Label C should be linked
+    expect(rendered).toContain('<a href="https://www.discogs.com/label/222" target="_blank" rel="noopener noreferrer">Label B</a>')
+    expect(rendered).toContain('<a href="https://www.discogs.com/label/333" target="_blank" rel="noopener noreferrer">Label C</a>')
   })
 
   test('discogsLabel with null URL renders as plain text', () => {
