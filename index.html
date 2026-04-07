@@ -265,6 +265,31 @@
     <h2>Changelog</h2>
     <div class="changelog">
       <div class="release">
+        <h3>v4.2.0 <span class="release-date">— 7 April 2026</span></h3>
+        <ul>
+          <li>Albums not found on Discogs marked <code>discogsChecked</code> — no repeated API calls on <code>--enrich</code></li>
+          <li>Per-platform <code>enrichmentChecked</code> object tracks iTunes/Deezer/Tidal/MusicFetch lookups</li>
+          <li>Bandcamp-only albums (no Spotify, no UPC) skip gap-fill pipeline entirely</li>
+          <li><code>--force</code> clears all checked flags for re-querying</li>
+          <li>Discogs sell URLs verified against marketplace <code>num_for_sale</code> on every <code>--enrich</code> run</li>
+          <li>Albums with zero active listings have sell URLs cleared automatically</li>
+          <li>False streaming links cleaned from 9 Bandcamp-only releases (title search false matches)</li>
+          <li>New <code>content/stores.json</code> config for search-based physical stores (Poponaut, Going Underground, etc.)</li>
+          <li>Supports both GET (URL with query params) and POST (hidden form) methods</li>
+          <li><code>{artist}</code> and <code>{album}</code> placeholders replaced with actual values</li>
+          <li>Physical section now shows whenever album has physical formats (not gated on Discogs sell URLs)</li>
+          <li>Amazon search link no longer disappears when Discogs has no listings</li>
+          <li><code>content/{artist}/{album}/stores.json</code> with <code>{ "hidePhysical": true }</code> suppresses the physical section</li>
+          <li>Object format supports both <code>hidePhysical</code> and custom <code>stores</code> array</li>
+          <li>Array format for custom store links still works (backward compatible)</li>
+          <li><code>scripts/update-lsg-site.js</code> syncs <code>CHANGELOG.md</code> to gh-pages landing page</li>
+          <li>Parses changelog, converts to HTML, updates <code>index.html</code>, commits and pushes</li>
+          <li>Skips versions before v3.0.0</li>
+          <li>HTML-escapes <code>&lt;</code> and <code>&gt;</code> to prevent broken tags</li>
+          <li>Imprint added to footer</li>
+        </ul>
+      </div>
+      <div class="release">
         <h3>v4.1.0 <span class="release-date">— 7 April 2026</span></h3>
         <ul>
           <li>Sell URLs are now verified against Discogs marketplace on every <code>--enrich</code> run</li>
@@ -561,7 +586,7 @@
   </section>
 
   <footer>
-    <p>Label Site Generator v4.1.0 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
+    <p>Label Site Generator v4.2.0 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
     <p class="imprint">Aenaos Records · Owner: Falk Merten · Herrnhuter Str. 2, 04318 Leipzig (Germany) · VAT ID DE267690157</p>
   </footer>
 
