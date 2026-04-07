@@ -38,6 +38,10 @@ test/unit/labelCopyFormatter.test.js
 
 # Kiro IDE workspace files
 .kiro/
+
+# VS Code workspace settings
+.vscode/
+
 scripts/
 
 # LSG product landing page (separate deployment)
