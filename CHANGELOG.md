@@ -4,6 +4,47 @@
 
 ---
 
+### v4.0.0 — 2026-04-07
+
+**First production-ready release.**
+
+**CLI overhaul (LSG-51)**
+- New `--scrape` flag replaces confusing `--refresh` for Bandcamp re-scraping
+- New `--force` flag for re-enrichment (replaces `--refresh --enrich`)
+- `--scrape --enrich --artist "Name"` works in one run (previously required two commands)
+- `--refresh` and `--artist` alone still work as deprecated aliases
+- Updated `--help` with common workflows and clearer descriptions
+
+**Discogs label linking (LSG-50)**
+- Discogs labels now rendered as clickable links to their Discogs label pages
+- Multi-label releases (e.g. "Label A / Label B / Label C") — each label linked individually
+- Duplicate labels filtered (label appearing in both Spotify and Discogs not shown twice)
+- `discogsLabelUrls` array stored alongside `discogsLabel` for per-label URLs
+- Label URL map in merger backfills missing URLs from other albums in the cache
+- New `buildLabelData` pure function with property-based tests
+
+**Bandcamp data updates on re-scrape (LSG-54)**
+- `description`, `releaseDate`, `slug` removed from enrichment preservation — Bandcamp changes now come through
+- Release dates preserved from Spotify/Soundcharts (authoritative) — Bandcamp dates only used as fallback for new albums
+- Slug preserved when title unchanged, regenerated when title changes
+
+**Upcoming releases improvements (LSG-52, LSG-53, LSG-55)**
+- `loadUpcoming` re-scrapes existing upcoming releases to pick up new info (description, tracks, artwork)
+- `upcoming.json` presaveUrl is authoritative — empty value correctly clears cache
+- Default label (`LABEL_NAME`) set on upcoming releases
+- Upcoming releases skipped in all enrichment pipelines (prevents false matches)
+- `loadUpcoming` no longer called on plain generate/deploy — only during `--scrape`
+
+**Local tour dates (LSG-49)**
+- `content/{artist-slug}/tourdates.json` for manual tour date entries
+- Merged with Soundcharts events, deduplicated by date+city
+- Past dates automatically filtered out
+- Ticket purchase URLs supported
+
+---
+
+### v3.8.0 — 2026-04-07
+
 ### v3.6.0 — 2026-04-06
 
 **Production Hardening — 15 Verbesserungen aus Review (LSG-29)**

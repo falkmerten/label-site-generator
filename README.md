@@ -174,12 +174,20 @@ The enricher is **incremental** — only fetches what's missing. Safe to re-run.
 ### Re-scrape a single artist
 
 ```bash
-node generate.js --artist "Artist Name"
+node generate.js --scrape --artist "Artist Name"
 # or by slug:
-node generate.js --artist artist-slug
+node generate.js --scrape --artist artist-slug
 ```
 
-Preserves all existing enrichment data (streaming links, UPCs, Discogs etc.).
+Preserves all existing enrichment data (streaming links, UPCs, Discogs etc.). Bandcamp description, credits, and track changes are picked up.
+
+### Re-scrape and enrich in one run
+
+```bash
+node generate.js --scrape --enrich --artist "Artist Name"
+```
+
+Re-scrapes from Bandcamp, then runs the full enrichment pipeline for that artist.
 
 ### Scaffold content folders
 
@@ -210,20 +218,13 @@ The scraper automatically detects compilations on the label Bandcamp page (`BAND
 When a new album is released on Bandcamp and/or streaming platforms:
 
 ```bash
-# 1. Re-scrape the artist to pick up the new Bandcamp release
-node generate.js --artist "Artist Name"
+# 1. Re-scrape and enrich the artist in one run
+node generate.js --scrape --enrich --artist "Artist Name"
 
-# 2. Enrich the artist — Spotify adds streaming-only releases,
-#    Bandcamp verification catches mismatches, Soundcharts fills metadata
-node generate.js --enrich --artist "Artist Name"
-
-# 3. (Optional) Sync YouTube videos for the new release
+# 2. (Optional) Sync YouTube videos for the new release
 node generate.js --sync-youtube --artist "Artist Name"
 
-# 4. Regenerate the site
-node generate.js
-
-# 5. (Optional) Deploy
+# 3. Regenerate and deploy
 node generate.js --deploy
 ```
 
@@ -238,9 +239,8 @@ The enrichment pipeline automatically:
 
 ```bash
 # After adding a new release on Bandcamp:
-node generate.js --artist "Artist Name"   # re-scrape just that artist
-node generate.js --enrich                  # enrich new albums
-node generate.js                           # regenerate site
+node generate.js --scrape --enrich --artist "Artist Name"   # re-scrape + enrich
+node generate.js --deploy                                    # regenerate and deploy
 ```
 
 ---
@@ -275,8 +275,9 @@ When Soundcharts credentials are absent, the existing pipeline runs:
 ### Single-artist enrichment
 
 ```bash
-node generate.js --enrich --artist "Artist Name"          # enrich one artist only
-node generate.js --enrich --artist "Artist Name" --refresh # force re-enrich (clear cached SC data)
+node generate.js --enrich --artist "Artist Name"            # enrich one artist only
+node generate.js --enrich --force --artist "Artist Name"    # force re-enrich (even already-enriched albums)
+node generate.js --scrape --enrich --artist "Artist Name"   # re-scrape + enrich in one run
 ```
 
 ---
@@ -618,9 +619,11 @@ Custom Nunjucks filters:
 
 ## Caching
 
-Scraped data is saved to `cache.json` (gitignored). Delete it or use `--refresh` to re-scrape everything. Use `--artist <name>` to re-scrape a single artist.
+Scraped data is saved to `cache.json` (gitignored). Delete it or use `--scrape` to re-scrape everything. Use `--scrape --artist <name>` to re-scrape a single artist.
 
-Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing.
+Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing. Use `--enrich --force` to re-enrich already-processed albums.
+
+Deprecated flags: `--refresh` still works as an alias for `--scrape` (or `--force` when combined with `--enrich`). `--artist` alone still implies `--scrape --artist`.
 
 ---
 
