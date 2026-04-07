@@ -363,12 +363,24 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
           album.discogsSellUrlCassette = null
         }
         if (!result.matchedByUpc && result.formats.length > 0) {
-          // Title search found physicals but we can't be sure they're the right edition
-          console.log(`    ⚠ Physical formats found via title search (not UPC) — skipping format data for safety`)
-          album.discogsSellUrl = null
-          album.discogsSellUrlVinyl = null
-          album.discogsSellUrlCd = null
-          album.discogsSellUrlCassette = null
+          // Title search — check if label matches to confirm it's the right release
+          const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+          const knownLabels = [album.labelName, album.spotifyLabel, album.discogsLabel]
+            .filter(Boolean).map(norm)
+          const discogsLabels = (result.labelName || '').split(' / ').map(norm)
+          const labelMatch = discogsLabels.some(dl => knownLabels.some(kl => kl && dl && (kl.includes(dl) || dl.includes(kl))))
+
+          if (labelMatch && !isSingle) {
+            // Artist + title + label match — trust the physical format data
+            album.physicalFormats = result.formats
+            console.log(`    ✓ Label-confirmed match: "${album.title}" → ${result.formats.join(', ')}`)
+          } else {
+            console.log(`    ⚠ Physical formats found via title search (not UPC) — skipping format data for safety`)
+            album.discogsSellUrl = null
+            album.discogsSellUrlVinyl = null
+            album.discogsSellUrlCd = null
+            album.discogsSellUrlCassette = null
+          }
         }
         if (result.labelName && !album.labelName) album.labelName = result.labelName
         if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
