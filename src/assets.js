@@ -1022,6 +1022,7 @@ main { min-height: 60vh; }
 }
 .event-venue { color: var(--text-muted); }
 .event-venue::before { content: '— '; }
+.event-venue-first::before { content: none; }
 .event-location { color: var(--text-muted); font-size: 0.9rem; }
 .event-more-links {
   margin-top: 1rem;

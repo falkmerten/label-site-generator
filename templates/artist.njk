@@ -247,7 +247,7 @@
             <span class="event-details">
               {% if event.name %}<span class="event-name">{{ event.name }}</span>{% endif %}
               {% if event.type == 'festival' %}<span class="event-badge festival-badge">Festival</span>{% endif %}
-              {% if event.venueName %}<span class="event-venue">{{ event.venueName }}</span>{% endif %}
+              {% if event.venueName %}<span class="event-venue{% if not event.name and event.type != 'festival' %} event-venue-first{% endif %}">{{ event.venueName }}</span>{% endif %}
               {% if event.cityName or event.countryName %}
                 <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
               {% endif %}
