@@ -598,7 +598,7 @@ Import metadata from a Bandcamp digital catalog CSV export to fill gaps in your 
 
 ### Modes
 
-**Gap analysis** (read-only — shows what's missing and what the CSV can fill):
+**Gap analysis** (read-only — writes a detailed markdown report to `import/reports/`):
 ```bash
 node generate.js --analyze-csv import/digital-catalog.csv
 ```

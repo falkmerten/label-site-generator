@@ -13,7 +13,7 @@ const { downloadArtwork } = require('./src/downloadArtwork');
 const { syncElasticStage } = require('./src/elasticstage');
 const { syncYouTube, resolveYouTubeHandles } = require('./src/youtube');
 const { readCache, writeCache, backupCache } = require('./src/cache');
-const { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary } = require('./src/importCsv');
+const { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary, formatAnalysisReport } = require('./src/importCsv');
 
 function printUsage() {
   console.log(`Usage: node generate.js [options]
@@ -232,6 +232,8 @@ async function run() {
     return;
   }
   if (options.analyzeCsv) {
+    const fsNode = require('fs/promises')
+    const pathNode = require('path')
     const rows = await parseCsv(options.analyzeCsv)
     const csvArtists = groupByArtist(rows)
     printParseSummary(csvArtists)
@@ -248,6 +250,13 @@ async function run() {
     console.log(`  Not in cache:      ${report.notInCache.length}`)
     console.log(`  Not in CSV:        ${report.notInCsv.length}`)
     console.log(`  Inactive artists:  ${report.inactive.length}`)
+    // Write markdown report
+    const reportsDir = pathNode.join('import', 'reports')
+    await fsNode.mkdir(reportsDir, { recursive: true })
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const reportPath = pathNode.join(reportsDir, `analysis-${timestamp}.md`)
+    await fsNode.writeFile(reportPath, formatAnalysisReport(report), 'utf8')
+    console.log(`\nReport written to ${reportPath}`)
     return;
   }
   if (options.fillGaps) {

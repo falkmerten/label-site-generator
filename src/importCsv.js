@@ -609,4 +609,98 @@ function printParseSummary (csvArtists) {
   console.log(`Parsed: ${csvArtists.length} artist(s), ${albums} album(s), ${singles} single(s), ${tracks} track(s)`)
 }
 
-module.exports = { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary }
+/**
+ * Format an AnalysisReport as a GFM markdown string.
+ * @param {AnalysisReport} report
+ * @returns {string}
+ */
+function formatAnalysisReport (report) {
+  const lines = []
+  const ts = new Date().toISOString().replace('T', ' ').slice(0, 19)
+  lines.push(`# CSV Gap Analysis Report`)
+  lines.push('')
+  lines.push(`Generated: ${ts}`)
+  lines.push('')
+
+  // Summary
+  lines.push('## Summary')
+  lines.push('')
+  lines.push(`| Metric | Count |`)
+  lines.push(`|--------|------:|`)
+  lines.push(`| Matched albums | ${report.matched.length} |`)
+  lines.push(`| Fillable UPCs | ${report.fillable.upc} |`)
+  lines.push(`| Fillable catalog numbers | ${report.fillable.catalogNumber} |`)
+  lines.push(`| Fillable Bandcamp IDs | ${report.fillable.bandcampId} |`)
+  lines.push(`| Fillable release dates | ${report.fillable.releaseDate} |`)
+  lines.push(`| Fillable ISRCs | ${report.fillable.isrc} |`)
+  lines.push(`| CSV releases not in cache | ${report.notInCache.length} |`)
+  lines.push(`| Cache albums not in CSV | ${report.notInCsv.length} |`)
+  lines.push(`| Inactive artists filtered | ${report.inactive.length} |`)
+  lines.push('')
+
+  // Matched albums with fillable fields
+  if (report.matched.length > 0) {
+    const withFillable = report.matched.filter(m => {
+      return m.fields.upc.fillable || m.fields.catalogNumber.fillable ||
+        m.fields.bandcampId.fillable || m.fields.releaseDate.fillable ||
+        m.fields.isrc.fillableCount > 0
+    })
+    if (withFillable.length > 0) {
+      lines.push('## Fillable Fields')
+      lines.push('')
+      lines.push('Albums where the CSV can fill missing cache data:')
+      lines.push('')
+      lines.push('| Artist | Album | UPC | Catalog | BC ID | Date | ISRCs |')
+      lines.push('|--------|-------|:---:|:-------:|:-----:|:----:|:-----:|')
+      for (const m of withFillable) {
+        const upc = m.fields.upc.fillable ? '✓' : ''
+        const cat = m.fields.catalogNumber.fillable ? '✓' : ''
+        const bc = m.fields.bandcampId.fillable ? '✓' : ''
+        const date = m.fields.releaseDate.fillable ? '✓' : ''
+        const isrc = m.fields.isrc.fillableCount > 0 ? `${m.fields.isrc.fillableCount}/${m.fields.isrc.totalTracks}` : ''
+        lines.push(`| ${m.artist} | ${m.title} | ${upc} | ${cat} | ${bc} | ${date} | ${isrc} |`)
+      }
+      lines.push('')
+    }
+  }
+
+  // Not in cache
+  if (report.notInCache.length > 0) {
+    lines.push('## CSV Releases Not in Cache')
+    lines.push('')
+    lines.push('These releases exist in the CSV but have no matching cache entry:')
+    lines.push('')
+    for (const entry of report.notInCache) {
+      lines.push(`- ${entry}`)
+    }
+    lines.push('')
+  }
+
+  // Not in CSV
+  if (report.notInCsv.length > 0) {
+    lines.push('## Cache Albums Not in CSV')
+    lines.push('')
+    lines.push('These albums exist in the cache but have no matching CSV entry:')
+    lines.push('')
+    for (const entry of report.notInCsv) {
+      lines.push(`- ${entry}`)
+    }
+    lines.push('')
+  }
+
+  // Inactive artists
+  if (report.inactive.length > 0) {
+    lines.push('## Filtered Out (Inactive Artists)')
+    lines.push('')
+    lines.push('| Artist | Releases |')
+    lines.push('|--------|--------:|')
+    for (const entry of report.inactive) {
+      lines.push(`| ${entry.name} | ${entry.releaseCount} |`)
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n')
+}
+
+module.exports = { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary, formatAnalysisReport }
