@@ -338,6 +338,22 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
 
   for (const album of [...pending, ...needsSellLinks]) {
     try {
+      // Fast path: album already has discogsUrl, just need per-format sell links
+      if (album.discogsUrl && needsSellLinks.includes(album)) {
+        const masterMatch = album.discogsUrl.match(/\/master\/(\d+)/)
+        if (masterMatch) {
+          const sellLinks = await getMasterVersionSellLinks(token, masterMatch[1])
+          if (sellLinks.vinyl) { album.discogsSellUrlVinyl = sellLinks.vinyl; album.discogsSellUrl = sellLinks.vinyl }
+          if (sellLinks.cd) { album.discogsSellUrlCd = sellLinks.cd; if (!album.discogsSellUrl) album.discogsSellUrl = sellLinks.cd }
+          if (sellLinks.cassette) { album.discogsSellUrlCassette = sellLinks.cassette; if (!album.discogsSellUrl) album.discogsSellUrl = sellLinks.cassette }
+          const found = [sellLinks.vinyl && 'Vinyl', sellLinks.cd && 'CD', sellLinks.cassette && 'Cassette'].filter(Boolean)
+          if (found.length > 0) {
+            console.log(`    ✓ Discogs sell links: "${album.title}" → ${found.join(', ')}`)
+          }
+        }
+        continue
+      }
+
       await throttle()
       const result = await lookupRelease(token, album.upc, artistName, album.title, album.catalogNumber)
       if (result) {
