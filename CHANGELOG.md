@@ -9,6 +9,7 @@
 **Discogs caching fix (LSG-59)**
 - Albums not found on Discogs are now marked `discogsChecked: true` — no more repeated API calls on every `--enrich` run
 - `--force` clears the flag to allow re-querying when needed
+- Bandcamp-only albums (no Spotify link, no UPC) are now skipped in the gap-fill pipeline — nothing to search with
 
 ---
 
