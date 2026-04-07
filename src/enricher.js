@@ -804,6 +804,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         delete album.soundchartsUuid
         delete album.soundchartsEnriched
         delete album.discogsChecked
+        delete album.enrichmentChecked
       }
     }
   }
@@ -1004,10 +1005,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         // Skip Bandcamp-only albums with no Spotify/UPC — nothing to search with
         (al.upc || (al.streamingLinks && al.streamingLinks.spotify)) &&
         (
-          !(al.streamingLinks && al.streamingLinks.appleMusic) ||
-          !(al.streamingLinks && al.streamingLinks.deezer) ||
-          (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
-          (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+          (!(al.streamingLinks && al.streamingLinks.appleMusic) && !(al.enrichmentChecked && al.enrichmentChecked.appleMusic)) ||
+          (!(al.streamingLinks && al.streamingLinks.deezer) && !(al.enrichmentChecked && al.enrichmentChecked.deezer)) ||
+          (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal) && !(al.enrichmentChecked && al.enrichmentChecked.tidal)) ||
+          (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic) && !(al.enrichmentChecked && al.enrichmentChecked.amazonMusic))
         )
       )
 
@@ -1017,7 +1018,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         await pMap(needsGapFill, 3, async (album) => {
           const tasks = []
 
-          if (!(album.streamingLinks && album.streamingLinks.appleMusic)) {
+          if (!(album.streamingLinks && album.streamingLinks.appleMusic) && !(album.enrichmentChecked && album.enrichmentChecked.appleMusic)) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./itunes')
@@ -1032,12 +1033,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                   }
                   console.log(`    ✓ iTunes (gap-fill): "${album.title}"`)
                   gapFillCounts.itunes++
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.appleMusic = true
                 }
               })()
             )
           }
 
-          if (!(album.streamingLinks && album.streamingLinks.deezer)) {
+          if (!(album.streamingLinks && album.streamingLinks.deezer) && !(album.enrichmentChecked && album.enrichmentChecked.deezer)) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./deezer')
@@ -1052,12 +1056,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                   }
                   console.log(`    ✓ Deezer (gap-fill): "${album.title}"`)
                   gapFillCounts.deezer++
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.deezer = true
                 }
               })()
             )
           }
 
-          if (hasTidal && !(album.streamingLinks && album.streamingLinks.tidal)) {
+          if (hasTidal && !(album.streamingLinks && album.streamingLinks.tidal) && !(album.enrichmentChecked && album.enrichmentChecked.tidal)) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum, getAccessToken } = require('./tidal')
@@ -1076,12 +1083,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                     artist.streamingLinks = artist.streamingLinks || {}
                     artist.streamingLinks.tidal = `https://tidal.com/browse/artist/${result.artistId}`
                   }
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.tidal = true
                 }
               })()
             )
           }
 
-          if (hasMusicFetch && !(album.streamingLinks && album.streamingLinks.amazonMusic)) {
+          if (hasMusicFetch && !(album.streamingLinks && album.streamingLinks.amazonMusic) && !(album.enrichmentChecked && album.enrichmentChecked.amazonMusic)) {
             tasks.push(
               (async () => {
                 const { fetchLinksByUpc, fetchLinksByUrl } = require('./musicfetch')
@@ -1096,6 +1106,9 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                   album.streamingLinks = { ...links, ...existing }
                   console.log(`    ✓ MusicFetch (gap-fill): "${album.title}" → ${Object.keys(links).join(', ')}`)
                   gapFillCounts.musicfetch++
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.amazonMusic = true
                 }
               })()
             )
@@ -1228,10 +1241,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         // Skip Bandcamp-only albums with no Spotify/UPC — nothing to search with
         (al.upc || (al.streamingLinks && al.streamingLinks.spotify)) &&
         (
-          !(al.streamingLinks && al.streamingLinks.appleMusic) ||
-          !(al.streamingLinks && al.streamingLinks.deezer) ||
-          (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal)) ||
-          (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic))
+          (!(al.streamingLinks && al.streamingLinks.appleMusic) && !(al.enrichmentChecked && al.enrichmentChecked.appleMusic)) ||
+          (!(al.streamingLinks && al.streamingLinks.deezer) && !(al.enrichmentChecked && al.enrichmentChecked.deezer)) ||
+          (hasTidal && !(al.streamingLinks && al.streamingLinks.tidal) && !(al.enrichmentChecked && al.enrichmentChecked.tidal)) ||
+          (hasMusicFetch && !(al.streamingLinks && al.streamingLinks.amazonMusic) && !(al.enrichmentChecked && al.enrichmentChecked.amazonMusic))
         )
       )
 
@@ -1241,7 +1254,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         await pMap(needsEnrichment, 3, async (album) => {
           const tasks = []
 
-          if (!(album.streamingLinks && album.streamingLinks.appleMusic)) {
+          if (!(album.streamingLinks && album.streamingLinks.appleMusic) && !(album.enrichmentChecked && album.enrichmentChecked.appleMusic)) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./itunes')
@@ -1255,12 +1268,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                     artist.streamingLinks.appleMusic = result.artistUrl
                   }
                   console.log(`    ✓ iTunes: "${album.title}"`)
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.appleMusic = true
                 }
               })()
             )
           }
 
-          if (!(album.streamingLinks && album.streamingLinks.deezer)) {
+          if (!(album.streamingLinks && album.streamingLinks.deezer) && !(album.enrichmentChecked && album.enrichmentChecked.deezer)) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum } = require('./deezer')
@@ -1274,12 +1290,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                     artist.streamingLinks.deezer = result.artistUrl
                   }
                   console.log(`    ✓ Deezer: "${album.title}"`)
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.deezer = true
                 }
               })()
             )
           }
 
-          if (hasTidal && !(album.streamingLinks && album.streamingLinks.tidal)) {
+          if (hasTidal && !(album.streamingLinks && album.streamingLinks.tidal) && !(album.enrichmentChecked && album.enrichmentChecked.tidal)) {
             tasks.push(
               (async () => {
                 const { lookupByUpc, searchAlbum, getAccessToken } = require('./tidal')
@@ -1298,12 +1317,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                     artist.streamingLinks.tidal = `https://tidal.com/browse/artist/${result.artistId}`
                     console.log(`  ✓ Tidal artist (from album): "${artist.name}" → ${artist.streamingLinks.tidal}`)
                   }
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.tidal = true
                 }
               })()
             )
           }
 
-          if (hasMusicFetch && !(album.streamingLinks && album.streamingLinks.amazonMusic)) {
+          if (hasMusicFetch && !(album.streamingLinks && album.streamingLinks.amazonMusic) && !(album.enrichmentChecked && album.enrichmentChecked.amazonMusic)) {
             tasks.push(
               (async () => {
                 const { fetchLinksByUpc, fetchLinksByUrl } = require('./musicfetch')
@@ -1317,6 +1339,9 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
                   const existing = album.streamingLinks || {}
                   album.streamingLinks = { ...links, ...existing }
                   console.log(`    ✓ MusicFetch: "${album.title}" → ${Object.keys(links).join(', ')}`)
+                } else {
+                  album.enrichmentChecked = album.enrichmentChecked || {}
+                  album.enrichmentChecked.amazonMusic = true
                 }
               })()
             )
