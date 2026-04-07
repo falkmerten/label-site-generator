@@ -1448,9 +1448,9 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         }
       }
       if (labelsToLookup.size > 0) {
+        const uncached = [...labelsToLookup].filter(name => labelUrlCache[name] === undefined)
         let resolved = 0
-        for (const name of labelsToLookup) {
-          if (labelUrlCache[name] !== undefined) continue
+        for (const name of uncached) {
           const url = await lookupLabelUrl(discogsToken, name, labelUrlCache)
           if (url) resolved++
         }

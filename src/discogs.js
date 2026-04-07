@@ -83,9 +83,10 @@ async function searchDiscogs (token, params) {
 async function getMasterVersionSellLinks (token, masterId) {
   await throttle()
   const data = await httpsGet(`https://api.discogs.com/masters/${masterId}/versions?per_page=50&page=1`, token)
-  if (!data || !data.versions) return {}
+  if (!data || !data.versions) return { sellLinks: {}, firstVersionId: null }
 
   const sellLinks = {}
+  const firstVersionId = data.versions.length > 0 ? data.versions[0].id : null
   for (const v of data.versions) {
     // versions endpoint returns format as a comma-separated string e.g. "LP, Album, Limited Edition"
     const formatStr = (v.format || '').toLowerCase()
@@ -129,7 +130,7 @@ async function getMasterVersionSellLinks (token, masterId) {
   }
   delete sellLinks._ambiguous
 
-  return sellLinks
+  return { sellLinks, firstVersionId }
 }
 
 /**
@@ -202,8 +203,9 @@ async function lookupRelease (token, upc, artistName, albumTitle, catalogNumber)
 
   if (masterResult) {
     // Use master versions endpoint for accurate per-format sell links
-    const masterSellLinks = await getMasterVersionSellLinks(token, masterResult.id)
-    Object.assign(sellLinks, masterSellLinks)
+    const masterData = await getMasterVersionSellLinks(token, masterResult.id)
+    Object.assign(sellLinks, masterData.sellLinks)
+    var _masterFirstVersionId = masterData.firstVersionId
   } else {
     // No master — use individual physical releases from search results
     for (const r of physicalResults) {
@@ -257,20 +259,16 @@ async function lookupRelease (token, upc, artistName, albumTitle, catalogNumber)
     }
   }
 
-  // If primary was a master with no labels, fetch first version to get label
-  if (labelNames.length === 0 && isMaster) {
+  // If primary was a master with no labels, use first version from cached versions data
+  if (labelNames.length === 0 && isMaster && _masterFirstVersionId) {
     await throttle()
-    const versions = await httpsGet(`https://api.discogs.com/masters/${primaryResult.id}/versions?per_page=1`, token)
-    if (versions && versions.versions && versions.versions[0]) {
-      await throttle()
-      const verRelease = await httpsGet(`https://api.discogs.com/releases/${versions.versions[0].id}`, token)
-      if (verRelease && verRelease.labels) {
-        for (const l of verRelease.labels) {
-          const name = (l.name || '').replace(/\s*\(\d+\)\s*$/, '').trim()
-          if (name && !name.startsWith('Not On Label') && !labelNames.includes(name)) {
-            labelNames.push(name)
-            labelUrls.push(l.id ? `https://www.discogs.com/label/${l.id}` : null)
-          }
+    const verRelease = await httpsGet(`https://api.discogs.com/releases/${_masterFirstVersionId}`, token)
+    if (verRelease && verRelease.labels) {
+      for (const l of verRelease.labels) {
+        const name = (l.name || '').replace(/\s*\(\d+\)\s*$/, '').trim()
+        if (name && !name.startsWith('Not On Label') && !labelNames.includes(name)) {
+          labelNames.push(name)
+          labelUrls.push(l.id ? `https://www.discogs.com/label/${l.id}` : null)
         }
       }
     }
@@ -342,7 +340,8 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
       if (album.discogsUrl && needsSellLinks.includes(album)) {
         const masterMatch = album.discogsUrl.match(/\/master\/(\d+)/)
         if (masterMatch) {
-          const sellLinks = await getMasterVersionSellLinks(token, masterMatch[1])
+          const masterData = await getMasterVersionSellLinks(token, masterMatch[1])
+          const sellLinks = masterData.sellLinks
           if (sellLinks.vinyl) { album.discogsSellUrlVinyl = sellLinks.vinyl; album.discogsSellUrl = sellLinks.vinyl }
           if (sellLinks.cd) { album.discogsSellUrlCd = sellLinks.cd; if (!album.discogsSellUrl) album.discogsSellUrl = sellLinks.cd }
           if (sellLinks.cassette) { album.discogsSellUrlCassette = sellLinks.cassette; if (!album.discogsSellUrl) album.discogsSellUrl = sellLinks.cassette }
