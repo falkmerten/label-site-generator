@@ -67,10 +67,15 @@ async function loadUpcoming (contentDir, rawData, artistFilter) {
         const titleNorm = norm(info.title)
         const existing = artist.albums.find(a => norm(a.title) === titleNorm)
         if (existing) {
-          // Update presaveUrl from config (may have been added or removed)
+          // Re-scrape: update cached data from fresh private link
           existing.presaveUrl = presaveUrl
+          if (info.raw) existing.raw = info.raw
+          if (info.tracks && info.tracks.length > 0) existing.tracks = info.tracks
+          if (info.tags && info.tags.length > 0) existing.tags = info.tags
+          if (info.imageUrl) existing.imageUrl = info.imageUrl
+          if (releaseDate) existing.releaseDate = releaseDate
           if (existing.upcoming) {
-            console.log(`  – Upcoming "${info.title}" already in cache — updated presaveUrl`)
+            console.log(`  ✓ Upcoming "${info.title}" re-scraped from private link`)
           }
           continue
         }
