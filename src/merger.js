@@ -304,6 +304,10 @@ async function mergeData (rawData, content) {
             mergedAlbum.customStores = albumContent.customStores
           }
 
+          if (albumContent && albumContent.hidePhysical) {
+            mergedAlbum.hidePhysical = true
+          }
+
           if (albumContent && albumContent.reviewsPath) {
             try {
               const mdContent = await fs.readFile(albumContent.reviewsPath, 'utf8')

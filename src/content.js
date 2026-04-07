@@ -175,7 +175,14 @@ async function loadContent(contentDir) {
       if (await exists(storesPath)) {
         try {
           const raw = await fs.readFile(storesPath, 'utf8');
-          album.customStores = JSON.parse(raw);
+          const storesData = JSON.parse(raw);
+          if (Array.isArray(storesData)) {
+            album.customStores = storesData;
+          } else if (storesData && typeof storesData === 'object') {
+            // Object format: { "hidePhysical": true, "stores": [...] }
+            if (storesData.stores) album.customStores = storesData.stores;
+            if (storesData.hidePhysical) album.hidePhysical = true;
+          }
         } catch {
           console.warn(`[content] Failed to parse ${storesPath}, skipping.`);
         }
