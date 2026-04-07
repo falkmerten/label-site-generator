@@ -1397,35 +1397,32 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         await enrichSpotifyOnlyAlbums(needsSpotifyLabel, spotifyToken)
       }
 
-      // Spotify label vs Discogs label — keep both when they differ AND Discogs has physical formats
-      for (const al of artist.albums || []) {
-        if (al.spotifyLabel && al.labelName && al.labelName !== al.spotifyLabel) {
-          // Only store discogsLabel if the album has physical formats (real physical release)
-          const hasPhysical = al.physicalFormats && al.physicalFormats.length > 0
-          if (hasPhysical && !al.discogsLabel) {
-            // Save Discogs label URLs before overwriting with Spotify label
-            al.discogsLabel = al.labelName
-            al.discogsLabelUrls = al.labelUrls || al._discogsLabelUrls || []
-            console.log(`    ✓ Dual label: "${al.title}" — digital: "${al.spotifyLabel}", physical: "${al.labelName}"`)
-          }
-          // Backfill discogsLabelUrls for existing entries that have discogsLabel but no URLs
-          if (al.discogsLabel && !al.discogsLabelUrls) {
-            al.discogsLabelUrls = al._discogsLabelUrls || al.labelUrls || []
-          }
-          // Spotify (digital) is the primary label
-          al.labelName = al.spotifyLabel
-        } else if (al.spotifyLabel && !al.labelName) {
-          al.labelName = al.spotifyLabel
+      // Spotify label comparison moved to dual-label resolution block below (runs for all modes)
+    }
+
+    // ── Dual-label resolution — runs for ALL modes (Soundcharts + legacy) ──
+    for (const al of artist.albums || []) {
+      if (al.spotifyLabel && al.labelName && al.labelName !== al.spotifyLabel) {
+        const hasPhysical = al.physicalFormats && al.physicalFormats.length > 0
+        if (hasPhysical && !al.discogsLabel) {
+          al.discogsLabel = al.labelName
+          al.discogsLabelUrls = al.labelUrls || al._discogsLabelUrls || []
+          console.log(`    ✓ Dual label: "${al.title}" — digital: "${al.spotifyLabel}", physical: "${al.labelName}"`)
         }
-        // Backfill discogsLabelUrls for entries where labelName was already overwritten
-        // (previous runs set discogsLabel but not discogsLabelUrls)
         if (al.discogsLabel && !al.discogsLabelUrls) {
-          al.discogsLabelUrls = al._discogsLabelUrls || []
+          al.discogsLabelUrls = al._discogsLabelUrls || al.labelUrls || []
         }
-        // Clean up temporary Discogs fields (not persisted to cache)
-        delete al._discogsLabelName
-        delete al._discogsLabelUrls
+        al.labelName = al.spotifyLabel
+      } else if (al.spotifyLabel && !al.labelName) {
+        al.labelName = al.spotifyLabel
       }
+      // Backfill discogsLabelUrls for entries where labelName was already overwritten
+      if (al.discogsLabel && !al.discogsLabelUrls) {
+        al.discogsLabelUrls = al._discogsLabelUrls || []
+      }
+      // Clean up temporary Discogs fields
+      delete al._discogsLabelName
+      delete al._discogsLabelUrls
     }
 
     // ── Per-artist cache save (progress preservation) ───────────────────────
