@@ -803,6 +803,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       for (const album of artist.albums || []) {
         delete album.soundchartsUuid
         delete album.soundchartsEnriched
+        delete album.discogsChecked
       }
     }
   }
@@ -1369,7 +1370,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     // ── Discogs — always runs (both modes), conservative concurrency ────────
     if (hasDiscogs && !options.tidalOnly) {
       const allAlbums = artist.albums || []
-      const needsDiscogs = allAlbums.filter(al => !al.discogsUrl && !al.upcoming)
+      const needsDiscogs = allAlbums.filter(al => !al.discogsUrl && !al.discogsChecked && !al.upcoming)
       // Also include albums needing per-format sell link re-fetch
       const needsSellLinks = allAlbums.filter(al =>
         al.discogsUrl && !al.upcoming &&

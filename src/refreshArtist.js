@@ -15,7 +15,7 @@ function delay (ms) {
  * All album-level enrichment fields that must be preserved during re-scrape.
  */
 const ALBUM_ENRICHMENT_FIELDS = [
-  'streamingLinks', 'upc', 'discogsUrl', 'discogsSellUrl',
+  'streamingLinks', 'upc', 'discogsUrl', 'discogsChecked', 'discogsSellUrl',
   'discogsSellUrlVinyl', 'discogsSellUrlCd', 'discogsSellUrlCassette',
   'physicalFormats', 'catalogNumber', 'labelName', 'labelUrl', 'labelUrls',
   'videos', 'soundchartsUuid', 'soundchartsEnriched', 'spotifyLabel',

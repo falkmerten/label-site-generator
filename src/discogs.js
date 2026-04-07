@@ -355,59 +355,62 @@ async function enrichAlbumsWithDiscogs (albums, artistName, token) {
 
       await throttle()
       const result = await lookupRelease(token, album.upc, artistName, album.title, album.catalogNumber)
-      if (result) {
-        album.discogsUrl = result.discogsUrl
+      if (!result) {
+        album.discogsChecked = true
+        continue
+      }
 
-        // Determine if this is a single/track (should not get physical formats from album matches)
-        const isSingle = album.itemType === 'track' || album.itemType === 'single' ||
-          (album.url && album.url.includes('/track/')) ||
-          (album.tracks && album.tracks.length <= 3 && album.tracks.length > 0)
+      album.discogsUrl = result.discogsUrl
 
-        album.discogsSellUrl = result.discogsSellUrl
-        album.discogsSellUrlVinyl = result.discogsSellUrlVinyl
-        album.discogsSellUrlCd = result.discogsSellUrlCd
-        album.discogsSellUrlCassette = result.discogsSellUrlCassette
-        // Only set physical formats from UPC matches, and never for singles
-        if (result.matchedByUpc && result.formats.length > 0 && !isSingle) {
+      // Determine if this is a single/track (should not get physical formats from album matches)
+      const isSingle = album.itemType === 'track' || album.itemType === 'single' ||
+        (album.url && album.url.includes('/track/')) ||
+        (album.tracks && album.tracks.length <= 3 && album.tracks.length > 0)
+
+      album.discogsSellUrl = result.discogsSellUrl
+      album.discogsSellUrlVinyl = result.discogsSellUrlVinyl
+      album.discogsSellUrlCd = result.discogsSellUrlCd
+      album.discogsSellUrlCassette = result.discogsSellUrlCassette
+      // Only set physical formats from UPC matches, and never for singles
+      if (result.matchedByUpc && result.formats.length > 0 && !isSingle) {
+        album.physicalFormats = result.formats
+      } else if (result.matchedByUpc && result.formats.length > 0 && isSingle) {
+        console.log(`    ⚠ Physical formats found but album is a single — skipping physical data`)
+        album.discogsSellUrl = null
+        album.discogsSellUrlVinyl = null
+        album.discogsSellUrlCd = null
+        album.discogsSellUrlCassette = null
+      }
+      if (!result.matchedByUpc && result.formats.length > 0) {
+        // Title search — check if label matches to confirm it's the right release
+        const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+        const knownLabels = [album.labelName, album.spotifyLabel, album.discogsLabel]
+          .filter(Boolean).map(norm)
+        const discogsLabels = (result.labelName || '').split(' / ').map(norm)
+        const labelMatch = discogsLabels.some(dl => knownLabels.some(kl => kl && dl && (kl.includes(dl) || dl.includes(kl))))
+
+        if (labelMatch && !isSingle) {
+          // Artist + title + label match — trust the physical format data
           album.physicalFormats = result.formats
-        } else if (result.matchedByUpc && result.formats.length > 0 && isSingle) {
-          console.log(`    ⚠ Physical formats found but album is a single — skipping physical data`)
+          console.log(`    ✓ Label-confirmed match: "${album.title}" → ${result.formats.join(', ')}`)
+        } else {
+          console.log(`    ⚠ Physical formats found via title search (not UPC) — skipping format data for safety`)
           album.discogsSellUrl = null
           album.discogsSellUrlVinyl = null
           album.discogsSellUrlCd = null
           album.discogsSellUrlCassette = null
         }
-        if (!result.matchedByUpc && result.formats.length > 0) {
-          // Title search — check if label matches to confirm it's the right release
-          const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-          const knownLabels = [album.labelName, album.spotifyLabel, album.discogsLabel]
-            .filter(Boolean).map(norm)
-          const discogsLabels = (result.labelName || '').split(' / ').map(norm)
-          const labelMatch = discogsLabels.some(dl => knownLabels.some(kl => kl && dl && (kl.includes(dl) || dl.includes(kl))))
-
-          if (labelMatch && !isSingle) {
-            // Artist + title + label match — trust the physical format data
-            album.physicalFormats = result.formats
-            console.log(`    ✓ Label-confirmed match: "${album.title}" → ${result.formats.join(', ')}`)
-          } else {
-            console.log(`    ⚠ Physical formats found via title search (not UPC) — skipping format data for safety`)
-            album.discogsSellUrl = null
-            album.discogsSellUrlVinyl = null
-            album.discogsSellUrlCd = null
-            album.discogsSellUrlCassette = null
-          }
-        }
-        if (result.labelName && !album.labelName) album.labelName = result.labelName
-        if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
-        if (result.labelUrls && !album.labelUrls) album.labelUrls = result.labelUrls
-        // Always store Discogs label data for dual-label resolution in enricher
-        if (result.labelName) album._discogsLabelName = result.labelName
-        if (result.labelUrls) album._discogsLabelUrls = result.labelUrls
-        if (result.country && !album.country) album.country = result.country
-        if (!album.description && result.notes) album.description = result.notes
-        const method = album.upc && result.matchedByUpc ? 'UPC' : 'search'
-        console.log(`    ✓ Discogs (${method}): "${album.title}"${result.formats.length && result.matchedByUpc ? ` → ${result.formats.join(', ')}` : ''}${result.labelName ? ` [${result.labelName}]` : ''}`)
       }
+      if (result.labelName && !album.labelName) album.labelName = result.labelName
+      if (result.labelUrl && !album.labelUrl) album.labelUrl = result.labelUrl
+      if (result.labelUrls && !album.labelUrls) album.labelUrls = result.labelUrls
+      // Always store Discogs label data for dual-label resolution in enricher
+      if (result.labelName) album._discogsLabelName = result.labelName
+      if (result.labelUrls) album._discogsLabelUrls = result.labelUrls
+      if (result.country && !album.country) album.country = result.country
+      if (!album.description && result.notes) album.description = result.notes
+      const method = album.upc && result.matchedByUpc ? 'UPC' : 'search'
+      console.log(`    ✓ Discogs (${method}): "${album.title}"${result.formats.length && result.matchedByUpc ? ` → ${result.formats.join(', ')}` : ''}${result.labelName ? ` [${result.labelName}]` : ''}`)
     } catch (err) {
       console.warn(`    ⚠ Discogs failed for "${album.title}": ${err.message}`)
     }
