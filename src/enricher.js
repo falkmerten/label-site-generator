@@ -1377,7 +1377,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       )
       const discogsAlbums = [...needsDiscogs, ...needsSellLinks]
       if (discogsAlbums.length > 0) {
-        console.log(`  → Discogs for ${needsDiscogs.length} new + ${needsSellLinks.length} sell-link album(s)...`)
+        const parts = []
+        if (needsDiscogs.length > 0) parts.push(`${needsDiscogs.length} album(s)`)
+        if (needsSellLinks.length > 0) parts.push(`${needsSellLinks.length} sell-link update(s)`)
+        console.log(`  → Discogs for ${parts.join(' + ')}...`)
         await enrichAlbumsWithDiscogs(discogsAlbums, artist.name, discogsToken)
       }
     }
