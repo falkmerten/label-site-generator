@@ -158,13 +158,27 @@
     .release code { background: rgba(255,255,255,0.08); padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.85em; }
 
     /* Roadmap */
-    .roadmap-group { margin-bottom: 2rem; }
-    .roadmap-group h3 { color: #fff; font-size: 1.15rem; margin-bottom: 0.75rem; }
-    .roadmap-group ul { list-style: none; padding: 0; }
-    .roadmap-group li { padding: 0.4rem 0; font-size: 0.92rem; opacity: 0.85; }
-    .roadmap-group li strong { color: var(--accent); font-weight: 600; }
-    .roadmap-desc { opacity: 0.65; font-size: 0.85rem; }
-    .ticket-link { font-size: 0.8rem; opacity: 0.5; margin-left: 0.4rem; }
+    .rm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .rm-card {
+      background: var(--card-bg); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px; padding: 1.2rem; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+      transition: border-color 0.2s;
+    }
+    .rm-card:hover { border-color: rgba(255,255,255,0.15); }
+    .rm-icon { font-size: 1.4rem; line-height: 1; }
+    .rm-label { color: #fff; font-weight: 600; font-size: 0.95rem; }
+    .rm-badge {
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 0.15em 0.6em; border-radius: 9999px; font-weight: 600;
+    }
+    .rm-progress .rm-icon { color: #a78bfa; }
+    .rm-progress .rm-badge { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .rm-planned .rm-icon { color: #60a5fa; }
+    .rm-planned .rm-badge { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .rm-idea .rm-icon { color: #fbbf24; }
+    .rm-idea .rm-badge { background: rgba(251,191,36,0.15); color: #fbbf24; }
+    @media (max-width: 640px) { .rm-grid { grid-template-columns: 1fr; } }
 
     /* Footer */
     .imprint { margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.65; }
@@ -273,30 +287,52 @@
     <section>
     <h2>Roadmap</h2>
     <div class="roadmap">
-      <div class="roadmap-group">
-        <h3>In Progress</h3>
-        <ul>
-          <li><strong>Per-artist site generation</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-24" target="_blank" rel="noopener" class="ticket-link">LSG-24</a><br><span class="roadmap-desc">Standalone microsites for individual artists with separate config and deployment</span></li>
-          <li><strong>Gallery images fix</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-60" target="_blank" rel="noopener" class="ticket-link">LSG-60</a><br><span class="roadmap-desc">Artist photo galleries not copied to output directory</span></li>
-          <li><strong>Per-format Discogs sell links</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-56" target="_blank" rel="noopener" class="ticket-link">LSG-56</a><br><span class="roadmap-desc">Separate buy links for Vinyl, CD, and Cassette when multiple physical formats exist</span></li>
-        </ul>
-      </div>
-      <div class="roadmap-group">
-        <h3>Planned - High Priority</h3>
-        <ul>
-          <li><strong>Multi-tenant platform</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-21" target="_blank" rel="noopener" class="ticket-link">LSG-21</a><br><span class="roadmap-desc">Multiple labels from a single installation with swappable HTML/CSS themes</span></li>
-          <li><strong>Ghost CMS integration</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-3" target="_blank" rel="noopener" class="ticket-link">LSG-3</a><br><span class="roadmap-desc">Replace local Markdown news with a headless CMS for easier content management</span></li>
-          <li><strong>Newsletter template modernization</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-33" target="_blank" rel="noopener" class="ticket-link">LSG-33</a><br><span class="roadmap-desc">Modernize newsletter templates and enable auto-campaigns for new releases</span></li>
-          <li><strong>Bandcamp CSV import pipeline</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-36" target="_blank" rel="noopener" class="ticket-link">LSG-36</a><br><span class="roadmap-desc">Import and reconcile Bandcamp sales data with the cache for gap analysis and enrichment</span></li>
-        </ul>
-      </div>
-      <div class="roadmap-group">
-        <h3>Planned - Low Priority</h3>
-        <ul>
-          <li><strong>Lyrics support</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-58" target="_blank" rel="noopener" class="ticket-link">LSG-58</a><br><span class="roadmap-desc">Scrape lyrics from Bandcamp and display on album pages</span></li>
-          <li><strong>Product landing page</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-57" target="_blank" rel="noopener" class="ticket-link">LSG-57</a><br><span class="roadmap-desc">Public-facing project site at lsg.aenaos-records.com with S3 + CloudFront</span></li>
-          <li><strong>Bandsintown API integration</strong> <a href="https://aenaos.youtrack.cloud/issue/LSG-7" target="_blank" rel="noopener" class="ticket-link">LSG-7</a><br><span class="roadmap-desc">Concert data integration, parked pending label-wide API key approval</span></li>
-        </ul>
+      <div class="rm-grid">
+        <div class="rm-card rm-progress">
+          <span class="rm-icon">&#9881;</span>
+          <span class="rm-label">Per-artist microsites</span>
+          <span class="rm-badge">In Progress</span>
+        </div>
+        <div class="rm-card rm-progress">
+          <span class="rm-icon">&#9881;</span>
+          <span class="rm-label">Photo galleries</span>
+          <span class="rm-badge">In Progress</span>
+        </div>
+        <div class="rm-card rm-progress">
+          <span class="rm-icon">&#9881;</span>
+          <span class="rm-label">Per-format buy links</span>
+          <span class="rm-badge">In Progress</span>
+        </div>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">Multi-tenant platform</span>
+          <span class="rm-badge">Planned</span>
+        </div>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">Ghost CMS for news</span>
+          <span class="rm-badge">Planned</span>
+        </div>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">Newsletter redesign</span>
+          <span class="rm-badge">Planned</span>
+        </div>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">CSV import pipeline</span>
+          <span class="rm-badge">Planned</span>
+        </div>
+        <div class="rm-card rm-idea">
+          <span class="rm-icon">&#9734;</span>
+          <span class="rm-label">Lyrics on album pages</span>
+          <span class="rm-badge">Idea</span>
+        </div>
+        <div class="rm-card rm-idea">
+          <span class="rm-icon">&#9734;</span>
+          <span class="rm-label">Bandsintown integration</span>
+          <span class="rm-badge">Idea</span>
+        </div>
       </div>
     </div>
   </section>
