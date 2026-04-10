@@ -5,7 +5,7 @@ const path = require('path')
 function checkHtml (file) {
   const html = fs.readFileSync(file, 'utf8')
   // Skip redirect pages (meta http-equiv="refresh")
-  if (html.includes('http-equiv="refresh"')) return []
+  if (html.includes('http-equiv="refresh"')) return null
   const issues = []
   if (!html.includes('<meta name="description"')) issues.push('missing meta description')
   if (!html.includes('og:title')) issues.push('missing og:title')
@@ -32,10 +32,13 @@ function walkDir (dir) {
 const allPages = walkDir('dist')
 let okCount = 0
 let issueCount = 0
+let redirectCount = 0
 
 for (const p of allPages) {
   const issues = checkHtml(p)
-  if (issues.length) {
+  if (issues === null) {
+    redirectCount++
+  } else if (issues.length) {
     console.log(p.replace(/\\/g, '/'), '→', issues.join(', '))
     issueCount++
   } else {
@@ -43,7 +46,7 @@ for (const p of allPages) {
   }
 }
 
-console.log('\n' + okCount + ' pages OK, ' + issueCount + ' with issues')
+console.log('\n' + okCount + ' pages OK, ' + issueCount + ' with issues, ' + redirectCount + ' redirects skipped')
 
 // Check sitemap
 const sitemap = fs.readFileSync('dist/sitemap.xml', 'utf8')
