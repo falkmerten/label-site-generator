@@ -558,6 +558,7 @@ async function importCsvFiles (importDir, platform, options = {}) {
   if (files.length === 0) return allRows
 
   let tracking = await loadTracking(trackingPath)
+  let trackingChanged = false
 
   for (const file of files) {
     const filePath = path.join(importDir, file)
@@ -568,12 +569,7 @@ async function importCsvFiles (importDir, platform, options = {}) {
       continue
     }
 
-    if (!force) {
-      const existing = tracking.find(e => e.path === filePath && e.checksum === checksum)
-      if (existing) continue
-    }
-
-    // Read and parse file
+    // Read and parse file (always — we need the data for reports)
     const isXlsx = file.toLowerCase().endsWith('.xlsx')
     let rawRows
     try {
@@ -599,18 +595,24 @@ async function importCsvFiles (importDir, platform, options = {}) {
 
     allRows.push(...rows)
 
-    // Update tracking
-    const existingIdx = tracking.findIndex(e => e.path === filePath)
-    const entry = {
-      path: filePath,
-      checksum,
-      importedAt: new Date().toISOString(),
-      rowCount: rows.length
+    // Update tracking only for new or changed files
+    const existing = tracking.find(e => e.path === filePath && e.checksum === checksum)
+    if (!existing || force) {
+      const existingIdx = tracking.findIndex(e => e.path === filePath)
+      const entry = {
+        path: filePath,
+        checksum,
+        importedAt: new Date().toISOString(),
+        rowCount: rows.length
+      }
+      if (existingIdx !== -1) { tracking[existingIdx] = entry } else { tracking.push(entry) }
+      trackingChanged = true
     }
-    if (existingIdx !== -1) { tracking[existingIdx] = entry } else { tracking.push(entry) }
   }
 
-  await saveTracking(trackingPath, tracking)
+  if (trackingChanged) {
+    await saveTracking(trackingPath, tracking)
+  }
   return allRows
 }
 
