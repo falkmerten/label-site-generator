@@ -91,6 +91,7 @@ function parseArgs(argv) {
     period: null,
     businessReport: false,
     syncS3: false,
+    pdf: false,
     // Deprecated — kept for backward compatibility
     refresh: false,
   };
@@ -160,6 +161,8 @@ function parseArgs(argv) {
       options.businessReport = true
     } else if (arg === '--sync-s3') {
       options.syncS3 = true
+    } else if (arg === '--pdf') {
+      options.pdf = true
     }
   }
 
@@ -335,6 +338,7 @@ async function run() {
       dryRun: options.dryRun,
       force: options.force,
       syncS3: options.syncS3 || false,
+      pdf: options.pdf || false,
       cachePath: options.cachePath
     });
     return;

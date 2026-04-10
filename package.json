@@ -24,6 +24,7 @@
     "docx": "^9.6.1",
     "fast-check": "^3.0.0",
     "jest": "^29.0.0",
+    "md-to-pdf": "^5.2.5",
     "standard": "^16.0.3"
   },
   "dependencies": {

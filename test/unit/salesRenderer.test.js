@@ -32,7 +32,7 @@ describe('renderArtistReport', () => {
       'Bandcamp Sales (Physical)',
       'Bandcamp Sales (Digital)',
       'ElasticStage Sales',
-      'Digital Distribution (Overview)',
+      'Other Distribution (Overview)',
       'Totals'
     ])
   })
@@ -123,10 +123,10 @@ describe('renderArtistReport', () => {
     })
     const md = renderArtistReport(data)
     expect(md).toContain('| Platform | Artist | Release | Revenue | Currency | Quantity | Date | Format |')
-    expect(md).toContain('30.00 EUR')
+    expect(md).toContain('| 30.00 | EUR |')
   })
 
-  test('renders Digital Distribution overview with distributor note', () => {
+  test('renders Other Distribution overview with distributor note', () => {
     const data = makeReportData({
       distributors: {
         amuse: [
@@ -140,7 +140,7 @@ describe('renderArtistReport', () => {
     const md = renderArtistReport(data)
     expect(md).toContain('| Platform | Artist | Release | Revenue | Currency |')
     expect(md).toContain('Amuse')
-    expect(md).toContain('20.00 EUR')
+    expect(md).toContain('| 20.00 | EUR |')
     expect(md).toContain('Split royalties handled by distributor. Amounts shown are label share as reported.')
   })
 

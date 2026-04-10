@@ -223,7 +223,7 @@ function renderArtistReport (data) {
       row.platform,
       row.artist,
       row.release,
-      `${formatMoney(row.revenue)} ${row.currency}`,
+      formatMoney(row.revenue),
       row.currency,
       String(row.quantity),
       formatDate(row.date),
@@ -235,8 +235,8 @@ function renderArtistReport (data) {
     ))
   }
 
-  // --- Digital Distribution (Overview) ---
-  sections.push('\n## Digital Distribution (Overview)\n')
+  // --- Other Distribution (Overview) ---
+  sections.push('\n## Other Distribution (Overview)\n')
   const distPlatforms = Object.keys(data.distributors || {})
   const allDistRows = []
   for (const platform of distPlatforms.sort()) {
@@ -246,7 +246,7 @@ function renderArtistReport (data) {
         platform.charAt(0).toUpperCase() + platform.slice(1),
         entry.artist,
         entry.release,
-        `${formatMoney(entry.revenue)} ${entry.currency}`,
+        formatMoney(entry.revenue),
         entry.currency
       ])
     }

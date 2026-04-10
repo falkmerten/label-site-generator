@@ -549,12 +549,13 @@ function buildBusinessReportData (year, allTransactions, allEsRows, allDistRows)
 }
 
 /**
- * Write a report to disk or stdout.
+ * Write a report to disk or stdout. Tracks written files for PDF conversion.
  * @param {string} filePath
  * @param {string} content
  * @param {boolean} dryRun
+ * @param {string[]} writtenFiles - array to push written paths into
  */
-async function writeReport (filePath, content, dryRun) {
+async function writeReport (filePath, content, dryRun, writtenFiles) {
   if (dryRun) {
     console.log(`\n--- ${filePath} ---`)
     console.log(content)
@@ -564,6 +565,7 @@ async function writeReport (filePath, content, dryRun) {
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(filePath, content, 'utf8')
   console.log(`  Written: ${filePath}`)
+  if (writtenFiles) writtenFiles.push(filePath)
 }
 
 /**
@@ -609,9 +611,35 @@ function syncSalesReportsToS3 () {
 }
 
 /**
+ * Convert specific .md report files to PDF using md-to-pdf.
+ * @param {string[]} mdFiles - paths to .md files to convert
+ */
+async function convertReportsToPdf (mdFiles) {
+  const { mdToPdf } = require('md-to-pdf')
+
+  if (mdFiles.length === 0) {
+    console.log('No reports to convert.')
+    return
+  }
+
+  console.log(`\nConverting ${mdFiles.length} reports to PDF...`)
+  let converted = 0
+  for (const mdFile of mdFiles) {
+    const pdfFile = mdFile.replace(/\.md$/, '.pdf')
+    try {
+      await mdToPdf({ path: mdFile }, { dest: pdfFile, stylesheet: [], pdf_options: { format: 'A4', margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } } })
+      converted++
+    } catch (err) {
+      console.warn(`  Warning: failed to convert ${mdFile}: ${err.message}`)
+    }
+  }
+  console.log(`  Converted ${converted} PDF(s)`)
+}
+
+/**
  * Generate reports for a single year given shared auth/roster/CSV data.
  */
-async function generateForYear (year, accessToken, labelBandId, memberBandId, rosterLookup, allEsRows, allDistRows, period, businessReport, dryRun, artistFilter) {
+async function generateForYear (year, accessToken, labelBandId, memberBandId, rosterLookup, allEsRows, allDistRows, period, businessReport, dryRun, artistFilter, writtenFiles) {
   console.log(`\n${'═'.repeat(60)}`)
   console.log(`  Year ${year}`)
   console.log(`${'═'.repeat(60)}`)
@@ -644,7 +672,7 @@ async function generateForYear (year, accessToken, labelBandId, memberBandId, ro
     const grouped = groupImportRowsByArtist(rows, rosterLookup)
     for (const [slug, data] of grouped) {
       if (!distByArtist[slug]) {
-        distByArtist[slug] = { name: data.name, amuse: [], makewaves: [], labelcaster: [] }
+        distByArtist[slug] = { name: data.name, discogs: [], amuse: [], makewaves: [], labelcaster: [] }
       }
       distByArtist[slug][platform] = data.rows
     }
@@ -677,7 +705,7 @@ async function generateForYear (year, accessToken, labelBandId, memberBandId, ro
       const vaDist = distByArtist[slug]
       const hasData = (vaTx && vaTx.transactions.length > 0) ||
                       (vaEs && vaEs.rows.length > 0) ||
-                      (vaDist && (vaDist.amuse.length > 0 || vaDist.makewaves.length > 0 || vaDist.labelcaster.length > 0))
+                      (vaDist && (vaDist.discogs.length > 0 || vaDist.amuse.length > 0 || vaDist.makewaves.length > 0 || vaDist.labelcaster.length > 0))
       if (!hasData) continue
     }
 
@@ -690,6 +718,7 @@ async function generateForYear (year, accessToken, labelBandId, memberBandId, ro
       const periodTx = artistTx ? filterByPeriod(artistTx.transactions, p.start, p.end) : []
       const periodEs = artistEs ? filterImportRowsByPeriod(artistEs.rows, p.start, p.end) : []
       const periodDist = {
+        discogs: artistDist ? filterImportRowsByPeriod(artistDist.discogs, p.start, p.end) : [],
         amuse: artistDist ? filterImportRowsByPeriod(artistDist.amuse, p.start, p.end) : [],
         makewaves: artistDist ? filterImportRowsByPeriod(artistDist.makewaves, p.start, p.end) : [],
         labelcaster: artistDist ? filterImportRowsByPeriod(artistDist.labelcaster, p.start, p.end) : []
@@ -697,7 +726,7 @@ async function generateForYear (year, accessToken, labelBandId, memberBandId, ro
 
       const reportData = buildArtistReportData(artistName, slug, year, p, periodTx, periodEs, periodDist)
       const markdown = renderArtistReport(reportData)
-      await writeReport(`sales/${slug}/${slug}-${p.suffix}.md`, markdown, dryRun)
+      await writeReport(`sales/${slug}/${slug}-${p.suffix}.md`, markdown, dryRun, writtenFiles)
       reports++
     }
   }
@@ -705,7 +734,7 @@ async function generateForYear (year, accessToken, labelBandId, memberBandId, ro
   if (businessReport) {
     console.log('Generating business report...')
     const bizData = buildBusinessReportData(year, yearTransactions, yearEsRows, yearDistRows)
-    await writeReport(`sales/business-report-${year}.md`, renderBusinessReport(bizData), dryRun)
+    await writeReport(`sales/business-report-${year}.md`, renderBusinessReport(bizData), dryRun, writtenFiles)
     reports++
   }
 
@@ -726,7 +755,8 @@ async function generateSalesReports (options) {
     businessReport = false,
     dryRun = false,
     force = false,
-    syncS3 = false
+    syncS3 = false,
+    pdf = false
   } = options
 
   const yearList = years || [year]
@@ -751,12 +781,12 @@ async function generateSalesReports (options) {
   // Import CSV data once
   const trackingPath = 'sales/import/.imported.json'
   let allEsRows = []
-  const allDistRows = { amuse: [], makewaves: [], labelcaster: [] }
+  const allDistRows = { discogs: [], amuse: [], makewaves: [], labelcaster: [] }
 
   for (const { platform, dir } of IMPORT_PLATFORMS) {
     console.log(`Importing ${platform} CSV files...`)
     const rows = await salesImport.importCsvFiles(dir, platform, { force, trackingPath })
-    if (platform === 'elasticstage' || platform === 'discogs') {
+    if (platform === 'elasticstage') {
       allEsRows = allEsRows.concat(rows)
     } else {
       allDistRows[platform] = rows
@@ -773,9 +803,10 @@ async function generateSalesReports (options) {
 
   let totalReports = 0
   let totalTransactions = 0
+  const writtenFiles = []
 
   for (const y of yearList) {
-    const result = await generateForYear(y, accessToken, labelBandId, memberBandId, rosterLookup, allEsRows, allDistRows, period, businessReport, dryRun, artistFilter)
+    const result = await generateForYear(y, accessToken, labelBandId, memberBandId, rosterLookup, allEsRows, allDistRows, period, businessReport, dryRun, artistFilter, writtenFiles)
     totalReports += result.reports
     totalTransactions += result.transactions
   }
@@ -785,6 +816,10 @@ async function generateSalesReports (options) {
 
   if (!dryRun && (syncS3 || process.env.STORAGE_MODE === 's3')) {
     syncSalesReportsToS3()
+  }
+
+  if (!dryRun && pdf) {
+    await convertReportsToPdf(writtenFiles)
   }
 
   return { reportsGenerated: totalReports, transactionCount: totalTransactions }
