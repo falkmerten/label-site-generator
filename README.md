@@ -674,7 +674,7 @@ Standalone scripts in `scripts/` for tasks outside the main generation pipeline.
 Generates formatted release metadata (label copy) for distribution to stores, press, and partners.
 
 ```bash
-# Export all artists from cache (no API calls)
+# Export all artists from cache (no API calls) — recommended
 node scripts/export-label-copy.js
 
 # Export a single artist
@@ -691,6 +691,21 @@ node scripts/export-label-copy.js --output ./my-exports
 ```
 
 Output is written to `label-copy/` (one Markdown file per artist). Includes tracklist with ISRCs, UPC, catalog number, label, release date, and credits.
+
+**Data source comparison:**
+
+| Field | `--source cache` | `--source api` (Spotify) | `--source api` (Soundcharts) |
+|---|---|---|---|
+| Tracklist + ISRCs | ✅ | ✅ | ✅ |
+| UPC | ✅ | ✅ | ✅ |
+| Label | ✅ | ❌ | ✅ |
+| Distributor | ✅ (if SC enriched) | ❌ | ✅ |
+| Copyright (P-line) | ✅ (if SC enriched) | ❌ | ✅ |
+| Composers/Writers | ❌ | ❌ | ✅ (via ISWC) |
+| Producers | ❌ | ❌ | ✅ |
+| Publishers | ❌ | ❌ | ✅ (via ISWC) |
+
+**Note:** The Spotify Web API does not expose songwriter, producer, or publisher credits — these are only available through Soundcharts. For complete label copy with credits, use `--source api` with Soundcharts credentials configured. The default `--source cache` is recommended for day-to-day use (no API calls, no rate limits).
 
 ### SEO Check
 
