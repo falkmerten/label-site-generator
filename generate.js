@@ -30,6 +30,7 @@ Common workflows:
   node generate.js --sales-report --year 2025 --artist "Name"    Sales report for one artist
   node generate.js --sales-report --year 2025 --period quarterly  Quarterly reports
   node generate.js --sales-report --year 2025 --business-report  Include business report
+  node generate.js --sales-report --year 2015-2026 --business-report --pdf --force  Full run
 
 Options:
   --output <dir>       Output directory (default: ./dist)
@@ -59,6 +60,7 @@ Options:
   --period <value>     Period: monthly, quarterly, half-yearly (default: annual)
   --business-report    Generate consolidated label business report
   --sync-s3            Upload reports to S3 after generation
+  --pdf                Convert generated reports to PDF
   --dry-run            Preview changes without writing
   --help               Print this help message
 

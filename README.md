@@ -834,7 +834,8 @@ Add these to your `.env`:
 |---|---|---|
 | Bandcamp Sales API | Physical + Digital | Automatic via OAuth2 |
 | ElasticStage | Physical | CSV in `sales/import/elasticstage/` |
-| Amuse | Digital | CSV in `sales/import/amuse/` |
+| Discogs Marketplace | Physical | CSV in `sales/import/discogs/` |
+| Amuse | Digital | XLSX in `sales/import/amuse/` |
 | MakeWaves | Digital | CSV in `sales/import/makewaves/` |
 | LabelCaster | Digital | CSV in `sales/import/labelcaster/` |
 
@@ -843,6 +844,10 @@ Add these to your `.env`:
 Place CSV exports from your distributors in the corresponding `sales/import/` subdirectory. Required columns: `artist`, `release`, `revenue`, `currency`, `date`. Column names are matched flexibly (case-insensitive, common aliases supported).
 
 Files are tracked via `sales/import/.imported.json` — re-running won't double-count. Modified files (changed checksum) are automatically re-imported. Use `--force` to re-import everything.
+
+Non-EUR currencies (GBP, USD) are automatically converted to EUR using monthly ECB reference rates. Override with `SALES_EXCHANGE_RATES` env var (JSON, e.g. `{"GBP":1.17,"USD":0.92}`).
+
+Year ranges are supported: `--year 2015-2026` generates reports for all years in a single run (one Bandcamp auth, one CSV import).
 
 ### Usage
 
@@ -873,6 +878,12 @@ node generate.js --sales-report --year 2025 --force
 
 # Sync reports to S3
 node generate.js --sales-report --year 2025 --sync-s3
+
+# Convert reports to PDF
+node generate.js --sales-report --year 2025 --pdf
+
+# Full run: all years, business reports, PDF, S3 sync
+node generate.js --sales-report --year 2015-2026 --business-report --pdf --force
 ```
 
 ### Flags
@@ -887,6 +898,7 @@ node generate.js --sales-report --year 2025 --sync-s3
 | `--dry-run` | Print reports to stdout, don't write files |
 | `--force` | Re-import all CSV files (ignore tracking) |
 | `--sync-s3` | Upload reports to S3 after generation |
+| `--pdf` | Convert generated reports to PDF (requires `md-to-pdf`) |
 
 ### Output structure
 
@@ -915,7 +927,7 @@ sales/
 3. Bandcamp Sales — Physical (grouped by currency)
 4. Bandcamp Sales — Digital (grouped by currency)
 5. ElasticStage Sales
-6. Digital Distribution Overview (per-platform summary)
+6. Other Distribution Overview (Discogs, Amuse, MakeWaves, LabelCaster)
 7. Totals (grand total per currency)
 
 Empty sections show "No data for this period." Multi-currency transactions are grouped with per-currency subtotals. Refunds appear as negative line items.
@@ -936,11 +948,11 @@ Empty sections show "No data for this period." Multi-currency transactions are g
 # 2. Generate annual reports
 node generate.js --sales-report --year 2025
 
-# 3. Generate with business report
-node generate.js --sales-report --year 2025 --business-report
+# 3. Generate with business report + PDF
+node generate.js --sales-report --year 2025 --business-report --pdf
 
-# 4. Convert to PDF (optional)
-pandoc sales/artist-name/artist-name-2025.md -o artist-name-2025.pdf
+# 4. Full run: all years, all sources, business reports, PDF, S3 sync
+node generate.js --sales-report --year 2015-2026 --business-report --pdf --force
 ```
 
 ### Privacy

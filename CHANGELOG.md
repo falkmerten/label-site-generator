@@ -7,18 +7,24 @@
 ### v4.3.0 — 2026-04-11
 
 **Sales Reports (LSG-87)**
-- New `--sales-report` CLI workflow: generates per-artist GFM Markdown settlement reports from Bandcamp sales data and CSV imports
-- Bandcamp Sales API integration via OAuth2 with automatic pagination
-- CSV import from 4 platforms: ElasticStage (physical), Amuse, MakeWaves, LabelCaster (digital)
+- New `--sales-report` CLI workflow: generates per-artist GFM Markdown settlement reports from Bandcamp sales data and CSV/XLSX imports
+- Async Bandcamp Sales API integration via OAuth2 (`generate_sales_report` + `fetch_sales_report` endpoints)
+- Year range support: `--year 2015-2026` generates all years in a single run (one auth, one CSV import)
+- CSV/XLSX import from 5 platforms: ElasticStage (physical), Discogs Marketplace (physical, parsed from order items export), Amuse (XLSX, USD), MakeWaves, LabelCaster (digital)
+- Discogs order items parser extracts artist and release from `"Artist - Title (Format)"` description field
+- XLSX support via SheetJS (`xlsx` package) for Amuse exports
+- ECB Data Portal integration for monthly GBP/USD→EUR exchange rates (free, no auth, falls back to fixed rates)
 - Import tracking via `sales/import/.imported.json` — checksums prevent double-counting, `--force` re-imports all
 - Physical/digital classification from Bandcamp `package` field (CD, Vinyl, Cassette, digital download)
+- Empty Bandcamp transactions filtered (fee adjustments, zero-quantity rows)
 - Multi-currency support with per-currency grouping and subtotals
 - Refunds included as negative line items
 - Non-roster artist transactions routed to "Various Artists" bucket
 - Period options: `--period monthly` (12 reports), `quarterly` (4), `half-yearly` (2), annual (default)
 - `--business-report` flag generates consolidated label-wide report with Revenue by Artist, Revenue by Source, Revenue by Month, Top 20 Releases
+- `--pdf` flag converts generated reports to PDF via `md-to-pdf` (year-aware, only converts current run)
 - `--dry-run` prints reports to stdout without writing files
-- `--sync-s3` uploads reports to S3 (auto-syncs when `STORAGE_MODE=s3`)
+- `--sync-s3` uploads reports + PDFs to S3 (runs after PDF conversion, auto-syncs when `STORAGE_MODE=s3`)
 - `.gitignore` check warns if `sales/` is not excluded from version control
 - New modules: `src/salesRenderer.js`, `src/bandcampSales.js`, `src/salesImport.js`, `src/salesReport.js`
 - `src/bandcampApi.js` now exports `getAccessToken`, `getMyBands`, `httpsPost` for reuse

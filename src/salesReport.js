@@ -814,12 +814,12 @@ async function generateSalesReports (options) {
   console.log(`\n${'═'.repeat(60)}`)
   console.log(`Generated ${totalReports} reports across ${yearList.length} year(s), ${totalTransactions} Bandcamp transactions`)
 
-  if (!dryRun && (syncS3 || process.env.STORAGE_MODE === 's3')) {
-    syncSalesReportsToS3()
-  }
-
   if (!dryRun && pdf) {
     await convertReportsToPdf(writtenFiles)
+  }
+
+  if (!dryRun && (syncS3 || process.env.STORAGE_MODE === 's3')) {
+    syncSalesReportsToS3()
   }
 
   return { reportsGenerated: totalReports, transactionCount: totalTransactions }
