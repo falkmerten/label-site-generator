@@ -677,18 +677,23 @@ Generates formatted release metadata (label copy) for distribution to stores, pr
 # Export all artists from cache (no API calls) — recommended
 node scripts/export-label-copy.js
 
-# Export a single artist
+# Export a single artist from cache
 node scripts/export-label-copy.js --artist "Artist Name"
 
-# Export a single release
+# Export a single release from cache
 node scripts/export-label-copy.js --artist "Artist Name" --release "Album Title"
 
-# Use Spotify/Soundcharts as source (live API calls)
-node scripts/export-label-copy.js --artist "Artist Name" --source api
+# Use Soundcharts as source (full credits: composers, producers, publishers)
+node scripts/export-label-copy.js --source api --artist "Artist Name"
+
+# Use Spotify as source (tracklist + ISRCs only, no credits)
+node scripts/export-label-copy.js --source spotify --artist "Artist Name"
 
 # Custom output directory
 node scripts/export-label-copy.js --output ./my-exports
 ```
+
+The default `--source cache` reads from `cache.json` — no API calls, no rate limits. This is the recommended mode for day-to-day use. Run `node generate.js --enrich` first to populate the cache with streaming links, ISRCs, and metadata.
 
 Output is written to `label-copy/` (one Markdown file per artist). Includes tracklist with ISRCs, UPC, catalog number, label, release date, and credits.
 
