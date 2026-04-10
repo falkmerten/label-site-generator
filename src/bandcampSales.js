@@ -162,7 +162,7 @@ async function fetchSalesReport (accessToken, bandId, startTime, endTime, member
   }
 
   const report = data.report || (Array.isArray(data) ? data : [])
-  return report.map(parseTransaction)
+  return report.map(parseTransaction).filter(tx => tx.itemName || tx.quantity !== 0 || tx.netAmount !== 0)
 }
 
 module.exports = { authenticate, resolveRoster, fetchSalesReport }
