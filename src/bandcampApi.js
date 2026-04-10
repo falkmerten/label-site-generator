@@ -101,4 +101,4 @@ async function getLabelArtistUrls (clientId, clientSecret) {
   return urls
 }
 
-module.exports = { getLabelArtistUrls }
+module.exports = { getLabelArtistUrls, getAccessToken, getMyBands, httpsPost }
