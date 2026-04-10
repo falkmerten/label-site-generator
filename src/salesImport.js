@@ -453,7 +453,7 @@ function parseForPlatform (rawRows, platform, filePath, defaultCurrency) {
     case 'elasticstage': return parseElasticStage(rawRows, filePath)
     case 'discogs': return parseDiscogs(rawRows, filePath)
     case 'labelcaster': return parseLabelCaster(rawRows, filePath, defaultCurrency)
-    case 'amuse': return parseAmuse(rawRows, filePath, defaultCurrency)
+    case 'amuse': return parseAmuse(rawRows, filePath, 'USD')
     default: return parseGeneric(rawRows, platform, filePath, defaultCurrency)
   }
 }
