@@ -21,6 +21,9 @@ assets/
 # Import files — CSV exports from Bandcamp, distributors, etc.
 import/
 
+# Sales reports — financial data, never commit
+sales/
+
 # Generated label copy — contains release metadata
 label-copy/
 
@@ -44,3 +47,4 @@ scripts/private/
 
 # LSG product landing page (separate deployment)
 lsg-site/
+.kiro/steering/project-context.md

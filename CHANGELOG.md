@@ -4,6 +4,28 @@
 
 ---
 
+### v4.3.0 — 2026-04-11
+
+**Sales Reports (LSG-87)**
+- New `--sales-report` CLI workflow: generates per-artist GFM Markdown settlement reports from Bandcamp sales data and CSV imports
+- Bandcamp Sales API integration via OAuth2 with automatic pagination
+- CSV import from 4 platforms: ElasticStage (physical), Amuse, MakeWaves, LabelCaster (digital)
+- Import tracking via `sales/import/.imported.json` — checksums prevent double-counting, `--force` re-imports all
+- Physical/digital classification from Bandcamp `package` field (CD, Vinyl, Cassette, digital download)
+- Multi-currency support with per-currency grouping and subtotals
+- Refunds included as negative line items
+- Non-roster artist transactions routed to "Various Artists" bucket
+- Period options: `--period monthly` (12 reports), `quarterly` (4), `half-yearly` (2), annual (default)
+- `--business-report` flag generates consolidated label-wide report with Revenue by Artist, Revenue by Source, Revenue by Month, Top 20 Releases
+- `--dry-run` prints reports to stdout without writing files
+- `--sync-s3` uploads reports to S3 (auto-syncs when `STORAGE_MODE=s3`)
+- `.gitignore` check warns if `sales/` is not excluded from version control
+- New modules: `src/salesRenderer.js`, `src/bandcampSales.js`, `src/salesImport.js`, `src/salesReport.js`
+- `src/bandcampApi.js` now exports `getAccessToken`, `getMyBands`, `httpsPost` for reuse
+- 20 unit tests for report rendering
+
+---
+
 ### v4.2.0 — 2026-04-07
 
 **Enrichment caching (LSG-59)**

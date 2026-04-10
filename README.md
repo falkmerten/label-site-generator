@@ -661,6 +661,10 @@ Custom Nunjucks filters:
 | `src/generator.js` | Top-level pipeline: cache → merge → render → assets |
 | `src/slugs.js` | Slug generation (NFD normalisation for accented characters) |
 | `src/importCsv.js` | Bandcamp CSV import: parser, gap analysis, gap filling, full import |
+| `src/salesRenderer.js` | Sales report Markdown renderer: GFM tables, artist reports, business reports |
+| `src/bandcampSales.js` | Bandcamp Sales API client: OAuth2 auth, roster resolution, paginated sales fetch |
+| `src/salesImport.js` | CSV import adapter for sales reports: ElasticStage, Amuse, MakeWaves, LabelCaster |
+| `src/salesReport.js` | Sales report orchestrator: fetches, classifies, groups, renders, writes reports |
 | `src/markdown.js` | Markdown rendering |
 
 ---
@@ -805,6 +809,143 @@ node generate.js
 Gap filling only writes to fields that are `null` or missing — existing enriched data (streaming links, artwork, Discogs data) is never overwritten. A timestamped backup of `cache.json` is created before any write.
 
 Artists no longer on the label's active roster are automatically filtered out from the CSV data.
+
+---
+
+## Sales Reports
+
+Generate per-artist settlement reports and an optional consolidated business report from Bandcamp sales data and CSV imports from digital distributors. Reports are GFM Markdown files designed for PDF conversion via pandoc.
+
+### Configuration
+
+Add these to your `.env`:
+
+| Variable | Required | Description |
+|---|---|---|
+| `BANDCAMP_CLIENT_ID` | yes | Already configured for site generation |
+| `BANDCAMP_CLIENT_SECRET` | yes | Already configured for site generation |
+| `STORAGE_S3_BUCKET` | for S3 sync | S3 bucket for report backup |
+| `STORAGE_S3_PREFIX` | no | S3 key prefix (e.g. `my-label/`) |
+| `STORAGE_MODE` | no | Set to `s3` to auto-sync after generation |
+
+### Data sources
+
+| Source | Type | How it gets in |
+|---|---|---|
+| Bandcamp Sales API | Physical + Digital | Automatic via OAuth2 |
+| ElasticStage | Physical | CSV in `sales/import/elasticstage/` |
+| Amuse | Digital | CSV in `sales/import/amuse/` |
+| MakeWaves | Digital | CSV in `sales/import/makewaves/` |
+| LabelCaster | Digital | CSV in `sales/import/labelcaster/` |
+
+### CSV import
+
+Place CSV exports from your distributors in the corresponding `sales/import/` subdirectory. Required columns: `artist`, `release`, `revenue`, `currency`, `date`. Column names are matched flexibly (case-insensitive, common aliases supported).
+
+Files are tracked via `sales/import/.imported.json` — re-running won't double-count. Modified files (changed checksum) are automatically re-imported. Use `--force` to re-import everything.
+
+### Usage
+
+```bash
+# Annual reports for all artists
+node generate.js --sales-report --year 2025
+
+# Single artist
+node generate.js --sales-report --year 2025 --artist "Artist Name"
+
+# Quarterly reports
+node generate.js --sales-report --year 2025 --period quarterly
+
+# Monthly reports
+node generate.js --sales-report --year 2025 --period monthly
+
+# Half-yearly reports
+node generate.js --sales-report --year 2025 --period half-yearly
+
+# Include consolidated business report
+node generate.js --sales-report --year 2025 --business-report
+
+# Preview without writing files
+node generate.js --sales-report --year 2025 --dry-run
+
+# Re-import all CSVs (ignore tracking)
+node generate.js --sales-report --year 2025 --force
+
+# Sync reports to S3
+node generate.js --sales-report --year 2025 --sync-s3
+```
+
+### Flags
+
+| Flag | Description |
+|---|---|
+| `--sales-report` | Enable sales report generation |
+| `--year <YYYY>` | Reporting year (required with `--sales-report`) |
+| `--period <value>` | `monthly`, `quarterly`, `half-yearly` (default: annual) |
+| `--business-report` | Generate consolidated label-wide report |
+| `--artist <name>` | Filter to a single artist |
+| `--dry-run` | Print reports to stdout, don't write files |
+| `--force` | Re-import all CSV files (ignore tracking) |
+| `--sync-s3` | Upload reports to S3 after generation |
+
+### Output structure
+
+```
+sales/
+  {artist-slug}/
+    {artist-slug}-2025.md              # Annual report
+    {artist-slug}-2025-Q1.md           # Quarterly
+    {artist-slug}-2025-01.md           # Monthly
+    {artist-slug}-2025-H1.md           # Half-yearly
+  various-artists/
+    various-artists-2025.md            # Non-roster artist transactions
+  business-report-2025.md              # Consolidated label report
+  import/
+    .imported.json                     # Import tracking
+    elasticstage/                      # ElasticStage CSV files
+    amuse/                             # Amuse CSV files
+    makewaves/                         # MakeWaves CSV files
+    labelcaster/                       # LabelCaster CSV files
+```
+
+### Report sections (per-artist)
+
+1. Header (artist name, period, generation date)
+2. Summary (total revenue per currency, physical/digital breakdown)
+3. Bandcamp Sales — Physical (grouped by currency)
+4. Bandcamp Sales — Digital (grouped by currency)
+5. ElasticStage Sales
+6. Digital Distribution Overview (per-platform summary)
+7. Totals (grand total per currency)
+
+Empty sections show "No data for this period." Multi-currency transactions are grouped with per-currency subtotals. Refunds appear as negative line items.
+
+### Business report sections
+
+1. Label Summary (revenue, units, transactions, physical/digital breakdown)
+2. Revenue by Artist (sorted by total revenue descending)
+3. Revenue by Source (Bandcamp Physical/Digital, ElasticStage, distributors)
+4. Revenue by Month (12 rows, January–December)
+5. Top Selling Releases (max 20, sorted by revenue descending)
+6. Totals
+
+### Typical workflow
+
+```bash
+# 1. Export CSVs from your distributors and place in sales/import/
+# 2. Generate annual reports
+node generate.js --sales-report --year 2025
+
+# 3. Generate with business report
+node generate.js --sales-report --year 2025 --business-report
+
+# 4. Convert to PDF (optional)
+pandoc sales/artist-name/artist-name-2025.md -o artist-name-2025.pdf
+```
+
+### Privacy
+
+The `sales/` directory is gitignored. The generator warns if `sales/` is not in `.gitignore` before writing any reports.
 
 ---
 
