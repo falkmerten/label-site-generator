@@ -47,3 +47,6 @@ scripts/private/
 
 # LSG product landing page (separate deployment)
 lsg-site/
+
+# Release tracking (private)
+RELEASES.md
