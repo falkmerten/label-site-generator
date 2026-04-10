@@ -268,46 +268,10 @@ function parseDiscogsOrderItems (rawRows, idx, filePath) {
  * Columns: buyer, order_num, order_date, status, total, shipping, fee, ..., currency
  */
 function parseDiscogsOrders (rawRows, idx, filePath) {
-  const needed = ['order_date', 'total', 'currency']
-  const missing = needed.filter(k => idx[k] === undefined)
-  if (missing.length > 0) {
-    console.warn(`Warning: Discogs file ${filePath} missing columns: ${missing.join(', ')}, skipping`)
-    return []
-  }
-
-  const rows = []
-  for (let r = 1; r < rawRows.length; r++) {
-    const row = rawRows[r]
-    const dateStr = cell(row, idx, 'order_date')
-    if (!dateStr) continue
-
-    const datePart = dateStr.split(' ')[0]
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) continue
-
-    const status = cell(row, idx, 'status').toLowerCase()
-    if (status.includes('cancelled') || status === 'merged') continue
-
-    const total = parseFloat(cell(row, idx, 'total')) || 0
-    const shipping = parseFloat(cell(row, idx, 'shipping')) || 0
-    const fee = parseFloat(cell(row, idx, 'fee')) || 0
-    const currency = cell(row, idx, 'currency')
-    if (!currency || total === 0) continue
-
-    const revenue = total - shipping - fee
-    const orderNum = cell(row, idx, 'order_num') || `order-${r}`
-
-    rows.push({
-      platform: 'discogs',
-      artist: '(Discogs Order)',
-      release: `Order #${orderNum}`,
-      revenue,
-      currency,
-      quantity: 1,
-      date: datePart,
-      format: 'physical'
-    })
-  }
-  return rows
+  // Orders export has no per-item artist/release detail — skip it.
+  // Use the Order Items export instead for proper settlement data.
+  console.log(`  Skipping Discogs orders file ${filePath} (use Order Items export for per-item detail)`)
+  return []
 }
 
 /**

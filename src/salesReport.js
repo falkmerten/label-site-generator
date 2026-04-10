@@ -19,6 +19,34 @@ const {
 const VARIOUS_ARTISTS_NAME = 'Various Artists'
 const VARIOUS_ARTISTS_SLUG = 'various-artists'
 
+/**
+ * Fixed exchange rates to EUR for currency conversion.
+ * Override via SALES_EXCHANGE_RATES env var as JSON, e.g. '{"GBP":1.17,"USD":0.92}'
+ */
+const DEFAULT_EXCHANGE_RATES = { GBP: 1.17, USD: 0.92 }
+
+function getExchangeRates () {
+  try {
+    const env = process.env.SALES_EXCHANGE_RATES
+    if (env) return { ...DEFAULT_EXCHANGE_RATES, ...JSON.parse(env) }
+  } catch {}
+  return DEFAULT_EXCHANGE_RATES
+}
+
+/**
+ * Convert an ImportRow's currency to EUR using fixed exchange rates.
+ * Bandcamp transactions are left as-is (already multi-currency aware in the renderer).
+ * @param {object} row - ImportRow
+ * @param {object} rates - exchange rate map
+ * @returns {object} row with converted revenue and currency set to EUR
+ */
+function convertToEur (row, rates) {
+  if (row.currency === 'EUR' || !row.currency) return row
+  const rate = rates[row.currency]
+  if (!rate) return row // unknown currency, leave as-is
+  return { ...row, revenue: Math.round(row.revenue * rate * 100) / 100, currency: 'EUR' }
+}
+
 const IMPORT_PLATFORMS = [
   { platform: 'elasticstage', dir: 'sales/import/elasticstage' },
   { platform: 'discogs', dir: 'sales/import/discogs' },
@@ -644,6 +672,13 @@ async function generateSalesReports (options) {
       allDistRows[platform] = rows
     }
     if (rows.length > 0) console.log(`  Imported ${rows.length} rows from ${platform}`)
+  }
+
+  // Convert non-EUR currencies to EUR using fixed exchange rates
+  const rates = getExchangeRates()
+  allEsRows = allEsRows.map(r => convertToEur(r, rates))
+  for (const platform of Object.keys(allDistRows)) {
+    allDistRows[platform] = allDistRows[platform].map(r => convertToEur(r, rates))
   }
 
   let totalReports = 0
