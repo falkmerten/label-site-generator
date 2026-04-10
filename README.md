@@ -669,6 +669,98 @@ Custom Nunjucks filters:
 
 ---
 
+## Caching
+
+Scraped data is saved to `cache.json` (gitignored). Delete it or use `--scrape` to re-scrape everything. Use `--scrape --artist <name>` to re-scrape a single artist.
+
+Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing. Use `--enrich --force` to re-enrich already-processed albums.
+
+Deprecated flags: `--refresh` still works as an alias for `--scrape` (or `--force` when combined with `--enrich`). `--artist` alone still implies `--scrape --artist`.
+
+---
+
+## CSV Import (Bandcamp Digital Export)
+
+Import metadata from a Bandcamp digital catalog CSV export to fill gaps in your cache. The CSV provides catalog numbers, UPCs, ISRCs, Bandcamp IDs, and release dates that the scraper/enricher pipeline doesn't capture.
+
+### Setup
+
+1. In your Bandcamp label backend, go to **Tools → Digital Catalog Report → Export**
+2. Place the downloaded CSV file in the `import/` directory (gitignored — contains label-specific data)
+
+### Modes
+
+**Gap analysis** (read-only — writes a detailed markdown report to `import/reports/`):
+```bash
+node generate.js --analyze-csv import/digital-catalog.csv
+```
+
+**Gap filling** (backfills missing fields into existing cache entries):
+```bash
+node generate.js --fill-gaps import/digital-catalog.csv
+```
+
+**Full import** (bootstraps a new cache entirely from CSV — requires roster source):
+```bash
+node generate.js --import-csv import/digital-catalog.csv --roster-source cache
+node generate.js --import-csv import/digital-catalog.csv --roster-source api
+```
+
+### Flags
+
+| Flag | Description |
+|---|---|
+| `--analyze-csv <path>` | Compare CSV against cache, print gap report |
+| `--fill-gaps <path>` | Fill missing UPC, catalog number, Bandcamp ID, release date, ISRC from CSV |
+| `--import-csv <path>` | Bootstrap cache from CSV (requires `--roster-source`) |
+| `--roster-source <cache\|api>` | Where to get the active artist roster (with `--import-csv`) |
+| `--dry-run` | Preview changes without writing to cache (with `--fill-gaps` or `--import-csv`) |
+
+### Typical workflow
+
+```bash
+# 1. Export CSV from Bandcamp and place in import/
+# 2. Analyze gaps first
+node generate.js --analyze-csv import/digital-catalog.csv
+
+# 3. Preview what would be filled
+node generate.js --fill-gaps import/digital-catalog.csv --dry-run
+
+# 4. Fill the gaps
+node generate.js --fill-gaps import/digital-catalog.csv
+
+# 5. Regenerate the site
+node generate.js
+```
+
+Gap filling only writes to fields that are `null` or missing — existing enriched data (streaming links, artwork, Discogs data) is never overwritten. A timestamped backup of `cache.json` is created before any write.
+
+Artists no longer on the label's active roster are automatically filtered out from the CSV data.
+
+---
+
+## Deployment (S3 + CloudFront)
+
+After running `node generate.js`, upload the `dist/` folder to your S3 bucket:
+
+```bash
+aws s3 sync dist/ s3://your-bucket-name/ --delete
+```
+
+S3 bucket settings:
+- Enable **Static website hosting**
+- Index document: `index.html`
+- Error document: `404.html`
+
+CloudFront settings:
+- Origin: your S3 bucket website endpoint
+- Default root object: `index.html`
+- Custom error response: 404 → `/404.html`
+
+Old URL redirects are handled by static HTML pages in `dist/` (meta-refresh + JS redirect). Configure these in `content/redirects.json`.
+
+---
+
 ## Utility Scripts
 
 Standalone scripts in `scripts/` for tasks outside the main generation pipeline.
@@ -742,79 +834,9 @@ Requires `LISTMONK_URL`, `LISTMONK_API_USER`, `LISTMONK_API_TOKEN`, `LISTMONK_LI
 
 ---
 
-## Caching
-
-Scraped data is saved to `cache.json` (gitignored). Delete it or use `--scrape` to re-scrape everything. Use `--scrape --artist <name>` to re-scrape a single artist.
-
-Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing. Use `--enrich --force` to re-enrich already-processed albums.
-
-Deprecated flags: `--refresh` still works as an alias for `--scrape` (or `--force` when combined with `--enrich`). `--artist` alone still implies `--scrape --artist`.
-
----
-
-## CSV Import (Bandcamp Digital Export)
-
-Import metadata from a Bandcamp digital catalog CSV export to fill gaps in your cache. The CSV provides catalog numbers, UPCs, ISRCs, Bandcamp IDs, and release dates that the scraper/enricher pipeline doesn't capture.
-
-### Setup
-
-1. In your Bandcamp label backend, go to **Tools → Digital Catalog Report → Export**
-2. Place the downloaded CSV file in the `import/` directory (gitignored — contains label-specific data)
-
-### Modes
-
-**Gap analysis** (read-only — writes a detailed markdown report to `import/reports/`):
-```bash
-node generate.js --analyze-csv import/digital-catalog.csv
-```
-
-**Gap filling** (backfills missing fields into existing cache entries):
-```bash
-node generate.js --fill-gaps import/digital-catalog.csv
-```
-
-**Full import** (bootstraps a new cache entirely from CSV — requires roster source):
-```bash
-node generate.js --import-csv import/digital-catalog.csv --roster-source cache
-node generate.js --import-csv import/digital-catalog.csv --roster-source api
-```
-
-### Flags
-
-| Flag | Description |
-|---|---|
-| `--analyze-csv <path>` | Compare CSV against cache, print gap report |
-| `--fill-gaps <path>` | Fill missing UPC, catalog number, Bandcamp ID, release date, ISRC from CSV |
-| `--import-csv <path>` | Bootstrap cache from CSV (requires `--roster-source`) |
-| `--roster-source <cache\|api>` | Where to get the active artist roster (with `--import-csv`) |
-| `--dry-run` | Preview changes without writing to cache (with `--fill-gaps` or `--import-csv`) |
-
-### Typical workflow
-
-```bash
-# 1. Export CSV from Bandcamp and place in import/
-# 2. Analyze gaps first
-node generate.js --analyze-csv import/digital-catalog.csv
-
-# 3. Preview what would be filled
-node generate.js --fill-gaps import/digital-catalog.csv --dry-run
-
-# 4. Fill the gaps
-node generate.js --fill-gaps import/digital-catalog.csv
-
-# 5. Regenerate the site
-node generate.js
-```
-
-Gap filling only writes to fields that are `null` or missing — existing enriched data (streaming links, artwork, Discogs data) is never overwritten. A timestamped backup of `cache.json` is created before any write.
-
-Artists no longer on the label's active roster are automatically filtered out from the CSV data.
-
----
-
 ## Sales Reports
 
-Generate per-artist settlement reports and an optional consolidated business report from Bandcamp sales data and CSV imports from digital distributors. Reports are GFM Markdown files designed for PDF conversion via pandoc.
+Generate per-artist settlement reports and an optional consolidated business report from Bandcamp sales data and CSV imports from digital distributors. Reports are GFM Markdown files designed for PDF conversion.
 
 ### Configuration
 
@@ -891,7 +913,7 @@ node generate.js --sales-report --year 2015-2026 --business-report --pdf --force
 | Flag | Description |
 |---|---|
 | `--sales-report` | Enable sales report generation |
-| `--year <YYYY>` | Reporting year (required with `--sales-report`) |
+| `--year <YYYY>` | Reporting year or range (required with `--sales-report`) |
 | `--period <value>` | `monthly`, `quarterly`, `half-yearly` (default: annual) |
 | `--business-report` | Generate consolidated label-wide report |
 | `--artist <name>` | Filter to a single artist |
@@ -915,7 +937,8 @@ sales/
   import/
     .imported.json                     # Import tracking
     elasticstage/                      # ElasticStage CSV files
-    amuse/                             # Amuse CSV files
+    discogs/                           # Discogs Marketplace CSV files
+    amuse/                             # Amuse XLSX files
     makewaves/                         # MakeWaves CSV files
     labelcaster/                       # LabelCaster CSV files
 ```
@@ -958,28 +981,6 @@ node generate.js --sales-report --year 2015-2026 --business-report --pdf --force
 ### Privacy
 
 The `sales/` directory is gitignored. The generator warns if `sales/` is not in `.gitignore` before writing any reports.
-
----
-
-## Deployment (S3 + CloudFront)
-
-After running `node generate.js`, upload the `dist/` folder to your S3 bucket:
-
-```bash
-aws s3 sync dist/ s3://your-bucket-name/ --delete
-```
-
-S3 bucket settings:
-- Enable **Static website hosting**
-- Index document: `index.html`
-- Error document: `404.html`
-
-CloudFront settings:
-- Origin: your S3 bucket website endpoint
-- Default root object: `index.html`
-- Custom error response: 404 → `/404.html`
-
-Old URL redirects are handled by static HTML pages in `dist/` (meta-refresh + JS redirect). Configure these in `content/redirects.json`.
 
 ---
 
