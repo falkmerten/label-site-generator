@@ -665,6 +665,59 @@ Custom Nunjucks filters:
 
 ---
 
+## Utility Scripts
+
+Standalone scripts in `scripts/` for tasks outside the main generation pipeline.
+
+### Label Copy Export
+
+Generates formatted release metadata (label copy) for distribution to stores, press, and partners.
+
+```bash
+# Export all artists from cache (no API calls)
+node scripts/export-label-copy.js
+
+# Export a single artist
+node scripts/export-label-copy.js --artist "Artist Name"
+
+# Export a single release
+node scripts/export-label-copy.js --artist "Artist Name" --release "Album Title"
+
+# Use Spotify/Soundcharts as source (live API calls)
+node scripts/export-label-copy.js --artist "Artist Name" --source api
+
+# Custom output directory
+node scripts/export-label-copy.js --output ./my-exports
+```
+
+Output is written to `label-copy/` (one Markdown file per artist). Includes tracklist with ISRCs, UPC, catalog number, label, release date, and credits.
+
+### SEO Check
+
+Validates the generated site for SEO basics.
+
+```bash
+node scripts/check-seo.js
+```
+
+Checks all `dist/` pages for: meta description, Open Graph tags, Twitter Card, canonical URL, JSON-LD structured data, lang attribute. Also verifies sitemap.xml and robots.txt.
+
+### Newsletter Migration
+
+Migrates subscribers from Sendy to Listmonk.
+
+```bash
+# Preview (no changes)
+node scripts/migrate-sendy-to-listmonk.js export.csv --dry-run
+
+# Execute migration
+node scripts/migrate-sendy-to-listmonk.js export.csv
+```
+
+Requires `LISTMONK_URL`, `LISTMONK_API_USER`, `LISTMONK_API_TOKEN`, `LISTMONK_LIST_ID` in `.env`.
+
+---
+
 ## Caching
 
 Scraped data is saved to `cache.json` (gitignored). Delete it or use `--scrape` to re-scrape everything. Use `--scrape --artist <name>` to re-scrape a single artist.

@@ -27,22 +27,20 @@ label-copy/
 # Product documentation — private business documents
 docs/
 
-# Label copy export scripts — side project, not part of main generator
-scripts/
-
-# Label copy tests — depend on scripts/ which is gitignored
+# Label copy tests — depend on label-specific test data
 test/property/exportLabelCopy.property.test.js
 test/property/labelCopyFormatter.property.test.js
 test/unit/exportLabelCopy.test.js
 test/unit/labelCopyFormatter.test.js
+
+# Private/label-specific scripts (hardcoded test data)
+scripts/private/
 
 # Kiro IDE workspace files
 .kiro/
 
 # VS Code workspace settings
 .vscode/
-
-scripts/
 
 # LSG product landing page (separate deployment)
 lsg-site/
