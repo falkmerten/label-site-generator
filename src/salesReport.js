@@ -20,29 +20,119 @@ const VARIOUS_ARTISTS_NAME = 'Various Artists'
 const VARIOUS_ARTISTS_SLUG = 'various-artists'
 
 /**
- * Fixed exchange rates to EUR for currency conversion.
+ * Fallback exchange rates to EUR (used when ECB API is unavailable).
  * Override via SALES_EXCHANGE_RATES env var as JSON, e.g. '{"GBP":1.17,"USD":0.92}'
  */
-const DEFAULT_EXCHANGE_RATES = { GBP: 1.17, USD: 0.92 }
+const FALLBACK_RATES = { GBP: 1.17, USD: 0.92 }
 
-function getExchangeRates () {
-  try {
-    const env = process.env.SALES_EXCHANGE_RATES
-    if (env) return { ...DEFAULT_EXCHANGE_RATES, ...JSON.parse(env) }
-  } catch {}
-  return DEFAULT_EXCHANGE_RATES
+/**
+ * Fetch monthly average exchange rates from the ECB Data Portal.
+ * Returns a map like { "GBP": { "2025-01": 1.18, "2025-02": 1.17, ... }, "USD": { ... } }
+ * @param {string[]} currencies - e.g. ["GBP", "USD"]
+ * @param {number} startYear
+ * @param {number} endYear
+ * @returns {Promise<Object>}
+ */
+async function fetchEcbRates (currencies, startYear, endYear) {
+  const https = require('https')
+  const currencyKeys = currencies.join('+')
+  const url = `https://data-api.ecb.europa.eu/service/data/EXR/M.${currencyKeys}.EUR.SP00.A?startPeriod=${startYear}-01&endPeriod=${endYear}-12&format=csvdata`
+
+  return new Promise((resolve) => {
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        console.warn(`  ECB API returned HTTP ${res.statusCode}, using fallback rates`)
+        resolve(null)
+        return
+      }
+      let data = ''
+      res.on('data', chunk => { data += chunk })
+      res.on('end', () => {
+        try {
+          const rates = {}
+          const lines = data.split('\n')
+          // CSV header: KEY,FREQ,CURRENCY,CURRENCY_DENOM,...,TIME_PERIOD,OBS_VALUE,...
+          const header = lines[0].split(',')
+          const currCol = header.indexOf('CURRENCY')
+          const periodCol = header.indexOf('TIME_PERIOD')
+          const valueCol = header.indexOf('OBS_VALUE')
+          if (currCol === -1 || periodCol === -1 || valueCol === -1) {
+            resolve(null)
+            return
+          }
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',')
+            if (cols.length <= valueCol) continue
+            const cur = cols[currCol]
+            const period = cols[periodCol] // "2025-01"
+            const value = parseFloat(cols[valueCol])
+            if (!cur || !period || isNaN(value)) continue
+            // ECB gives "1 EUR = X foreign currency", we need the inverse: "1 foreign = 1/X EUR"
+            if (!rates[cur]) rates[cur] = {}
+            rates[cur][period] = Math.round((1 / value) * 10000) / 10000
+          }
+          resolve(rates)
+        } catch {
+          resolve(null)
+        }
+      })
+    }).on('error', () => {
+      console.warn('  ECB API unreachable, using fallback rates')
+      resolve(null)
+    })
+  })
 }
 
 /**
- * Convert an ImportRow's currency to EUR using fixed exchange rates.
- * Bandcamp transactions are left as-is (already multi-currency aware in the renderer).
- * @param {object} row - ImportRow
- * @param {object} rates - exchange rate map
+ * Get exchange rates — tries ECB API first, falls back to fixed rates.
+ * @param {number} startYear
+ * @param {number} endYear
+ * @returns {Promise<{ monthly: Object|null, fallback: Object }>}
+ */
+async function getExchangeRates (startYear, endYear) {
+  // Check for manual override
+  let fallback = FALLBACK_RATES
+  try {
+    const env = process.env.SALES_EXCHANGE_RATES
+    if (env) fallback = { ...FALLBACK_RATES, ...JSON.parse(env) }
+  } catch {}
+
+  // Try ECB API for monthly rates
+  console.log('Fetching ECB exchange rates...')
+  const monthly = await fetchEcbRates(Object.keys(fallback), startYear, endYear)
+  if (monthly) {
+    const currencies = Object.keys(monthly)
+    const periods = currencies.length > 0 ? Object.keys(monthly[currencies[0]]).length : 0
+    console.log(`  Loaded ${periods} monthly rates for ${currencies.join(', ')}`)
+  }
+  return { monthly, fallback }
+}
+
+/**
+ * Convert an ImportRow's currency to EUR.
+ * Uses monthly ECB rate if available, otherwise falls back to fixed rate.
+ * @param {object} row - ImportRow with date and currency
+ * @param {{ monthly: Object|null, fallback: Object }} rates
  * @returns {object} row with converted revenue and currency set to EUR
  */
 function convertToEur (row, rates) {
   if (row.currency === 'EUR' || !row.currency) return row
-  const rate = rates[row.currency]
+
+  // Try monthly rate based on the row's date
+  let rate = null
+  if (rates.monthly && rates.monthly[row.currency]) {
+    // Extract YYYY-MM from the date
+    const match = (row.date || '').match(/^(\d{4}-\d{2})/)
+    if (match) {
+      rate = rates.monthly[row.currency][match[1]]
+    }
+  }
+
+  // Fall back to fixed rate
+  if (!rate) {
+    rate = rates.fallback[row.currency]
+  }
+
   if (!rate) return row // unknown currency, leave as-is
   return { ...row, revenue: Math.round(row.revenue * rate * 100) / 100, currency: 'EUR' }
 }
@@ -674,8 +764,8 @@ async function generateSalesReports (options) {
     if (rows.length > 0) console.log(`  Imported ${rows.length} rows from ${platform}`)
   }
 
-  // Convert non-EUR currencies to EUR using fixed exchange rates
-  const rates = getExchangeRates()
+  // Convert non-EUR currencies to EUR using ECB monthly rates (fallback: fixed rates)
+  const rates = await getExchangeRates(yearList[0], yearList[yearList.length - 1])
   allEsRows = allEsRows.map(r => convertToEur(r, rates))
   for (const platform of Object.keys(allDistRows)) {
     allDistRows[platform] = allDistRows[platform].map(r => convertToEur(r, rates))
