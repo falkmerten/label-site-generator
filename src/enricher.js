@@ -5,7 +5,7 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const { readCache, writeCache } = require('./cache')
-const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify } = require('./spotify')
+const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify, fetchAlbumTrackIsrcs } = require('./spotify')
 const { enrichAlbumsWithItunes } = require('./itunes')
 const { enrichAlbumsWithDeezer } = require('./deezer')
 const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
@@ -831,6 +831,50 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   const totalArtists = artists.length
   const labelUrlCache = {} // shared across artists — avoids duplicate Discogs label lookups
   const sellListingCache = {} // shared across artists — releaseId → boolean (has active listings)
+
+  /**
+   * Backfills ISRCs from Spotify into cache tracks that are missing them.
+   * Matches by track position (trackNumber) or normalized title.
+   */
+  async function backfillIsrcs (artist, token) {
+    const albums = (artist.albums || []).filter(al =>
+      al.streamingLinks && al.streamingLinks.spotify &&
+      !al.upcoming &&
+      (al.tracks || []).some(t => !t.isrc)
+    )
+    if (albums.length === 0) return
+    let totalFilled = 0
+    for (const album of albums) {
+      try {
+        const spotifyTracks = await fetchAlbumTrackIsrcs(token, album.streamingLinks.spotify)
+        if (spotifyTracks.length === 0) continue
+        let filled = 0
+        for (const cacheTrack of (album.tracks || [])) {
+          if (cacheTrack.isrc) continue
+          // Match by track number first, then by normalized title
+          const byNum = spotifyTracks.find(st => st.trackNumber === cacheTrack.track_num)
+          const byTitle = !byNum ? spotifyTracks.find(st =>
+            st.name.toLowerCase().replace(/[^a-z0-9]/g, '') ===
+            (cacheTrack.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+          ) : null
+          const match = byNum || byTitle
+          if (match && match.isrc) {
+            cacheTrack.isrc = match.isrc
+            filled++
+          }
+        }
+        if (filled > 0) {
+          console.log(`    ✓ ISRCs backfilled: "${album.title}" (${filled}/${album.tracks.length} tracks)`)
+          totalFilled += filled
+        }
+      } catch (err) {
+        if (err.statusCode === 429) throw err
+        console.warn(`    ⚠ ISRC fetch failed for "${album.title}": ${err.message}`)
+      }
+    }
+    if (totalFilled > 0) console.log(`  ✓ Total ISRCs backfilled: ${totalFilled}`)
+  }
+
   for (let artistIndex = 0; artistIndex < artists.length; artistIndex++) {
     const artist = artists[artistIndex]
     console.log(`\n[${artistIndex + 1}/${totalArtists}] ${artist.name}`)
@@ -950,6 +994,19 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         console.log(`  → Bandcamp URL verification for ${noUrlCount} Spotify-only album(s)...`)
         const found = await verifyBandcampUrls(artist)
         if (found > 0) console.log(`  ✓ Found ${found} album(s) on Bandcamp`)
+      }
+
+      // ── Step 1c: Backfill ISRCs from Spotify track data ───────────────────
+      if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled) {
+        try {
+          try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
+          await backfillIsrcs(artist, spotifyToken)
+        } catch (err) {
+          if (err.statusCode === 429) {
+            fallbackState.spotifyDisabled = true
+            console.warn('  ⚠ Spotify rate limited during ISRC backfill. Disabling Spotify.')
+          }
+        }
       }
 
       // ── Step 2: Soundcharts enrichment (artist + albums) ──────────────────
@@ -1218,6 +1275,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             console.log(`  → Spotify name search for ${stillMissingSpotify.length} album(s)...`)
             await enrichAlbumsWithSpotify(stillMissingSpotify, artist.name, spotifyClientId, spotifyClientSecret)
           }
+        }
+
+        // 1f. Backfill ISRCs from Spotify track data
+        if (spotifyToken) {
+          await backfillIsrcs(artist, spotifyToken)
         }
 
         } catch (spotifyErr) {
@@ -1578,11 +1640,6 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       console.log('[gap-fill] No gap-fill calls needed')
     }
   }
-
-  // NOTE: Track-level ISRCs from Spotify require user-scoped auth (/v1/tracks endpoint).
-  // The client_credentials flow used here doesn't have access. ISRCs come from:
-  // 1. Bandcamp CSV import (--fill-gaps)
-  // 2. Future: Spotify authorization code flow
 
   await writeCache(cachePath, data)
   console.log('\nEnrichment complete. Cache updated.')

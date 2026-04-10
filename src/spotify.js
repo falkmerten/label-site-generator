@@ -469,9 +469,86 @@ function formatDuration (ms) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-// NOTE: Track-level ISRCs from Spotify require the /v1/tracks endpoint which needs
-// user-scoped auth (authorization code flow). The client_credentials flow used here
-// only returns simplified track objects without external_ids. ISRCs come from the
-// Bandcamp CSV import (--fill-gaps) instead.
+/**
+ * Fetches ISRCs for tracks of a Spotify album by getting individual track details.
+ * The /v1/albums/{id}/tracks endpoint returns simplified track objects without external_ids,
+ * so we first list track IDs, then fetch each via /v1/tracks/{id} for the ISRC.
+ *
+ * @param {string} token - Spotify access token (client_credentials works)
+ * @param {string} spotifyAlbumUrl - Spotify album URL
+ * @returns {Promise<Array<{trackNumber: number, name: string, isrc: string|null}>>}
+ */
+async function fetchAlbumTrackIsrcs (token, spotifyAlbumUrl) {
+  const match = spotifyAlbumUrl.match(/album\/([A-Za-z0-9]+)/)
+  if (!match) return []
+  const albumId = match[1]
 
-module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult }
+  // Step 1: Get track IDs from album (simplified objects, no ISRCs)
+  const trackIds = []
+  let url = `/v1/albums/${albumId}/tracks?limit=50`
+  while (url) {
+    await delay(DELAY_MS)
+    const result = await new Promise((resolve) => {
+      const options = {
+        hostname: 'api.spotify.com',
+        path: url,
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      }
+      https.get(options, (res) => {
+        let raw = ''
+        res.on('data', chunk => { raw += chunk })
+        res.on('end', () => {
+          try { resolve({ statusCode: res.statusCode, body: JSON.parse(raw) }) }
+          catch { resolve({ statusCode: res.statusCode, body: null }) }
+        })
+      }).on('error', () => resolve({ statusCode: 0, body: null }))
+    })
+    if (result.statusCode === 429) {
+      const err = new Error('Spotify rate limited during ISRC fetch')
+      err.statusCode = 429
+      throw err
+    }
+    if (result.statusCode !== 200 || !result.body) break
+    for (const item of (result.body.items || [])) {
+      trackIds.push({ id: item.id, trackNumber: item.track_number, name: item.name })
+    }
+    if (result.body.next) {
+      try { const parsed = new URL(result.body.next); url = parsed.pathname + parsed.search }
+      catch { url = null }
+    } else { url = null }
+  }
+
+  // Step 2: Fetch each track individually for ISRC (batch endpoint removed in dev mode Feb 2026)
+  const tracks = []
+  for (const t of trackIds) {
+    await delay(DELAY_MS)
+    const result = await new Promise((resolve) => {
+      const options = {
+        hostname: 'api.spotify.com',
+        path: `/v1/tracks/${t.id}`,
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      }
+      https.get(options, (res) => {
+        let raw = ''
+        res.on('data', chunk => { raw += chunk })
+        res.on('end', () => {
+          try { resolve({ statusCode: res.statusCode, body: JSON.parse(raw) }) }
+          catch { resolve({ statusCode: res.statusCode, body: null }) }
+        })
+      }).on('error', () => resolve({ statusCode: 0, body: null }))
+    })
+    if (result.statusCode === 429) {
+      const err = new Error('Spotify rate limited during ISRC fetch')
+      err.statusCode = 429
+      throw err
+    }
+    const isrc = (result.body && result.body.external_ids && result.body.external_ids.isrc) || null
+    tracks.push({ trackNumber: t.trackNumber, name: t.name, isrc })
+  }
+
+  return tracks
+}
+
+module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult, fetchAlbumTrackIsrcs }
