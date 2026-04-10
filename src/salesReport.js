@@ -491,82 +491,38 @@ function syncSalesReportsToS3 () {
 }
 
 /**
- * Main entry point for sales report generation.
- * @param {SalesReportOptions} options
- * @returns {Promise<{reportsGenerated: number, transactionCount: number}>}
+ * Generate reports for a single year given shared auth/roster/CSV data.
  */
-async function generateSalesReports (options) {
-  const {
-    year,
-    artistFilter = null,
-    period = 'annual',
-    businessReport = false,
-    dryRun = false,
-    force = false,
-    syncS3 = false,
-    cachePath = './cache.json'
-  } = options
+async function generateForYear (year, accessToken, labelBandId, memberBandId, rosterLookup, allEsRows, allDistRows, period, businessReport, dryRun, artistFilter) {
+  console.log(`\n${'═'.repeat(60)}`)
+  console.log(`  Year ${year}`)
+  console.log(`${'═'.repeat(60)}`)
 
-  // 1. Check .gitignore
-  await checkGitignore()
-
-  // 2. Authenticate
-  console.log('Authenticating with Bandcamp...')
-  const accessToken = await bandcampSales.authenticate()
-
-  // 3. Resolve roster
-  console.log('Resolving artist roster...')
-  const roster = await bandcampSales.resolveRoster(accessToken)
-  const rosterLookup = buildRosterLookup(roster)
-
-  // 4. Determine band ID filter if --artist is specified
-  let memberBandId = null
-  if (artistFilter) {
-    const match = matchArtist(artistFilter, rosterLookup)
-    if (!match) {
-      throw new Error(`Artist not found: ${artistFilter}`)
-    }
-    const entry = rosterLookup.get(match.slug)
-    if (entry) memberBandId = entry.bandId
-  }
-
-  // 5. Fetch Bandcamp transactions for the year
-  const startTime = `${year}-01-01T00:00:00Z`
-  const endTime = `${year}-12-31T23:59:59Z`
+  // Fetch Bandcamp transactions for this year
+  const startTime = `${year}-01-01 00:00:00`
+  const endTime = `${year}-12-31 23:59:59`
   console.log(`Fetching Bandcamp sales for ${year}...`)
-  const allTransactions = await bandcampSales.fetchSalesReport(accessToken, startTime, endTime, memberBandId)
-  console.log(`  Fetched ${allTransactions.length} Bandcamp transactions`)
+  const yearTransactions = await bandcampSales.fetchSalesReport(accessToken, labelBandId, startTime, endTime, memberBandId)
+  console.log(`  Fetched ${yearTransactions.length} Bandcamp transactions`)
 
-  // 6. Import CSV data from all platforms
-  const trackingPath = 'sales/import/.imported.json'
-  const importOptions = { force, trackingPath }
-
-  let allEsRows = []
-  const allDistRows = { amuse: [], makewaves: [], labelcaster: [] }
-
-  for (const { platform, dir } of IMPORT_PLATFORMS) {
-    console.log(`Importing ${platform} CSV files...`)
-    const rows = await salesImport.importCsvFiles(dir, platform, importOptions)
-    if (platform === 'elasticstage' || platform === 'discogs') {
-      allEsRows = allEsRows.concat(rows)
-    } else {
-      allDistRows[platform] = rows
-    }
-    if (rows.length > 0) {
-      console.log(`  Imported ${rows.length} rows from ${platform}`)
-    }
-  }
-
-  // 7. Get periods
   const periods = getPeriods(year, period)
 
-  // 8. Group transactions and import rows by artist
-  const txByArtist = groupTransactionsByArtist(allTransactions, rosterLookup)
-  const esByArtist = groupImportRowsByArtist(allEsRows, rosterLookup)
+  // Group Bandcamp transactions by artist
+  const txByArtist = groupTransactionsByArtist(yearTransactions, rosterLookup)
 
-  // Group distributor rows by artist per platform
-  const distByArtist = {} // { slug: { amuse: [], makewaves: [], labelcaster: [] } }
+  // Filter CSV import rows to this year
+  const yearStart = new Date(Date.UTC(year, 0, 1))
+  const yearEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59))
+  const yearEsRows = filterImportRowsByPeriod(allEsRows, yearStart, yearEnd)
+  const esByArtist = groupImportRowsByArtist(yearEsRows, rosterLookup)
+
+  const yearDistRows = {}
   for (const [platform, rows] of Object.entries(allDistRows)) {
+    yearDistRows[platform] = filterImportRowsByPeriod(rows, yearStart, yearEnd)
+  }
+
+  const distByArtist = {}
+  for (const [platform, rows] of Object.entries(yearDistRows)) {
     const grouped = groupImportRowsByArtist(rows, rosterLookup)
     for (const [slug, data] of grouped) {
       if (!distByArtist[slug]) {
@@ -576,31 +532,27 @@ async function generateSalesReports (options) {
     }
   }
 
-  // 9. Collect all artist slugs that have any data
   const allSlugs = new Set()
   for (const slug of txByArtist.keys()) allSlugs.add(slug)
   for (const slug of esByArtist.keys()) allSlugs.add(slug)
   for (const slug of Object.keys(distByArtist)) allSlugs.add(slug)
 
-  // If artist filter is set, only keep that artist
   if (artistFilter) {
     const match = matchArtist(artistFilter, rosterLookup)
     if (match) {
-      const keep = match.slug
-      for (const slug of allSlugs) {
-        if (slug !== keep) allSlugs.delete(slug)
-      }
+      for (const slug of allSlugs) { if (slug !== match.slug) allSlugs.delete(slug) }
     }
   }
 
-  // 10. Generate reports
-  let reportsGenerated = 0
-  let totalTransactionCount = allTransactions.length
+  if (allSlugs.size === 0) {
+    console.log('  No data for this year, skipping.')
+    return { reports: 0, transactions: yearTransactions.length }
+  }
 
-  console.log(`\nGenerating reports for ${allSlugs.size} artist(s), ${periods.length} period(s)...`)
+  console.log(`Generating reports for ${allSlugs.size} artist(s), ${periods.length} period(s)...`)
+  let reports = 0
 
   for (const slug of [...allSlugs].sort()) {
-    // Skip VA report if no non-roster transactions
     if (slug === VARIOUS_ARTISTS_SLUG) {
       const vaTx = txByArtist.get(slug)
       const vaEs = esByArtist.get(slug)
@@ -614,14 +566,9 @@ async function generateSalesReports (options) {
     const artistTx = txByArtist.get(slug)
     const artistEs = esByArtist.get(slug)
     const artistDist = distByArtist[slug]
-
-    const artistName = (artistTx && artistTx.name) ||
-                       (artistEs && artistEs.name) ||
-                       (artistDist && artistDist.name) ||
-                       slug
+    const artistName = (artistTx && artistTx.name) || (artistEs && artistEs.name) || (artistDist && artistDist.name) || slug
 
     for (const p of periods) {
-      // Filter data to this period
       const periodTx = artistTx ? filterByPeriod(artistTx.transactions, p.start, p.end) : []
       const periodEs = artistEs ? filterImportRowsByPeriod(artistEs.rows, p.start, p.end) : []
       const periodDist = {
@@ -632,32 +579,90 @@ async function generateSalesReports (options) {
 
       const reportData = buildArtistReportData(artistName, slug, year, p, periodTx, periodEs, periodDist)
       const markdown = renderArtistReport(reportData)
-      const filePath = `sales/${slug}/${slug}-${p.suffix}.md`
-
-      await writeReport(filePath, markdown, dryRun)
-      reportsGenerated++
+      await writeReport(`sales/${slug}/${slug}-${p.suffix}.md`, markdown, dryRun)
+      reports++
     }
   }
 
-  // 11. Generate business report if requested
   if (businessReport) {
-    console.log('\nGenerating business report...')
-    const bizData = buildBusinessReportData(year, allTransactions, allEsRows, allDistRows)
-    const bizMarkdown = renderBusinessReport(bizData)
-    const bizPath = `sales/business-report-${year}.md`
-    await writeReport(bizPath, bizMarkdown, dryRun)
-    reportsGenerated++
+    console.log('Generating business report...')
+    const bizData = buildBusinessReportData(year, yearTransactions, yearEsRows, yearDistRows)
+    await writeReport(`sales/business-report-${year}.md`, renderBusinessReport(bizData), dryRun)
+    reports++
   }
 
-  // 12. Log summary
-  console.log(`\nGenerated ${reportsGenerated} reports, ${totalTransactionCount} transactions processed`)
+  return { reports, transactions: yearTransactions.length }
+}
 
-  // 13. Sync to S3 if requested or STORAGE_MODE=s3
+/**
+ * Main entry point for sales report generation.
+ * Authenticates once, imports CSVs once, loops through years.
+ * @param {object} options
+ */
+async function generateSalesReports (options) {
+  const {
+    years,
+    year,
+    artistFilter = null,
+    period = 'annual',
+    businessReport = false,
+    dryRun = false,
+    force = false,
+    syncS3 = false
+  } = options
+
+  const yearList = years || [year]
+
+  await checkGitignore()
+
+  console.log('Authenticating with Bandcamp...')
+  const accessToken = await bandcampSales.authenticate()
+
+  console.log('Resolving artist roster...')
+  const { roster, labelBandId } = await bandcampSales.resolveRoster(accessToken)
+  const rosterLookup = buildRosterLookup(roster)
+
+  let memberBandId = null
+  if (artistFilter) {
+    const match = matchArtist(artistFilter, rosterLookup)
+    if (!match) throw new Error(`Artist not found: ${artistFilter}`)
+    const entry = rosterLookup.get(match.slug)
+    if (entry) memberBandId = entry.bandId
+  }
+
+  // Import CSV data once
+  const trackingPath = 'sales/import/.imported.json'
+  let allEsRows = []
+  const allDistRows = { amuse: [], makewaves: [], labelcaster: [] }
+
+  for (const { platform, dir } of IMPORT_PLATFORMS) {
+    console.log(`Importing ${platform} CSV files...`)
+    const rows = await salesImport.importCsvFiles(dir, platform, { force, trackingPath })
+    if (platform === 'elasticstage' || platform === 'discogs') {
+      allEsRows = allEsRows.concat(rows)
+    } else {
+      allDistRows[platform] = rows
+    }
+    if (rows.length > 0) console.log(`  Imported ${rows.length} rows from ${platform}`)
+  }
+
+  let totalReports = 0
+  let totalTransactions = 0
+
+  for (const y of yearList) {
+    const result = await generateForYear(y, accessToken, labelBandId, memberBandId, rosterLookup, allEsRows, allDistRows, period, businessReport, dryRun, artistFilter)
+    totalReports += result.reports
+    totalTransactions += result.transactions
+  }
+
+  console.log(`\n${'═'.repeat(60)}`)
+  console.log(`Generated ${totalReports} reports across ${yearList.length} year(s), ${totalTransactions} Bandcamp transactions`)
+
   if (!dryRun && (syncS3 || process.env.STORAGE_MODE === 's3')) {
     syncSalesReportsToS3()
   }
 
-  return { reportsGenerated, transactionCount: totalTransactionCount }
+  return { reportsGenerated: totalReports, transactionCount: totalTransactions }
 }
 
 module.exports = { generateSalesReports }

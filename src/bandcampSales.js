@@ -1,5 +1,6 @@
 'use strict'
 
+const https = require('https')
 const { getAccessToken, getMyBands, httpsPost } = require('./bandcampApi')
 const { toSlug } = require('./slugs')
 
@@ -20,10 +21,10 @@ async function authenticate () {
 /**
  * Resolves artist roster from Bandcamp my_bands API.
  * @param {string} accessToken
- * @returns {Promise<Map<string, {bandId: number, subdomain: string, slug: string}>>}
+ * @returns {Promise<{roster: Map, labelBandId: number|null}>}
  */
 async function resolveRoster (accessToken) {
-  const bands = await getMyBands(accessToken)
+  const { bands, labelBandId } = await getMyBands(accessToken)
   const roster = new Map()
   for (const band of bands) {
     const name = band.name || band.band_name || ''
@@ -34,80 +35,134 @@ async function resolveRoster (accessToken) {
       slug: toSlug(name)
     })
   }
-  return roster
+  return { roster, labelBandId }
 }
 
 /**
- * Fetches all sales transactions for a date range, paginating automatically.
- * @param {string} accessToken
- * @param {string} startTime - ISO 8601 start
- * @param {string} endTime - ISO 8601 end
- * @param {number|null} memberBandId - optional filter for single artist
- * @returns {Promise<Array>} array of Transaction objects
+ * Simple HTTPS GET that returns the response body as a string.
  */
-async function fetchSalesReport (accessToken, startTime, endTime, memberBandId) {
-  const allTransactions = []
-  let lastDate = null
-  let hasMore = true
+function httpsGet (url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      // Follow redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return httpsGet(res.headers.location).then(resolve, reject)
+      }
+      let data = ''
+      res.on('data', chunk => { data += chunk })
+      res.on('end', () => resolve(data))
+    }).on('error', reject)
+  })
+}
 
-  while (hasMore) {
-    const body = {
-      band_id: memberBandId || 0,
-      member_band_id: memberBandId || 0,
-      start_time: startTime,
-      end_time: endTime
+/**
+ * Sleep for ms milliseconds.
+ */
+function sleep (ms) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Parse a Bandcamp transaction item into our Transaction format.
+ */
+function parseTransaction (item) {
+  return {
+    date: item.date || item.paid_to_date || '',
+    artist: item.artist || '',
+    itemName: item.item_name || '',
+    itemType: item.item_type || '',
+    currency: item.currency || '',
+    itemPrice: Number(item.item_price) || 0,
+    quantity: Number(item.quantity) || 0,
+    subTotal: Number(item.sub_total) || 0,
+    transactionFee: Number(item.transaction_fee) || 0,
+    netAmount: Number(item.net_amount) || 0,
+    shipping: Number(item.shipping) || 0,
+    package: item.package || '',
+    itemUrl: item.item_url || '',
+    upc: item.upc || null,
+    isrc: item.isrc || null
+  }
+}
+
+/**
+ * Fetches all sales transactions using the async generate/fetch flow.
+ * 1. POST generate_sales_report → token
+ * 2. Poll fetch_sales_report → download URL
+ * 3. Download JSON and parse transactions
+ *
+ * @param {string} accessToken
+ * @param {number} bandId - the label's band_id
+ * @param {string} startTime - "YYYY-MM-DD HH:MM:SS"
+ * @param {string} endTime - "YYYY-MM-DD HH:MM:SS"
+ * @param {number|null} memberBandId - optional single-artist filter
+ * @returns {Promise<Array>} Transaction objects
+ */
+async function fetchSalesReport (accessToken, bandId, startTime, endTime, memberBandId) {
+  const authHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  }
+
+  // 1. Trigger async report generation
+  const genBody = {
+    band_id: bandId,
+    start_time: startTime,
+    end_time: endTime,
+    format: 'json'
+  }
+  if (memberBandId) {
+    genBody.member_band_id = memberBandId
+  }
+
+  const genRes = await httpsPost('bandcamp.com', '/api/sales/4/generate_sales_report', genBody, authHeaders)
+  if (genRes.status !== 200 || !genRes.body.token) {
+    const errMsg = genRes.body.error_message || genRes.body.error || `HTTP ${genRes.status}`
+    throw new Error(`Bandcamp generate_sales_report error: ${errMsg}`)
+  }
+
+  const token = genRes.body.token
+  console.log(`  Report generation triggered (token: ${token.substring(0, 20)}...)`)
+
+  // 2. Poll for the report URL
+  let downloadUrl = null
+  const maxAttempts = 30
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await sleep(2000) // wait 2s between polls
+
+    const fetchRes = await httpsPost('bandcamp.com', '/api/sales/4/fetch_sales_report', { token }, authHeaders)
+
+    if (fetchRes.body.error && fetchRes.body.error_message === "Report hasn't generated yet") {
+      process.stdout.write(`  Waiting for report... (${attempt}/${maxAttempts})\r`)
+      continue
     }
-    if (lastDate) {
-      body.last_token = lastDate
+
+    if (fetchRes.body.error) {
+      throw new Error(`Bandcamp fetch_sales_report error: ${fetchRes.body.error_message}`)
     }
 
-    const res = await httpsPost('bandcamp.com', '/api/sales/4/sales_report', body, {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    })
-
-    if (res.status !== 200) {
-      throw new Error(`Bandcamp Sales API error: HTTP ${res.status}`)
-    }
-
-    const report = res.body.report || []
-    if (report.length === 0) {
-      hasMore = false
+    if (fetchRes.body.url) {
+      downloadUrl = fetchRes.body.url
+      console.log('  Report ready, downloading...')
       break
-    }
-
-    for (const item of report) {
-      allTransactions.push({
-        date: item.date || item.paid_to_date || '',
-        artist: item.artist || '',
-        itemName: item.item_name || '',
-        itemType: item.item_type || '',
-        currency: item.currency || '',
-        itemPrice: Number(item.item_price) || 0,
-        quantity: Number(item.quantity) || 0,
-        subTotal: Number(item.sub_total) || 0,
-        transactionFee: Number(item.transaction_fee) || 0,
-        netAmount: Number(item.net_amount) || 0,
-        shipping: Number(item.shipping) || 0,
-        package: item.package || '',
-        itemUrl: item.item_url || '',
-        upc: item.upc || null,
-        isrc: item.isrc || null
-      })
-    }
-
-    // If the page returned fewer results than expected, we're done.
-    // Otherwise use the last item's date as pagination token.
-    if (res.body.more_available === false || report.length === 0) {
-      hasMore = false
-    } else {
-      const lastItem = report[report.length - 1]
-      lastDate = lastItem.date || lastItem.paid_to_date || null
-      if (!lastDate) hasMore = false
     }
   }
 
-  return allTransactions
+  if (!downloadUrl) {
+    throw new Error('Bandcamp sales report generation timed out after 60 seconds')
+  }
+
+  // 3. Download and parse the report
+  const raw = await httpsGet(downloadUrl)
+  let data
+  try {
+    data = JSON.parse(raw)
+  } catch {
+    throw new Error('Failed to parse Bandcamp sales report JSON')
+  }
+
+  const report = data.report || (Array.isArray(data) ? data : [])
+  return report.map(parseTransaction)
 }
 
 module.exports = { authenticate, resolveRoster, fetchSalesReport }

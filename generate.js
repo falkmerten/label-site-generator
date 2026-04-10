@@ -203,11 +203,11 @@ function parseArgs(argv) {
 
   // Sales report validation
   if (options.salesReport && !options.year) {
-    console.error('Usage: --sales-report requires --year <YYYY>')
+    console.error('Usage: --sales-report requires --year <YYYY> or --year <YYYY-YYYY>')
     process.exit(1)
   }
-  if (options.year && !/^\d{4}$/.test(options.year)) {
-    console.error(`Invalid year: ${options.year}. Expected a four-digit year (e.g. 2025)`)
+  if (options.year && !/^\d{4}(-\d{4})?$/.test(options.year)) {
+    console.error(`Invalid year: ${options.year}. Expected a four-digit year (e.g. 2025) or range (e.g. 2012-2026)`)
     process.exit(1)
   }
   if (options.period && !['monthly', 'quarterly', 'half-yearly'].includes(options.period)) {
@@ -318,8 +318,17 @@ async function run() {
   }
   if (options.salesReport) {
     const { generateSalesReports } = require('./src/salesReport');
+    // Expand year range (e.g. "2012-2026") into array of years
+    let years
+    if (options.year.includes('-')) {
+      const [from, to] = options.year.split('-').map(Number)
+      years = []
+      for (let y = from; y <= to; y++) years.push(y)
+    } else {
+      years = [parseInt(options.year, 10)]
+    }
     await generateSalesReports({
-      year: parseInt(options.year, 10),
+      years,
       artistFilter: options.artistFilter,
       period: options.period || 'annual',
       businessReport: options.businessReport,

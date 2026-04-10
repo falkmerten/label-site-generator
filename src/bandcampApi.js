@@ -60,6 +60,8 @@ async function getAccessToken (clientId, clientSecret) {
 /**
  * Calls the Bandcamp my_bands API endpoint and returns the list of bands.
  * The label account's member_bands are extracted from the label band entry.
+ * Also returns the label's own band_id for use with the Sales API.
+ * @returns {{ bands: Array, labelBandId: number|null }}
  */
 async function getMyBands (accessToken) {
   const res = await httpsPost('bandcamp.com', '/api/account/1/my_bands', {}, {
@@ -75,10 +77,10 @@ async function getMyBands (accessToken) {
   // Fall back to all bands if no label entry is found.
   for (const band of bands) {
     if (band.member_bands && band.member_bands.length > 0) {
-      return band.member_bands
+      return { bands: band.member_bands, labelBandId: band.band_id }
     }
   }
-  return bands
+  return { bands, labelBandId: bands.length > 0 ? bands[0].band_id : null }
 }
 
 /**
@@ -93,7 +95,7 @@ async function getLabelArtistUrls (clientId, clientSecret) {
   console.log('Authenticating with Bandcamp API...')
   const accessToken = await getAccessToken(clientId, clientSecret)
   console.log('Fetching label roster via API...')
-  const bands = await getMyBands(accessToken)
+  const { bands } = await getMyBands(accessToken)
   const urls = bands
     .map(b => b.subdomain ? `https://${b.subdomain}.bandcamp.com/` : null)
     .filter(Boolean)
