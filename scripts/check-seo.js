@@ -4,6 +4,8 @@ const path = require('path')
 
 function checkHtml (file) {
   const html = fs.readFileSync(file, 'utf8')
+  // Skip redirect pages (meta http-equiv="refresh")
+  if (html.includes('http-equiv="refresh"')) return []
   const issues = []
   if (!html.includes('<meta name="description"')) issues.push('missing meta description')
   if (!html.includes('og:title')) issues.push('missing og:title')

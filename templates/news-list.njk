@@ -4,6 +4,18 @@
 {% block metaDescription %}Latest news and updates from {{ labelName }}.{% endblock %}
 {% block ogDescription %}Latest news and updates from {{ labelName }}.{% endblock %}
 
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "News",
+  "description": "Latest news and updates from {{ labelName }}"{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}
+}
+</script>
+{% endblock %}
+
 {% block content %}
   <section class="section news-page-section">
     <div class="section-inner">
