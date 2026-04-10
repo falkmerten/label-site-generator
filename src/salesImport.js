@@ -153,7 +153,7 @@ function parseRow (row, mapping, platform) {
     } else {
       format = lower
     }
-  } else if (platform === 'elasticstage') {
+  } else if (platform === 'elasticstage' || platform === 'discogs') {
     format = 'physical'
   }
 

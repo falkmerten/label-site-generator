@@ -21,6 +21,7 @@ const VARIOUS_ARTISTS_SLUG = 'various-artists'
 
 const IMPORT_PLATFORMS = [
   { platform: 'elasticstage', dir: 'sales/import/elasticstage' },
+  { platform: 'discogs', dir: 'sales/import/discogs' },
   { platform: 'amuse', dir: 'sales/import/amuse' },
   { platform: 'makewaves', dir: 'sales/import/makewaves' },
   { platform: 'labelcaster', dir: 'sales/import/labelcaster' }
@@ -546,8 +547,8 @@ async function generateSalesReports (options) {
   for (const { platform, dir } of IMPORT_PLATFORMS) {
     console.log(`Importing ${platform} CSV files...`)
     const rows = await salesImport.importCsvFiles(dir, platform, importOptions)
-    if (platform === 'elasticstage') {
-      allEsRows = rows
+    if (platform === 'elasticstage' || platform === 'discogs') {
+      allEsRows = allEsRows.concat(rows)
     } else {
       allDistRows[platform] = rows
     }
