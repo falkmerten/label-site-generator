@@ -843,23 +843,46 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       (al.tracks || []).some(t => !t.isrc)
     )
     if (albums.length === 0) return
+
+    // Normalize title for matching: lowercase, strip non-alphanumeric
+    const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    // Extract base title: strip remix/version/instrumental suffixes and featured artist info
+    const baseTitle = s => (s || '')
+      .replace(/\s*[-–—]\s*(remix|instrumental|radio edit|extended|remaster|feat\.?|ft\.?).*$/i, '')
+      .replace(/\s*\(.*?(remix|instrumental|radio edit|extended|remaster|feat\.?|ft\.?).*?\)\s*/gi, '')
+      .trim()
+
     let totalFilled = 0
     for (const album of albums) {
       try {
         const spotifyTracks = await fetchAlbumTrackIsrcs(token, album.streamingLinks.spotify)
         if (spotifyTracks.length === 0) continue
         let filled = 0
-        for (const cacheTrack of (album.tracks || [])) {
+        const usedSpotifyIndices = new Set()
+        for (const [cacheIdx, cacheTrack] of (album.tracks || []).entries()) {
           if (cacheTrack.isrc) continue
-          // Match by track number first, then by normalized title
-          const byNum = spotifyTracks.find(st => st.trackNumber === cacheTrack.track_num)
-          const byTitle = !byNum ? spotifyTracks.find(st =>
-            st.name.toLowerCase().replace(/[^a-z0-9]/g, '') ===
-            (cacheTrack.name || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-          ) : null
-          const match = byNum || byTitle
+          // 1. Match by track number
+          const byNum = cacheTrack.track_num
+            ? spotifyTracks.find((st, i) => !usedSpotifyIndices.has(i) && st.trackNumber === cacheTrack.track_num)
+            : null
+          // 2. Exact normalized title match
+          const cacheNorm = norm(cacheTrack.name)
+          const byExact = !byNum ? spotifyTracks.find((st, i) => !usedSpotifyIndices.has(i) && norm(st.name) === cacheNorm) : null
+          // 3. Base title match (strip remix/version suffixes)
+          const cacheBase = norm(baseTitle(cacheTrack.name))
+          const byBase = (!byNum && !byExact && cacheBase.length >= 4)
+            ? spotifyTracks.find((st, i) => !usedSpotifyIndices.has(i) && norm(baseTitle(st.name)) === cacheBase)
+            : null
+          // 4. Position fallback: same index if track counts match
+          const byPos = (!byNum && !byExact && !byBase && album.tracks.length === spotifyTracks.length)
+            ? spotifyTracks[cacheIdx]
+            : null
+          const match = byNum || byExact || byBase || byPos
           if (match && match.isrc) {
+            const matchIdx = spotifyTracks.indexOf(match)
+            usedSpotifyIndices.add(matchIdx)
             cacheTrack.isrc = match.isrc
+            if (!cacheTrack.track_num && match.trackNumber) cacheTrack.track_num = match.trackNumber
             filled++
           }
         }
@@ -981,6 +1004,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
               fallbackState.spotifyRetryAfter = spotifyErr.retryAfter || null
               const hours = spotifyErr.retryAfter ? Math.ceil(spotifyErr.retryAfter / 3600) : '?'
               console.warn(`  ⚠ [fallback] Spotify rate limited (429). Retry in ~${hours}h. Disabling Spotify for remaining artists.`)
+            if (options.artistFilter) {
+              console.error('\n[enricher] Aborting — Spotify rate limited and running in single-artist mode. Try again later.')
+              await writeCache(cachePath, data)
+              return
+            }
             } else {
               console.warn(`  ⚠ [spotify] Album list fetch failed: ${spotifyErr.message}`)
             }
@@ -1005,6 +1033,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
           if (err.statusCode === 429) {
             fallbackState.spotifyDisabled = true
             console.warn('  ⚠ Spotify rate limited during ISRC backfill. Disabling Spotify.')
+            if (options.artistFilter) {
+              console.error('\n[enricher] Aborting — Spotify rate limited and running in single-artist mode. Try again later.')
+              await writeCache(cachePath, data)
+              return
+            }
           }
         }
       }
@@ -1048,6 +1081,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
               fallbackState.spotifyRetryAfter = retryAfter || null
               const retryMsg = retryAfter ? ` (retry after ${retryAfter}s)` : ''
               console.warn(`  ⚠ [fallback] Spotify rate limited (429)${retryMsg}. Disabling Spotify for remaining artists.`)
+              if (options.artistFilter) {
+                console.error('\n[enricher] Aborting — Spotify rate limited and running in single-artist mode. Try again later.')
+                await writeCache(cachePath, data)
+                return
+              }
             } else {
               console.warn(`  ⚠ [spotify] Error: ${spotifyErr.message}`)
             }
@@ -1290,6 +1328,11 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             fallbackState.spotifyRetryAfter = retryAfter || null
             const retryMsg = retryAfter ? ` (retry after ${retryAfter}s)` : ''
             console.warn(`  ⚠ [fallback] Spotify rate limited (429)${retryMsg}. Disabling Spotify for remaining artists.`)
+            if (options.artistFilter) {
+              console.error('\n[enricher] Aborting — Spotify rate limited and running in single-artist mode. Try again later.')
+              await writeCache(cachePath, data)
+              return
+            }
             console.warn('  ⚠ [fallback] Continuing with iTunes/Deezer/Tidal/Discogs.')
           } else {
             console.warn(`  ⚠ [spotify] Error: ${spotifyErr.message}`)
