@@ -598,6 +598,11 @@ function syncSalesReportsToS3 () {
   console.log(`\nSyncing sales/ to ${s3Path} ...`)
 
   execSync(
+    `aws configure set default.s3.multipart_threshold 64MB`,
+    { stdio: 'ignore' }
+  )
+
+  execSync(
     `aws s3 sync sales/ ${s3Path} --exclude "import/*" --exclude "*.css"`,
     { stdio: 'inherit' }
   )
