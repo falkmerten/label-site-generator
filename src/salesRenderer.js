@@ -139,6 +139,11 @@ function renderArtistReport (data) {
   const sections = []
 
   // --- Header ---
+  const logoPath = data.logoPath || ''
+  if (logoPath) {
+    sections.push(`![Logo](${logoPath})`)
+    sections.push('')
+  }
   sections.push(`# Sales Report: ${data.artistName}`)
   sections.push(`**Period:** ${data.periodLabel}`)
   sections.push(`**Generated:** ${data.generatedAt}`)
@@ -318,6 +323,11 @@ function renderBusinessReport (data) {
   const sections = []
 
   // --- Header ---
+  const logoPath = data.logoPath || ''
+  if (logoPath) {
+    sections.push(`![Logo](${logoPath})`)
+    sections.push('')
+  }
   sections.push(`# Business Report ${data.year}`)
   sections.push(`**Generated:** ${data.generatedAt}`)
 

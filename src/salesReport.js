@@ -372,6 +372,7 @@ function buildArtistReportData (artistName, artistSlug, year, period, transactio
     periodLabel: period.label,
     periodSuffix: period.suffix,
     generatedAt: formatDate(new Date()),
+    logoPath: '../../assets/logo-round.png',
     physical,
     digital,
     elasticstage: esRows,
@@ -550,6 +551,7 @@ function buildBusinessReportData (year, allTransactions, allEsRows, allDistRows)
   return {
     year,
     generatedAt: formatDate(new Date()),
+    logoPath: '../assets/logo-round.png',
     summary,
     revenueByArtist: Object.values(artistTotals),
     revenueBySource: Object.values(sourceTotals),
@@ -632,12 +634,27 @@ async function convertReportsToPdf (mdFiles) {
     return
   }
 
+  const stylesheetPath = path.resolve('sales/report-style.css')
+  const stylesheets = []
+  try {
+    require('fs').accessSync(stylesheetPath)
+    stylesheets.push(stylesheetPath)
+  } catch {}
+
   console.log(`\nConverting ${mdFiles.length} reports to PDF...`)
   let converted = 0
   for (const mdFile of mdFiles) {
     const pdfFile = mdFile.replace(/\.md$/, '.pdf')
     try {
-      await mdToPdf({ path: mdFile }, { dest: pdfFile, stylesheet: [], pdf_options: { format: 'A4', margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } } })
+      await mdToPdf(
+        { path: mdFile },
+        {
+          dest: pdfFile,
+          stylesheet: stylesheets,
+          basedir: path.resolve('.'),
+          pdf_options: { format: 'A4', margin: { top: '20mm', bottom: '20mm', left: '15mm', right: '15mm' } }
+        }
+      )
       converted++
     } catch (err) {
       console.warn(`  Warning: failed to convert ${mdFile}: ${err.message}`)
