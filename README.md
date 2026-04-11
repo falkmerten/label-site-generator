@@ -504,10 +504,10 @@ Add private Bandcamp stream links for unreleased albums. These are fetched durin
 
 ```json
 {
-  "nils-lassen": [
-    "https://bandcamp.com/private/YSK5VZ0O"
+  "artist-slug": [
+    "https://bandcamp.com/private/PRIVATE_CODE"
   ],
-  "art-noir": [
+  "another-artist": [
     "https://bandcamp.com/private/ANOTHER_CODE"
   ]
 }
@@ -523,9 +523,9 @@ Map Various Artists compilation slugs to their Spotify album IDs. This avoids Sp
 
 ```json
 {
-  "join-the-dark-side-we-have-the-music-10-year-anniversary-compilation": {
-    "spotifyUrl": "https://open.spotify.com/album/594T7JwkMHO2QjZWitpoO8",
-    "upc": "4260345610661"
+  "compilation-album-slug": {
+    "spotifyUrl": "https://open.spotify.com/album/SPOTIFY_ALBUM_ID",
+    "upc": "1234567890123"
   }
 }
 ```
