@@ -597,29 +597,12 @@ function syncSalesReportsToS3 () {
 
   console.log(`\nSyncing sales/ to ${s3Path} ...`)
 
-  const output = execSync(
-    `aws s3 sync sales/ ${s3Path} --exclude "import/*" --size-only`,
-    { encoding: 'utf8' }
+  execSync(
+    `aws s3 sync sales/ ${s3Path} --exclude "import/*" --exclude "*.css"`,
+    { stdio: 'inherit' }
   )
 
-  // Count uploaded files and estimate bytes from output lines
-  const uploadLines = output.split('\n').filter(l => l.startsWith('upload:'))
-  let totalBytes = 0
-  for (const line of uploadLines) {
-    // aws s3 sync output format: "upload: sales/file.md to s3://... "
-    // Extract local file path to get size
-    const match = line.match(/^upload:\s+(\S+)/)
-    if (match) {
-      try {
-        const stat = require('fs').statSync(match[1])
-        totalBytes += stat.size
-      } catch {
-        // File may have been removed between sync and stat; skip
-      }
-    }
-  }
-
-  console.log(`S3 sync complete: ${uploadLines.length} file(s) uploaded, ${totalBytes} bytes transferred`)
+  console.log('S3 sync complete.')
 }
 
 /**
