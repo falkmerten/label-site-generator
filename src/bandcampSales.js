@@ -75,6 +75,7 @@ function parseTransaction (item) {
     itemPrice: Number(item.item_price) || 0,
     quantity: Number(item.quantity) || 0,
     subTotal: Number(item.sub_total) || 0,
+    itemTotal: Number(item.item_total) || 0,
     transactionFee: Number(item.transaction_fee) || 0,
     netAmount: Number(item.net_amount) || 0,
     shipping: Number(item.shipping) || 0,

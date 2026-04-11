@@ -294,14 +294,15 @@ function buildArtistReportData (artistName, artistSlug, year, period, transactio
 
     if (type === 'physical') {
       if (!physical[cur]) physical[cur] = []
+      const gross = tx.itemTotal - tx.shipping
       physical[cur].push({
         date: tx.date,
         item: tx.itemName,
         format: formatLabel(tx.package),
         qty: tx.quantity,
-        price: tx.itemPrice,
+        price: tx.itemTotal,
         shipping: tx.shipping,
-        bcFee: Math.round((tx.subTotal - tx.transactionFee - tx.netAmount) * 100) / 100,
+        bcFee: Math.round((gross - tx.transactionFee - tx.netAmount) * 100) / 100,
         txFee: tx.transactionFee,
         net: tx.netAmount
       })
@@ -311,8 +312,8 @@ function buildArtistReportData (artistName, artistSlug, year, period, transactio
         date: tx.date,
         item: tx.itemName,
         qty: tx.quantity,
-        price: tx.itemPrice,
-        bcFee: Math.round((tx.subTotal - tx.transactionFee - tx.netAmount) * 100) / 100,
+        price: tx.itemTotal,
+        bcFee: Math.round((tx.itemTotal - tx.transactionFee - tx.netAmount) * 100) / 100,
         txFee: tx.transactionFee,
         net: tx.netAmount
       })
