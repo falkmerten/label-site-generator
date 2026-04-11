@@ -237,14 +237,34 @@ function renderArtistReport (data) {
     ))
   }
 
-  // --- Other Distribution (Overview) ---
-  sections.push('\n## Other Distribution (Overview)\n')
-  const distPlatforms = Object.keys(data.distributors || {})
-  const allDistRows = []
-  for (const platform of distPlatforms.sort()) {
+  // --- Discogs Marketplace Sales ---
+  sections.push('\n## Discogs Marketplace Sales\n')
+  const discogsEntries = (data.distributors || {}).discogs || []
+  if (discogsEntries.length === 0) {
+    sections.push('No data for this period.')
+  } else {
+    const discogsRows = discogsEntries.map(entry => [
+      entry.artist,
+      entry.release,
+      formatMoney(entry.revenue),
+      entry.currency
+    ])
+    sections.push(renderTable(
+      ['Artist', 'Release', 'Revenue', 'Currency'],
+      discogsRows
+    ))
+    sections.push('')
+    sections.push('> Amounts shown are item price minus Discogs seller fee. Artist share to be deducted.')
+  }
+
+  // --- Digital Distribution (Overview) ---
+  sections.push('\n## Digital Distribution (Overview)\n')
+  const digitalDistPlatforms = Object.keys(data.distributors || {}).filter(p => p !== 'discogs')
+  const allDigitalDistRows = []
+  for (const platform of digitalDistPlatforms.sort()) {
     const entries = data.distributors[platform]
     for (const entry of entries) {
-      allDistRows.push([
+      allDigitalDistRows.push([
         platform.charAt(0).toUpperCase() + platform.slice(1),
         entry.artist,
         entry.release,
@@ -253,19 +273,19 @@ function renderArtistReport (data) {
       ])
     }
   }
-  if (allDistRows.length === 0) {
+  if (allDigitalDistRows.length === 0) {
     sections.push('No data for this period.')
   } else {
     sections.push(renderTable(
       ['Platform', 'Artist', 'Release', 'Revenue', 'Currency'],
-      allDistRows
+      allDigitalDistRows
     ))
     sections.push('')
     sections.push('> Split royalties handled by distributor. Amounts shown are label share as reported.')
   }
 
-  // --- Totals ---
-  sections.push('\n## Totals\n')
+  // --- Totals (Net) ---
+  sections.push('\n## Totals (Net)\n')
   if (currencies.length === 0) {
     sections.push('No data for this period.')
   } else {
@@ -276,7 +296,7 @@ function renderArtistReport (data) {
       totalsRows.push(['Digital', `${formatMoney(t.digital)} ${cur}`, cur])
       totalsRows.push(['ElasticStage', `${formatMoney(t.elasticstage)} ${cur}`, cur])
       totalsRows.push(['Distributors', `${formatMoney(t.distributors)} ${cur}`, cur])
-      totalsRows.push(['**Grand Total**', `**${formatMoney(t.total)} ${cur}**`, cur])
+      totalsRows.push(['**Net Total**', `**${formatMoney(t.total)} ${cur}**`, cur])
     }
     sections.push(renderTable(
       ['Source', 'Amount', 'Currency'],
@@ -393,8 +413,8 @@ function renderBusinessReport (data) {
     ))
   }
 
-  // --- Totals ---
-  sections.push('\n## Totals\n')
+  // --- Totals (Net) ---
+  sections.push('\n## Totals (Net)\n')
   if (currencies.length === 0) {
     sections.push('No data for this period.')
   } else {
@@ -403,7 +423,7 @@ function renderBusinessReport (data) {
       const s = data.summary[cur]
       totalsRows.push(['Physical', `${formatMoney(s.physical)} ${cur}`, cur])
       totalsRows.push(['Digital', `${formatMoney(s.digital)} ${cur}`, cur])
-      totalsRows.push(['**Grand Total**', `**${formatMoney(s.revenue)} ${cur}**`, cur])
+      totalsRows.push(['**Net Total**', `**${formatMoney(s.revenue)} ${cur}**`, cur])
     }
     sections.push(renderTable(
       ['Source', 'Amount', 'Currency'],

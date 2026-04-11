@@ -32,8 +32,9 @@ describe('renderArtistReport', () => {
       'Bandcamp Sales (Physical)',
       'Bandcamp Sales (Digital)',
       'ElasticStage Sales',
-      'Other Distribution (Overview)',
-      'Totals'
+      'Discogs Marketplace Sales',
+      'Digital Distribution (Overview)',
+      'Totals (Net)'
     ])
   })
 
@@ -47,8 +48,8 @@ describe('renderArtistReport', () => {
   test('shows "No data for this period." for all empty sections', () => {
     const md = renderArtistReport(makeReportData())
     const noDataCount = (md.match(/No data for this period\./g) || []).length
-    // Summary, Physical, Digital, ElasticStage, Distribution, Totals = 6 empty sections
-    expect(noDataCount).toBe(6)
+    // Summary, Physical, Digital, ElasticStage, Discogs, Digital Distribution, Totals = 7 empty sections
+    expect(noDataCount).toBe(7)
   })
 
   test('renders physical sales table grouped by currency', () => {
@@ -126,7 +127,7 @@ describe('renderArtistReport', () => {
     expect(md).toContain('| 30.00 | EUR |')
   })
 
-  test('renders Other Distribution overview with distributor note', () => {
+  test('renders Digital Distribution overview with distributor note', () => {
     const data = makeReportData({
       distributors: {
         amuse: [
@@ -156,7 +157,7 @@ describe('renderArtistReport', () => {
     expect(md).toContain('| Source | Amount | Currency |')
     expect(md).toContain('200.00 EUR')
     expect(md).toContain('50.00 USD')
-    expect(md).toContain('**Grand Total**')
+    expect(md).toContain('**Net Total**')
   })
 
   test('distributor platform names are capitalized', () => {
@@ -201,7 +202,7 @@ describe('renderBusinessReport', () => {
       'Revenue by Source',
       'Revenue by Month',
       'Top Selling Releases',
-      'Totals'
+      'Totals (Net)'
     ])
   })
 
@@ -307,7 +308,7 @@ describe('renderBusinessReport', () => {
     expect(dataRows[0]).toContain('Artist 24')
   })
 
-  test('renders Totals section with grand totals per currency', () => {
+  test('renders Totals section with net totals per currency', () => {
     const data = makeBusinessData({
       summary: {
         EUR: { revenue: 5000.00, units: 320, transactions: 280, physical: 2000.00, digital: 3000.00 },
@@ -319,7 +320,7 @@ describe('renderBusinessReport', () => {
     expect(totalsSection).toContain('| Source | Amount | Currency |')
     expect(totalsSection).toContain('Physical')
     expect(totalsSection).toContain('Digital')
-    expect(totalsSection).toContain('**Grand Total**')
+    expect(totalsSection).toContain('**Net Total**')
     expect(totalsSection).toContain('5000.00 EUR')
     expect(totalsSection).toContain('1000.00 USD')
   })
