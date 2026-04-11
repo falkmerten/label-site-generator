@@ -372,7 +372,7 @@ function buildArtistReportData (artistName, artistSlug, year, period, transactio
     periodLabel: period.label,
     periodSuffix: period.suffix,
     generatedAt: formatDate(new Date()),
-    logoPath: '../../assets/logo-round.png',
+    logoPath: '../report-logo.png',
     physical,
     digital,
     elasticstage: esRows,
@@ -551,7 +551,7 @@ function buildBusinessReportData (year, allTransactions, allEsRows, allDistRows)
   return {
     year,
     generatedAt: formatDate(new Date()),
-    logoPath: '../assets/logo-round.png',
+    logoPath: 'report-logo.png',
     summary,
     revenueByArtist: Object.values(artistTotals),
     revenueBySource: Object.values(sourceTotals),
