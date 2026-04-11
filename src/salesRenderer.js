@@ -177,11 +177,12 @@ function renderArtistReport (data) {
         String(row.qty),
         `${formatMoney(row.price)} ${cur}`,
         `${formatMoney(row.shipping)} ${cur}`,
-        `${formatMoney(row.fees)} ${cur}`,
+        `${formatMoney(row.bcFee || 0)} ${cur}`,
+        `${formatMoney(row.txFee || row.fees || 0)} ${cur}`,
         `${formatMoney(row.net)} ${cur}`
       ])
       sections.push(renderTable(
-        ['Date', 'Item', 'Format', 'Qty', 'Price', 'Shipping', 'Fees', 'Net'],
+        ['Date', 'Item', 'Format', 'Qty', 'Price', 'Shipping', 'BC Fee', 'Tx Fee', 'Net'],
         rows
       ))
       sections.push('')
@@ -202,11 +203,12 @@ function renderArtistReport (data) {
         row.item,
         String(row.qty),
         `${formatMoney(row.price)} ${cur}`,
-        `${formatMoney(row.fees)} ${cur}`,
+        `${formatMoney(row.bcFee || 0)} ${cur}`,
+        `${formatMoney(row.txFee || row.fees || 0)} ${cur}`,
         `${formatMoney(row.net)} ${cur}`
       ])
       sections.push(renderTable(
-        ['Date', 'Item', 'Qty', 'Price', 'Fees', 'Net'],
+        ['Date', 'Item', 'Qty', 'Price', 'BC Fee', 'Tx Fee', 'Net'],
         rows
       ))
       sections.push('')

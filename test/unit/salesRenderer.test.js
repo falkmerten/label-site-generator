@@ -71,7 +71,7 @@ describe('renderArtistReport', () => {
     expect(md).toContain('### EUR')
     expect(md).toContain('### USD')
     // Table headers
-    expect(md).toContain('| Date | Item | Format | Qty | Price | Shipping | Fees | Net |')
+    expect(md).toContain('| Date | Item | Format | Qty | Price | Shipping | BC Fee | Tx Fee | Net |')
     // Currency codes next to amounts
     expect(md).toContain('12.00 EUR')
     expect(md).toContain('10.30 EUR')
@@ -91,7 +91,7 @@ describe('renderArtistReport', () => {
       }
     })
     const md = renderArtistReport(data)
-    expect(md).toContain('| Date | Item | Qty | Price | Fees | Net |')
+    expect(md).toContain('| Date | Item | Qty | Price | BC Fee | Tx Fee | Net |')
     expect(md).toContain('1.00 EUR')
     expect(md).toContain('4.50 EUR')
   })

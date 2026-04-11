@@ -182,10 +182,18 @@ function buildRosterLookup (roster) {
  * @returns {{ name: string, slug: string }|null}
  */
 function matchArtist (artistName, rosterLookup) {
+  if (!artistName) return null
   const slug = toSlug(artistName)
   if (!slug) return null
   const entry = rosterLookup.get(slug)
   if (entry) return { name: entry.name, slug: entry.slug }
+  // Fallback: strip parenthetical suffixes like "(2)", "(UK)", "(Remix)" and retry
+  const stripped = artistName.replace(/\s*\([^)]*\)\s*$/, '').trim()
+  if (stripped !== artistName) {
+    const strippedSlug = toSlug(stripped)
+    const fallback = rosterLookup.get(strippedSlug)
+    if (fallback) return { name: fallback.name, slug: fallback.slug }
+  }
   return null
 }
 
@@ -293,7 +301,8 @@ function buildArtistReportData (artistName, artistSlug, year, period, transactio
         qty: tx.quantity,
         price: tx.itemPrice,
         shipping: tx.shipping,
-        fees: tx.transactionFee,
+        bcFee: Math.round((tx.subTotal - tx.transactionFee - tx.netAmount) * 100) / 100,
+        txFee: tx.transactionFee,
         net: tx.netAmount
       })
     } else {
@@ -303,7 +312,8 @@ function buildArtistReportData (artistName, artistSlug, year, period, transactio
         item: tx.itemName,
         qty: tx.quantity,
         price: tx.itemPrice,
-        fees: tx.transactionFee,
+        bcFee: Math.round((tx.subTotal - tx.transactionFee - tx.netAmount) * 100) / 100,
+        txFee: tx.transactionFee,
         net: tx.netAmount
       })
     }

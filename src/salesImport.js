@@ -190,9 +190,11 @@ function parseDiscogsDescription (desc) {
   const stripped = desc.replace(/\s*\([^)]*\)\s*$/, '').trim()
   const dashIdx = stripped.indexOf(' - ')
   if (dashIdx === -1) return null
-  const artist = stripped.substring(0, dashIdx).trim()
+  let artist = stripped.substring(0, dashIdx).trim()
   const title = stripped.substring(dashIdx + 3).trim()
   if (!artist || !title) return null
+  // Strip Discogs disambiguation suffix: "Artist (2)", "Artist (UK)", etc.
+  artist = artist.replace(/\s*\(\d+\)\s*$/, '').replace(/\s*\([A-Z]{2,3}\)\s*$/, '').trim()
   return { artist, title }
 }
 
