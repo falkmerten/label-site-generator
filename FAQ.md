@@ -137,8 +137,8 @@ When the Soundcharts monthly quota (1,000 credits on free tier) runs out during 
 **Soundcharts pre-check hangs for 30+ seconds**
 Fixed in v3.1.1. The pre-check now uses a single API call with no retry. If Soundcharts is rate-limiting, it falls back to legacy mode immediately.
 
-**Albums by accented artists missing from artist pages (e.g. Amáutica)**
-Fixed in v3.1.2. The artist name comparison now uses Unicode NFD normalization before stripping non-ASCII characters, so "AMAUTICA" correctly matches "Amáutica".
+**Albums by accented artists missing from artist pages**
+Fixed in v3.1.2. The artist name comparison now uses Unicode NFD normalization before stripping non-ASCII characters, so accented names are matched correctly.
 
 **Various Artists compilation appears under a regular artist**
 Fixed in v3.1.1. The `fetchArtistAlbums` function now only fetches `album,single` groups from Spotify (not `appears_on,compilation`), preventing compilations from being attributed to individual artists. Compilations are handled separately via the label Bandcamp page scraper.
@@ -227,7 +227,7 @@ No. Gap filling only writes to fields that are `null` or missing. Existing data 
 ## Licensing
 
 **Can I use this commercially?**
-Under the GPL-3.0 license, you can use it freely but must open-source any modifications. For commercial use without GPL obligations, contact info@aenaos-records.com for a commercial license.
+Under the GPL-3.0 license, you can use it freely but must open-source any modifications. For commercial use without GPL obligations, contact the maintainer for a commercial license.
 
 **Can I sell products built with this?**
 Yes, under a commercial license. Contact us to discuss pricing.

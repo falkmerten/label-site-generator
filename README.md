@@ -94,7 +94,7 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `LABEL_EMAIL` | Contact email (also shown in newsletter error messages) |
 | `LABEL_ADDRESS` | Postal address for Imprint |
 | `LABEL_VAT_ID` | VAT ID for Imprint |
-| `SITE_URL` | Full site URL with trailing slash (e.g. `https://aenaos-records.com/`) — used for canonical URLs, sitemap, OG tags |
+| `SITE_URL` | Full site URL with trailing slash (e.g. `https://www.your-label.com/`) — used for canonical URLs, sitemap, OG tags |
 | `EXTRA_ARTIST_URLS` | Comma-separated extra Bandcamp artist URLs not on the label account |
 | `HOMEPAGE_LABELS` | Comma-separated label names — filter which releases appear on homepage (empty = show all) |
 | **Enrichment APIs** | |

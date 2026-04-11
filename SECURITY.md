@@ -15,7 +15,7 @@
 Instead, please report vulnerabilities privately via one of these methods:
 
 1. **GitHub Security Advisories** (preferred): Go to [Security → Advisories → New draft advisory](https://github.com/falkmerten/label-site-generator/security/advisories/new) on this repository.
-2. **Email**: Send details to **info@aenaos-records.com** with the subject line `[SECURITY] Label Site Generator`.
+2. **Email**: Send details to the repository maintainer with the subject line `[SECURITY] Label Site Generator`.
 
 ### What to include
 

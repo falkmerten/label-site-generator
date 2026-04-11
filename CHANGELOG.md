@@ -476,7 +476,7 @@
 - Fixed wrong Discogs matches for short artist names — short artist names (1-2 chars after normalisation) now require exact match
 - Label names now sourced from the physical release itself (not the master) when physical sell links exist
 - Multiple labels on a release shown as `Label 1 / Label 2` instead of just the first one
-- Cleared wrong Discogs matches for specific albums
+- Cleared wrong Discogs matches for affected albums
 
 ---
 
