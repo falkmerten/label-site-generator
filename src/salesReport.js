@@ -598,17 +598,19 @@ function syncSalesReportsToS3 () {
 
   console.log(`\nSyncing sales/ to ${s3Path} ...`)
 
-  execSync(
-    `aws configure set default.s3.multipart_threshold 64MB`,
-    { stdio: 'ignore' }
-  )
-
-  execSync(
-    `aws s3 sync sales/ ${s3Path} --exclude "import/*" --exclude "*.css"`,
-    { stdio: 'inherit' }
-  )
-
-  console.log('S3 sync complete.')
+  try {
+    execSync(
+      `aws s3 sync sales/ ${s3Path} --exclude "import/*" --exclude "*.css" --exclude "report-logo.png" --size-only --no-progress`,
+      { stdio: 'inherit', timeout: 120000 }
+    )
+    console.log('S3 sync complete.')
+  } catch (err) {
+    if (err.killed) {
+      console.warn('Warning: S3 sync timed out after 2 minutes. Some files may not have been uploaded.')
+    } else {
+      console.warn(`Warning: S3 sync failed: ${err.message}`)
+    }
+  }
 }
 
 /**
