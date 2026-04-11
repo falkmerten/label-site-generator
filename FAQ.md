@@ -34,6 +34,9 @@ Run `node generate.js --download-artwork` to automatically download all artwork 
 
 ## Enrichment
 
+**I changed something on Bandcamp (description, tracks, new album). Do I need `--scrape` or `--enrich`?**
+You need `--scrape`. That's what pulls fresh data from Bandcamp (descriptions, tracks, tags, artwork, new albums). `--enrich` only fetches streaming links and metadata from external APIs (Soundcharts, Spotify, Discogs) and doesn't touch Bandcamp data. To do both in one run: `node generate.js --scrape --enrich --artist "Artist Name"`.
+
 **Why are some streaming links missing?**
 Enrichment runs separately from generation. Run `node generate.js --enrich` to fetch streaming links. With Soundcharts, most links are found in a single call. Some releases may not be on a particular platform.
 
