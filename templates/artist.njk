@@ -116,7 +116,7 @@
 
     {# Unified links section: non-social bandLinks first, then social links #}
     {% set hasSocial = artist.socialLinks and (artist.socialLinks.facebook or artist.socialLinks.instagram or artist.socialLinks.tiktok or artist.socialLinks.twitter or artist.socialLinks.linktree) %}
-    {% if (artist.bandLinks and artist.bandLinks.length) or hasSocial or artist.bandsintown %}
+    {% if (artist.bandLinks and artist.bandLinks.length) or hasSocial %}
       <section class="artist-links">
         <ul>
           {% if artist.bandLinks %}
@@ -133,9 +133,6 @@
             {% if artist.socialLinks.tiktok %}<li><a href="{{ artist.socialLinks.tiktok }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-tiktok"></i> TikTok</a></li>{% endif %}
             {% if artist.socialLinks.twitter %}<li><a href="{{ artist.socialLinks.twitter }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter"></i> X</a></li>{% endif %}
             {% if artist.socialLinks.linktree %}<li><a href="{{ artist.socialLinks.linktree }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-link"></i> Linktree</a></li>{% endif %}
-          {% endif %}
-          {% if artist.bandsintown %}
-            <li><a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>{% if artist.bandsintown.trackerCount > 0 %} <span class="bandsintown-followers">({{ artist.bandsintown.trackerCount }} followers)</span>{% endif %}</li>
           {% endif %}
         </ul>
       </section>
@@ -225,6 +222,11 @@
           </div>
         {% endfor %}
       </div>
+      {% if artist.bandsintown %}
+        <div class="event-follow-cta">
+          <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>
+        </div>
+      {% endif %}
       {% if artist.eventLinks %}
         <div class="event-more-links">
           {% if artist.eventLinks.bandsintown %}<a href="{{ artist.eventLinks.bandsintown }}" target="_blank" rel="noopener noreferrer">More dates on Bandsintown</a>{% endif %}
@@ -237,9 +239,7 @@
           {% set hasBandsintownEvent = true %}
         {% endif %}
       {% endfor %}
-      {% if hasBandsintownEvent %}
-        <p class="bandsintown-attribution">Powered by <a href="https://www.bandsintown.com/" target="_blank" rel="noopener noreferrer">Bandsintown</a></p>
-      {% endif %}
+      <p class="events-attribution">Event data by {% if hasBandsintownEvent %}<a href="https://www.bandsintown.com/" target="_blank" rel="noopener noreferrer">Bandsintown</a>{% endif %}{% if hasBandsintownEvent and artist.eventLinks and artist.eventLinks.songkick %} &amp; {% endif %}{% if artist.eventLinks and artist.eventLinks.songkick %}<a href="https://www.songkick.com/" target="_blank" rel="noopener noreferrer">Songkick</a>{% endif %}{% if not hasBandsintownEvent and (not artist.eventLinks or not artist.eventLinks.songkick) %}<a href="https://soundcharts.com/" target="_blank" rel="noopener noreferrer">Soundcharts</a>{% endif %}</p>
     </section>
     {% endif %}
 
@@ -247,6 +247,9 @@
     <section class="upcoming-shows">
       <h2>Upcoming Shows</h2>
       <p class="play-my-city">No upcoming shows — <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}" target="_blank" rel="noopener noreferrer">request one in your city</a></p>
+      <div class="event-follow-cta">
+        <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>
+      </div>
     </section>
     {% endif %}
 

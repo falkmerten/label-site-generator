@@ -1222,15 +1222,23 @@ main { min-height: 60vh; }
 .event-rsvp:hover, .event-notify:hover { text-decoration: underline; }
 .event-rsvp i, .event-notify i { margin-right: 0.2rem; }
 
-.bandsintown-attribution {
-  font-size: 0.7rem;
-  color: #777;
-  margin-top: 0.75rem;
+.events-attribution {
+  font-size: 0.65rem;
+  color: #666;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
 }
-.bandsintown-attribution a { color: #999; text-decoration: none; }
-.bandsintown-attribution a:hover { text-decoration: underline; }
+.events-attribution a { color: #888; text-decoration: none; }
+.events-attribution a:hover { text-decoration: underline; }
 
-.bandsintown-followers { font-size: 0.8rem; color: #999; }
+.event-follow-cta { margin-top: 1rem; }
+.event-follow-cta a {
+  font-size: 0.85rem;
+  color: var(--accent, #8a8aff);
+  text-decoration: none;
+}
+.event-follow-cta a:hover { text-decoration: underline; }
+.event-follow-cta i { margin-right: 0.3rem; }
 
 .play-my-city { color: #aaa; }
 .play-my-city a { color: var(--accent, #8a8aff); text-decoration: none; }
