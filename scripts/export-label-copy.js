@@ -184,6 +184,18 @@ async function runSoundcharts (artists, releaseArg, outputDir) {
       type: a.type
     }))
 
+    // Deduplicate by title (Soundcharts returns multiple versions of the same release)
+    const seen = new Map()
+    albums = albums.filter(a => {
+      const key = (a.title || '').toLowerCase().trim()
+      if (seen.has(key)) return false
+      seen.set(key, true)
+      return true
+    })
+    if (scAlbums.length !== albums.length) {
+      console.info(`[info]   Deduplicated: ${scAlbums.length} → ${albums.length} unique album(s)`)
+    }
+
     if (releaseArg != null) {
       const needle = releaseArg.toLowerCase()
       albums = albums.filter(a => (a.title || '').toLowerCase() === needle)
