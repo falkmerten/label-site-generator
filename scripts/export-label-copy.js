@@ -146,6 +146,17 @@ async function runSoundcharts (artists, releaseArg, outputDir) {
 
   console.info(`[info] Using Soundcharts API (${appId === 'soundcharts' ? 'sandbox' : 'production'})`)
 
+  // Load cache for fallback metadata (distributor, copyright, label, UPC, ISRCs)
+  const cachePath = path.join(__dirname, '..', 'cache.json')
+  let cacheData = null
+  try {
+    cacheData = JSON.parse(fs.readFileSync(cachePath, 'utf8'))
+    console.info('[info] Cache loaded for metadata fallback')
+  } catch {
+    console.info('[info] No cache available — using API data only')
+  }
+  const { toSlug } = require('../src/slugs')
+
   for (const [artistIndex, artist] of artists.entries()) {
     const spotifyArtistId = extractSpotifyId(artist.spotifyArtistUrl)
     if (!spotifyArtistId) {
@@ -205,6 +216,23 @@ async function runSoundcharts (artists, releaseArg, outputDir) {
         copyright = albumMeta.copyright || null
       }
 
+      // Fallback to cache for fields the API didn't return
+      if (cacheData) {
+        const cacheArtist = (cacheData.artists || []).find(a =>
+          toSlug(a.name) === artist.slug || a.name.toLowerCase() === artist.slug.toLowerCase()
+        )
+        if (cacheArtist) {
+          const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+          const cacheAlbum = (cacheArtist.albums || []).find(a => norm(a.title) === norm(album.title))
+          if (cacheAlbum) {
+            if (!upc && cacheAlbum.upc) upc = cacheAlbum.upc
+            if (!label && cacheAlbum.labelName) label = cacheAlbum.labelName
+            if (!distributor && cacheAlbum.distributor) distributor = cacheAlbum.distributor
+            if (!copyright && cacheAlbum.copyright) copyright = cacheAlbum.copyright
+          }
+        }
+      }
+
       // Get tracklisting
       const scTracks = await sc.getAlbumTracks(album.uuid, appId, apiKey)
       console.info(`[info]     → ${scTracks.length} track(s)`)
@@ -244,10 +272,27 @@ async function runSoundcharts (artists, releaseArg, outputDir) {
           }
         }
 
+        let resolvedIsrc = trackIsrc || (songMeta && songMeta.isrc && songMeta.isrc.value) || null
+
+        // Fallback: try cache for ISRC if API didn't return one
+        if (!resolvedIsrc && cacheData) {
+          const cacheArtist = (cacheData.artists || []).find(a =>
+            toSlug(a.name) === artist.slug || a.name.toLowerCase() === artist.slug.toLowerCase()
+          )
+          if (cacheArtist) {
+            const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+            const cacheAlbum = (cacheArtist.albums || []).find(a => norm(a.title) === norm(album.title))
+            if (cacheAlbum && cacheAlbum.tracks) {
+              const cacheTrack = cacheAlbum.tracks.find(t => norm(t.name) === norm(trackName))
+              if (cacheTrack && cacheTrack.isrc) resolvedIsrc = cacheTrack.isrc
+            }
+          }
+        }
+
         tracks.push({
           trackNumber: scTrack.number || scTrack.trackNumber || (trackIndex + 1),
           title: trackName,
-          isrc: trackIsrc || (songMeta && songMeta.isrc && songMeta.isrc.value) || null,
+          isrc: resolvedIsrc,
           iswc: iswcs[0] || null,
           authors: writers,
           composers: (songMeta && songMeta.composers) || [],
