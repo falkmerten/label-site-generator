@@ -1212,6 +1212,30 @@ main { min-height: 60vh; }
 .event-tickets:hover { text-decoration: underline; }
 .event-tickets i { margin-right: 0.3rem; }
 
+.event-rsvp, .event-notify {
+  font-size: 0.75rem;
+  text-decoration: none;
+  margin-left: 0.5rem;
+}
+.event-rsvp { color: var(--accent, #8a8aff); }
+.event-notify { color: #aaa; }
+.event-rsvp:hover, .event-notify:hover { text-decoration: underline; }
+.event-rsvp i, .event-notify i { margin-right: 0.2rem; }
+
+.bandsintown-attribution {
+  font-size: 0.7rem;
+  color: #777;
+  margin-top: 0.75rem;
+}
+.bandsintown-attribution a { color: #999; text-decoration: none; }
+.bandsintown-attribution a:hover { text-decoration: underline; }
+
+.bandsintown-followers { font-size: 0.8rem; color: #999; }
+
+.play-my-city { color: #aaa; }
+.play-my-city a { color: var(--accent, #8a8aff); text-decoration: none; }
+.play-my-city a:hover { text-decoration: underline; }
+
 /* ── Newsletter form ── */
 .newsletter-form { margin-top: 2rem; }
 .newsletter-form h3 {

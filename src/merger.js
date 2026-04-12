@@ -491,27 +491,35 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
   const existing = Array.isArray(existingEvents) ? existingEvents : []
   const bit = Array.isArray(bandsintownEvents) ? bandsintownEvents : []
 
-  // Build a map keyed by date+city (case-insensitive city)
+  // Build maps keyed by date+city and date+venue for flexible dedup
   const merged = new Map()
+  const byDateCity = new Map()   // date|city → key in merged
+  const byDateVenue = new Map()  // date|venue → key in merged
 
   // First pass: index existing events (Soundcharts + tourdates.json, already merged)
   for (const event of existing) {
     const key = dedupKey(event)
     merged.set(key, event)
+    byDateCity.set(key, key)
+    const vKey = dedupKeyVenue(event)
+    if (vKey) byDateVenue.set(vKey, key)
   }
 
   // Second pass: merge Bandsintown events
   for (const bitEvent of bit) {
     const key = dedupKey(bitEvent)
-    const existingEvent = merged.get(key)
+    // Try date+city match first, then date+venue as fallback
+    let matchKey = byDateCity.get(key) || null
+    if (!matchKey) {
+      const vKey = dedupKeyVenue(bitEvent)
+      if (vKey) matchKey = byDateVenue.get(vKey) || null
+    }
 
-    if (existingEvent) {
-      // Existing event found — check if it's a Soundcharts event (no source field)
-      // or a tourdates.json event (also no source, but lower priority than BIT)
+    if (matchKey && merged.has(matchKey)) {
+      const existingEvent = merged.get(matchKey)
+      // Existing event found — graft BIT CTA fields onto it
       if (!existingEvent.source) {
-        // Could be Soundcharts or tourdates.json — either way, graft BIT fields onto it
-        // Soundcharts core fields are preserved; BIT CTA fields are added
-        merged.set(key, {
+        merged.set(matchKey, {
           ...existingEvent,
           eventUrl: bitEvent.eventUrl || existingEvent.eventUrl || null,
           offers: bitEvent.offers || existingEvent.offers || [],
@@ -522,6 +530,9 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
     } else {
       // No match — add BIT event as-is
       merged.set(key, bitEvent)
+      byDateCity.set(key, key)
+      const vKey = dedupKeyVenue(bitEvent)
+      if (vKey) byDateVenue.set(vKey, key)
     }
   }
 
@@ -542,6 +553,20 @@ function dedupKey (event) {
   const day = (event.date || '').slice(0, 10)
   const city = (event.cityName || '').toLowerCase().trim()
   return `${day}|${city}`
+}
+
+/**
+ * Creates a secondary deduplication key from an event's date and venue name.
+ * Returns null if venue name is missing. Used as fallback when cities don't match
+ * (e.g. Bandsintown returns a neighborhood name instead of the city).
+ * @param {object} event
+ * @returns {string|null}
+ */
+function dedupKeyVenue (event) {
+  const day = (event.date || '').slice(0, 10)
+  const venue = (event.venueName || '').toLowerCase().trim()
+  if (!venue) return null
+  return `${day}|${venue}`
 }
 
 module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist, convertLocalTourDates, mergeBandsintownEvents }
