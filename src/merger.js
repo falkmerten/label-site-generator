@@ -492,15 +492,14 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
   const bit = Array.isArray(bandsintownEvents) ? bandsintownEvents : []
 
   const merged = new Map()
-  const byDate = new Map() // date → [keys in merged]
+  const byEventId = new Map() // bandsintown event ID → key in merged
 
   // First pass: index existing events
   for (const event of existing) {
     const key = dedupKey(event)
     merged.set(key, event)
-    const day = (event.date || '').slice(0, 10)
-    if (!byDate.has(day)) byDate.set(day, [])
-    byDate.get(day).push(key)
+    const eid = extractBitEventId(event.eventUrl)
+    if (eid) byEventId.set(eid, key)
   }
 
   // Second pass: merge Bandsintown events
@@ -510,21 +509,10 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
     // Try exact date+city match first
     let matchKey = merged.has(key) ? key : null
 
-    // Fallback: find an existing event on the same date with overlapping venue name
+    // Fallback: match by Bandsintown event ID from URL
     if (!matchKey) {
-      const day = (bitEvent.date || '').slice(0, 10)
-      const bitVenue = (bitEvent.venueName || '').toLowerCase().trim()
-      const sameDay = byDate.get(day) || []
-      for (const candidateKey of sameDay) {
-        const candidate = merged.get(candidateKey)
-        if (!candidate) continue
-        const existVenue = (candidate.venueName || '').toLowerCase().trim()
-        // Match if either venue name contains the other (handles "Kapellet" vs "Artist - Live @ Kapellet")
-        if (existVenue && bitVenue && (existVenue.includes(bitVenue) || bitVenue.includes(existVenue))) {
-          matchKey = candidateKey
-          break
-        }
-      }
+      const eid = extractBitEventId(bitEvent.eventUrl)
+      if (eid) matchKey = byEventId.get(eid) || null
     }
 
     if (matchKey && merged.has(matchKey)) {
@@ -539,9 +527,8 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
       }
     } else {
       merged.set(key, bitEvent)
-      const day = (bitEvent.date || '').slice(0, 10)
-      if (!byDate.has(day)) byDate.set(day, [])
-      byDate.get(day).push(key)
+      const eid = extractBitEventId(bitEvent.eventUrl)
+      if (eid) byEventId.set(eid, key)
     }
   }
 
@@ -551,6 +538,20 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
     const dateB = b.date || ''
     return dateA < dateB ? -1 : dateA > dateB ? 1 : 0
   })
+}
+
+/**
+ * Extracts the numeric Bandsintown event ID from a URL.
+ * Handles both formats:
+ *   https://www.bandsintown.com/e/108200436-artist-at-venue
+ *   https://www.bandsintown.com/e/108200436?app_id=...
+ * @param {string} url
+ * @returns {string|null}
+ */
+function extractBitEventId (url) {
+  if (!url) return null
+  const m = url.match(/bandsintown\.com\/e\/(\d+)/)
+  return m ? m[1] : null
 }
 
 /**

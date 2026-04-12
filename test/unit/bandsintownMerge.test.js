@@ -22,14 +22,17 @@ function scEvent (date, city, overrides = {}) {
   }
 }
 
+let _bitEventCounter = 1000
+
 function bitEvent (date, city, overrides = {}) {
+  const id = _bitEventCounter++
   return {
     date,
     venueName: overrides.venueName || 'BIT Venue',
     cityName: city,
     countryCode: overrides.countryCode || 'DE',
     countryName: overrides.countryName || 'Germany',
-    eventUrl: overrides.eventUrl || 'https://www.bandsintown.com/e/123',
+    eventUrl: overrides.eventUrl || `https://www.bandsintown.com/e/${id}`,
     offers: overrides.offers || [{ type: 'Tickets', url: 'https://tix.com', status: 'available' }],
     source: 'bandsintown',
     ...overrides
