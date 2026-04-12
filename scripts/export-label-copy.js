@@ -213,13 +213,16 @@ async function runSoundcharts (artists, releaseArg, outputDir) {
       const tracks = []
       for (const [trackIndex, scTrack] of scTracks.entries()) {
         let songMeta = null
+        const song = scTrack.song || {}
+        const trackName = song.name || scTrack.name || scTrack.title || ''
+        const trackIsrc = song.isrc || scTrack.isrc || null
 
         // Try ISRC lookup first, then UUID
-        if (scTrack.isrc) {
-          songMeta = await sc.getSongByIsrc(scTrack.isrc, appId, apiKey)
+        if (trackIsrc) {
+          songMeta = await sc.getSongByIsrc(trackIsrc, appId, apiKey)
         }
-        if (!songMeta && scTrack.uuid) {
-          songMeta = await sc.getSongMetadata(scTrack.uuid, appId, apiKey)
+        if (!songMeta && song.uuid) {
+          songMeta = await sc.getSongMetadata(song.uuid, appId, apiKey)
         }
 
         // Resolve ISWC → Work → writers + publishers
@@ -242,9 +245,9 @@ async function runSoundcharts (artists, releaseArg, outputDir) {
         }
 
         tracks.push({
-          trackNumber: scTrack.trackNumber || (trackIndex + 1),
-          title: scTrack.name || scTrack.title || '',
-          isrc: scTrack.isrc || (songMeta && songMeta.isrc && songMeta.isrc.value) || null,
+          trackNumber: scTrack.number || scTrack.trackNumber || (trackIndex + 1),
+          title: trackName,
+          isrc: trackIsrc || (songMeta && songMeta.isrc && songMeta.isrc.value) || null,
           iswc: iswcs[0] || null,
           authors: writers,
           composers: (songMeta && songMeta.composers) || [],

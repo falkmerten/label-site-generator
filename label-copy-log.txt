@@ -1,0 +1,41 @@
+[dotenv@17.3.1] injecting env (44) from .env -- tip: ÔÜÖ´©Å  write to custom object with { processEnv: myObject }
+[info] Output directory: ./label-copy
+[info] Processing 18 artist(s)
+[info] [1/18] Am├íutica ÔÇö 13 album(s) in cache
+[info]   Written: label-copy\amautica.md
+[info] [2/18] Art Noir ÔÇö 5 album(s) in cache
+[info]   Written: label-copy\art-noir.md
+[info] [3/18] Art Of Empathy ÔÇö 5 album(s) in cache
+[info]   Written: label-copy\art-of-empathy.md
+[info] [4/18] BlackieBlueBird ÔÇö 6 album(s) in cache
+[info]   Written: label-copy\blackiebluebird.md
+[info] [5/18] Degrees ÔÇö 5 album(s) in cache
+[info]   Written: label-copy\degrees.md
+[info] [6/18] Fernando's Eyes ÔÇö 6 album(s) in cache
+[info]   Written: label-copy\fernando-s-eyes.md
+[info] [7/18] Golden Apes ÔÇö 18 album(s) in cache
+[info]   Written: label-copy\golden-apes.md
+[info] [8/18] HalfCutLemon ÔÇö 7 album(s) in cache
+[info]   Written: label-copy\halfcutlemon.md
+[info] [9/18] Killing Kind ÔÇö 10 album(s) in cache
+[info]   Written: label-copy\killing-kind.md
+[info] [10/18] Nils Lassen ÔÇö 24 album(s) in cache
+[info]   Written: label-copy\nils-lassen.md
+[info] [11/18] Principe Valiente ÔÇö 22 album(s) in cache
+[info]   Written: label-copy\principe-valiente.md
+[info] [12/18] (((S))) ÔÇö 17 album(s) in cache
+[info]   Written: label-copy\s.md
+[info] [13/18] Shearer ÔÇö 7 album(s) in cache
+[info]   Written: label-copy\shearer.md
+[info] [14/18] The Search ÔÇö 21 album(s) in cache
+[info]   Written: label-copy\the-search.md
+[info] [15/18] The Silence Industry ÔÇö 18 album(s) in cache
+[info]   Written: label-copy\the-silence-industry.md
+[info] [16/18] The SlimP ÔÇö 5 album(s) in cache
+[info]   Written: label-copy\the-slimp.md
+[info] [17/18] TRALALAS ÔÇö 3 album(s) in cache
+[info]   Written: label-copy\tralalas.md
+[info] [18/18] VOYNA ÔÇö 5 album(s) in cache
+[info]   Written: label-copy\voyna.md
+[info] Done (from cache ÔÇö no API calls used).
+[info] Done.
