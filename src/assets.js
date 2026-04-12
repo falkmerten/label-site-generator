@@ -1007,6 +1007,7 @@ main { min-height: 60vh; }
 
 /* Upcoming shows */
 .upcoming-shows { margin-top: 2rem; }
+.upcoming-shows h2 { font-size: 1.1rem; font-weight: 700; }
 .events-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .event-row {
   display: flex;
