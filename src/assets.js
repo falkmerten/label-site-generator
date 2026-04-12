@@ -1225,13 +1225,13 @@ main { min-height: 60vh; }
 .events-attribution {
   font-size: 0.65rem;
   color: #666;
-  margin-top: 1.5rem;
-  margin-bottom: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
 }
 .events-attribution a { color: #888; text-decoration: none; }
 .events-attribution a:hover { text-decoration: underline; }
 
-.event-follow-cta { margin-top: 1rem; }
+.event-follow-cta { margin-bottom: 0.75rem; }
 .event-follow-cta a {
   font-size: 0.85rem;
   color: var(--accent, #8a8aff);

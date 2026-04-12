@@ -191,6 +191,11 @@
     {% if artist.events and artist.events.length %}
     <section class="upcoming-shows">
       <h2>Upcoming Shows</h2>
+      {% if artist.bandsintown %}
+        <div class="event-follow-cta">
+          <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>
+        </div>
+      {% endif %}
       <div class="events-list">
         {% for event in artist.events %}
           <div class="event-row">
@@ -222,32 +227,32 @@
           </div>
         {% endfor %}
       </div>
-      {% if artist.bandsintown %}
-        <div class="event-follow-cta">
-          <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>
-        </div>
-      {% endif %}
+      {% set hasBandsintownEvent = false %}
+      {% for event in artist.events %}
+        {% if event.source == 'bandsintown' %}{% set hasBandsintownEvent = true %}{% endif %}
+      {% endfor %}
+      {% set hasSongkick = artist.eventLinks and artist.eventLinks.songkick %}
+      {% set sources = [] %}
+      {% if hasBandsintownEvent %}{% set sources = sources.concat([{name: 'Bandsintown', url: 'https://www.bandsintown.com/'}]) %}{% endif %}
+      {% if hasSongkick %}{% set sources = sources.concat([{name: 'Songkick', url: 'https://www.songkick.com/'}]) %}{% endif %}
+      {% if sources.length == 0 %}{% set sources = [{name: 'Soundcharts', url: 'https://soundcharts.com/'}] %}{% endif %}
+      <p class="events-attribution">Event data by {% for src in sources %}<a href="{{ src.url }}" target="_blank" rel="noopener noreferrer">{{ src.name }}</a>{% if not loop.last %} &amp; {% endif %}{% endfor %}</p>
       {% if artist.eventLinks %}
         <div class="event-more-links">
           {% if artist.eventLinks.bandsintown %}<a href="{{ artist.eventLinks.bandsintown }}" target="_blank" rel="noopener noreferrer">More dates on Bandsintown</a>{% endif %}
           {% if artist.eventLinks.songkick %}<a href="{{ artist.eventLinks.songkick }}" target="_blank" rel="noopener noreferrer">More dates on Songkick</a>{% endif %}
         </div>
       {% endif %}
-      {% set hasBandsintownEvent = false %}
-      {% for event in artist.events %}
-        {% if event.source == 'bandsintown' %}
-          {% set hasBandsintownEvent = true %}
-        {% endif %}
-      {% endfor %}
-      <p class="events-attribution">Event data by {% if hasBandsintownEvent %}<a href="https://www.bandsintown.com/" target="_blank" rel="noopener noreferrer">Bandsintown</a>{% endif %}{% if hasBandsintownEvent and artist.eventLinks and artist.eventLinks.songkick %} &amp; {% endif %}{% if artist.eventLinks and artist.eventLinks.songkick %}<a href="https://www.songkick.com/" target="_blank" rel="noopener noreferrer">Songkick</a>{% endif %}{% if not hasBandsintownEvent and (not artist.eventLinks or not artist.eventLinks.songkick) %}<a href="https://soundcharts.com/" target="_blank" rel="noopener noreferrer">Soundcharts</a>{% endif %}</p>
     </section>
     {% endif %}
 
     {% if artist.bandsintown and (not artist.events or not artist.events.length) %}
     <section class="upcoming-shows">
       <h2>Upcoming Shows</h2>
-      <p class="play-my-city">No upcoming shows — <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}" target="_blank" rel="noopener noreferrer">request one in your city</a></p>
       <div class="event-follow-cta">
+        <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>
+      </div>
+      <p class="play-my-city">No upcoming shows — <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}" target="_blank" rel="noopener noreferrer">request one in your city</a></p>
         <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>
       </div>
     </section>
