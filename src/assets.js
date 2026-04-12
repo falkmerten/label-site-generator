@@ -1007,7 +1007,15 @@ main { min-height: 60vh; }
 
 /* Upcoming shows */
 .upcoming-shows { margin-top: 2rem; }
-.upcoming-shows h2 { font-size: 1.1rem; font-weight: 700; }
+.upcoming-shows h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--text);
+}
 .events-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .event-row {
   display: flex;
