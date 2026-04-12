@@ -171,6 +171,15 @@ describe('fetchArtistInfo', () => {
     expect(callOpts.path).toBe("/artists/Fernando's%20Eyes?app_id=test-app-id")
   })
 
+  test('uses id_ prefix when artistId is provided', async () => {
+    setupHttps(200, { tracker_count: 10, upcoming_event_count: 1 })
+
+    await fetchArtistInfo("Fernando's Eyes", 'test-app-id', '15641621')
+
+    const callOpts = https.get.mock.calls[0][0]
+    expect(callOpts.path).toBe('/artists/id_15641621?app_id=test-app-id')
+  })
+
   test('returns trackerCount and upcomingEventCount on success', async () => {
     setupHttps(200, { tracker_count: 100, upcoming_event_count: 5 })
 
@@ -239,6 +248,15 @@ describe('fetchArtistEvents', () => {
 
     const callOpts = https.get.mock.calls[0][0]
     expect(callOpts.path).toBe("/artists/Fernando's%20Eyes/events?app_id=test-app-id")
+  })
+
+  test('uses id_ prefix for events when artistId is provided', async () => {
+    setupHttps(200, [])
+
+    await fetchArtistEvents("Fernando's Eyes", 'test-app-id', '15641621')
+
+    const callOpts = https.get.mock.calls[0][0]
+    expect(callOpts.path).toBe('/artists/id_15641621/events?app_id=test-app-id')
   })
 
   test('returns transformed events on success', async () => {

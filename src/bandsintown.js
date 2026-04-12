@@ -47,14 +47,28 @@ function bitGet (path) {
 }
 
 /**
+ * Returns the artist identifier for API paths.
+ * Prefers id_{artist_id} when available (avoids encoding issues with apostrophes etc.),
+ * falls back to URL-encoded artist name.
+ * @param {string} artistName
+ * @param {string} [artistId]
+ * @returns {string}
+ */
+function artistPath (artistName, artistId) {
+  if (artistId) return `id_${artistId}`
+  return encodeURIComponent(artistName)
+}
+
+/**
  * Fetches artist info from Bandsintown.
  * @param {string} artistName - Artist name (will be URL-encoded)
  * @param {string} appId - Bandsintown app_id
+ * @param {string} [artistId] - Bandsintown numeric artist ID (preferred for lookup)
  * @returns {Promise<{trackerCount: number, upcomingEventCount: number}|null>}
  */
-async function fetchArtistInfo (artistName, appId) {
-  const encoded = encodeURIComponent(artistName)
-  const { statusCode, body } = await bitGet(`/artists/${encoded}?app_id=${encodeURIComponent(appId)}`)
+async function fetchArtistInfo (artistName, appId, artistId) {
+  const ident = artistPath(artistName, artistId)
+  const { statusCode, body } = await bitGet(`/artists/${ident}?app_id=${encodeURIComponent(appId)}`)
 
   if (statusCode !== 200 || !body || typeof body !== 'object') {
     if (statusCode > 0) {
@@ -73,11 +87,12 @@ async function fetchArtistInfo (artistName, appId) {
  * Fetches upcoming events from Bandsintown.
  * @param {string} artistName - Artist name (will be URL-encoded)
  * @param {string} appId - Bandsintown app_id
+ * @param {string} [artistId] - Bandsintown numeric artist ID (preferred for lookup)
  * @returns {Promise<Array>}
  */
-async function fetchArtistEvents (artistName, appId) {
-  const encoded = encodeURIComponent(artistName)
-  const { statusCode, body } = await bitGet(`/artists/${encoded}/events?app_id=${encodeURIComponent(appId)}`)
+async function fetchArtistEvents (artistName, appId, artistId) {
+  const ident = artistPath(artistName, artistId)
+  const { statusCode, body } = await bitGet(`/artists/${ident}/events?app_id=${encodeURIComponent(appId)}`)
 
   if (statusCode !== 200 || !Array.isArray(body)) {
     if (statusCode > 0) {
@@ -141,6 +156,7 @@ async function fetchAllArtists (mergedData, content) {
     const config = artistContent.bandsintown
     const appId = config.app_id
     const artistName = config.artist_name
+    const artistId = config.artist_id || null
 
     console.log(`[bandsintown] Fetching data for "${artistName}"...`)
 
@@ -152,7 +168,7 @@ async function fetchAllArtists (mergedData, content) {
 
     // Fetch artist info (non-fatal)
     try {
-      const info = await fetchArtistInfo(artistName, appId)
+      const info = await fetchArtistInfo(artistName, appId, artistId)
       if (info) {
         artist.bandsintown.trackerCount = info.trackerCount
         artist.bandsintown.upcomingEventCount = info.upcomingEventCount
@@ -163,7 +179,7 @@ async function fetchAllArtists (mergedData, content) {
 
     // Fetch events (non-fatal)
     try {
-      const events = await fetchArtistEvents(artistName, appId)
+      const events = await fetchArtistEvents(artistName, appId, artistId)
       if (events.length > 0) {
         artist.events = mergeBandsintownEvents(artist.events || [], events)
         console.log(`[bandsintown] Merged ${events.length} event(s) for "${artistName}"`)
@@ -174,4 +190,4 @@ async function fetchAllArtists (mergedData, content) {
   }
 }
 
-module.exports = { fetchArtistInfo, fetchArtistEvents, transformEvent, fetchAllArtists }
+module.exports = { fetchArtistInfo, fetchArtistEvents, transformEvent, fetchAllArtists, artistPath }
