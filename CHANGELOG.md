@@ -4,6 +4,22 @@
 
 ---
 
+### v4.5.0 — 2026-04-12
+
+**Cache Integrity & Enrichment Resilience (LSG-89)**
+- Backup rotation: automatic cleanup keeps at most 5 cache backups (`cache.backup.*.json`)
+- Enrichment preservation: all enrichment fields (streaming links, UPCs, labels, Soundcharts UUIDs, Discogs data) survive `--scrape --artist` re-scrapes
+- Artist-level enrichment fields (social links, events, discovery links) preserved during re-scrape
+- Cached albums not found during re-scrape are retained with a warning (no silent data loss)
+- Conflict detection: significant changes (title, track count, description >20% diff) prompt for resolution in interactive mode, default to keep-cached in CI
+- Enrichment fallback chain: Soundcharts quota exhaustion mid-run switches to legacy Spotify path; Spotify 429 disables Spotify for remaining artists
+- Per-artist progress saving: cache written after each artist during enrichment (no lost progress on interruption)
+- Content-first merge priority: `pickFirst()` helper enforces Content_Store > Cache > Scraped for all fields
+- Enhanced audit report (`--cleanup`): empty tracklists, missing labels/streaming links/UPCs, label name inconsistencies, duplicate albums
+- 20 property-based tests covering all correctness properties
+
+---
+
 ### v4.4.0 — 2026-04-12
 
 **Bandsintown Fan Engagement Integration (LSG-88)**
