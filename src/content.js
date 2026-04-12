@@ -135,6 +135,22 @@ async function loadContent(contentDir) {
       }
     }
 
+    // bandsintown.json — Bandsintown API config for fan engagement CTAs
+    const bandsintownPath = path.join(artistDir, 'bandsintown.json')
+    if (await exists(bandsintownPath)) {
+      try {
+        const raw = await fs.readFile(bandsintownPath, 'utf8')
+        const config = JSON.parse(raw)
+        if (config.app_id && config.artist_name) {
+          artist.bandsintown = config
+        } else {
+          console.warn(`[content] bandsintown.json for "${artistSlug}" missing required fields (app_id, artist_name), skipping.`)
+        }
+      } catch {
+        console.warn(`[content] Failed to parse bandsintown.json for "${artistSlug}", skipping.`)
+      }
+    }
+
     // albums
     let artistEntries;
     try {

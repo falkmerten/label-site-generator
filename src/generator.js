@@ -8,6 +8,7 @@ const { assignSlugs } = require('./slugs');
 const { renderSite } = require('./renderer');
 const { copyAssets } = require('./assets');
 const { generateRedirects } = require('./redirects');
+const { fetchAllArtists } = require('./bandsintown');
 
 const DEFAULTS = {
   labelUrl: process.env.BANDCAMP_LABEL_URL || 'https://your-label.bandcamp.com/',
@@ -89,6 +90,10 @@ async function generate(options) {
 
   // Step 6: Assign slugs
   mergedData.artists = assignSlugs(mergedData.artists);
+
+  // Step 6b: Fetch Bandsintown data (build-time, not cached)
+  console.log('Fetching Bandsintown data...');
+  await fetchAllArtists(mergedData, content);
 
   // Step 7: Render site
   console.log('Rendering pages...');

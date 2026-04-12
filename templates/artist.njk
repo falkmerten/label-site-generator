@@ -116,7 +116,7 @@
 
     {# Unified links section: non-social bandLinks first, then social links #}
     {% set hasSocial = artist.socialLinks and (artist.socialLinks.facebook or artist.socialLinks.instagram or artist.socialLinks.tiktok or artist.socialLinks.twitter or artist.socialLinks.linktree) %}
-    {% if (artist.bandLinks and artist.bandLinks.length) or hasSocial %}
+    {% if (artist.bandLinks and artist.bandLinks.length) or hasSocial or artist.bandsintown %}
       <section class="artist-links">
         <ul>
           {% if artist.bandLinks %}
@@ -133,6 +133,9 @@
             {% if artist.socialLinks.tiktok %}<li><a href="{{ artist.socialLinks.tiktok }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-tiktok"></i> TikTok</a></li>{% endif %}
             {% if artist.socialLinks.twitter %}<li><a href="{{ artist.socialLinks.twitter }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter"></i> X</a></li>{% endif %}
             {% if artist.socialLinks.linktree %}<li><a href="{{ artist.socialLinks.linktree }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-link"></i> Linktree</a></li>{% endif %}
+          {% endif %}
+          {% if artist.bandsintown %}
+            <li><a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}&trigger=track" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Follow on Bandsintown</a>{% if artist.bandsintown.trackerCount > 0 %} <span class="bandsintown-followers">({{ artist.bandsintown.trackerCount }} followers)</span>{% endif %}</li>
           {% endif %}
         </ul>
       </section>
@@ -205,6 +208,19 @@
               {% if event.eventUrl %}
                 <a href="{{ event.eventUrl }}" target="_blank" rel="noopener noreferrer" class="event-tickets"><i class="fa-solid fa-ticket"></i> Tickets</a>
               {% endif %}
+              {% if event.source == 'bandsintown' and event.eventUrl %}
+                {% set hasAvailableOffer = false %}
+                {% for offer in event.offers %}
+                  {% if offer.status == 'available' %}
+                    {% set hasAvailableOffer = true %}
+                  {% endif %}
+                {% endfor %}
+                {% if hasAvailableOffer %}
+                  <a href="{{ event.eventUrl }}&trigger=rsvp_going" target="_blank" rel="noopener noreferrer" class="event-rsvp"><i class="fa-solid fa-calendar-check"></i> RSVP</a>
+                {% else %}
+                  <a href="{{ event.eventUrl }}&trigger=notify_me" target="_blank" rel="noopener noreferrer" class="event-notify"><i class="fa-solid fa-bell"></i> Notify Me</a>
+                {% endif %}
+              {% endif %}
             </span>
           </div>
         {% endfor %}
@@ -215,6 +231,22 @@
           {% if artist.eventLinks.songkick %}<a href="{{ artist.eventLinks.songkick }}" target="_blank" rel="noopener noreferrer">More dates on Songkick</a>{% endif %}
         </div>
       {% endif %}
+      {% set hasBandsintownEvent = false %}
+      {% for event in artist.events %}
+        {% if event.source == 'bandsintown' %}
+          {% set hasBandsintownEvent = true %}
+        {% endif %}
+      {% endfor %}
+      {% if hasBandsintownEvent %}
+        <p class="bandsintown-attribution">Powered by <a href="https://www.bandsintown.com/" target="_blank" rel="noopener noreferrer">Bandsintown</a></p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if artist.bandsintown and (not artist.events or not artist.events.length) %}
+    <section class="upcoming-shows">
+      <h2>Upcoming Shows</h2>
+      <p class="play-my-city">No upcoming shows — <a href="https://www.bandsintown.com/{{ artist.bandsintown.artistName | urlencode }}?came_from={{ artist.bandsintown.appId | urlencode }}" target="_blank" rel="noopener noreferrer">request one in your city</a></p>
     </section>
     {% endif %}
 

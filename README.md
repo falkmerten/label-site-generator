@@ -320,6 +320,7 @@ content/
       videos.json            # YouTube video links (see format below)
       stores.json            # Custom physical store links (see format below)
       reviews.md             # Press quotes / review excerpts (Markdown)
+    bandsintown.json         # Bandsintown API config (opt-in fan engagement)
     links.json               # Manual social/streaming/website links override
 ```
 
@@ -397,6 +398,42 @@ Format:
 | `url`     | no       | Ticket purchase URL                      |
 
 Local tour dates are merged with Soundcharts events and deduplicated. Past dates are automatically filtered out at generation time — you don't need to remove old entries. Events on the current day are still shown.
+
+### Bandsintown integration (`bandsintown.json`)
+
+To enable Bandsintown fan engagement features for an artist, create a `bandsintown.json` file:
+
+```
+content/{artist-slug}/bandsintown.json
+```
+
+Format:
+```json
+{
+  "app_id": "your-bandsintown-app-id",
+  "artist_name": "Artist Name",
+  "artist_id": "12345678"
+}
+```
+
+| Field         | Required | Description                                      |
+|---------------|----------|--------------------------------------------------|
+| `app_id`      | yes      | Bandsintown API application ID (per-artist key)  |
+| `artist_name` | yes      | Artist name as registered on Bandsintown          |
+| `artist_id`   | no       | Bandsintown numeric artist ID (for future use)    |
+
+When configured, the artist page gains several fan engagement CTAs:
+
+- **Follow on Bandsintown** — link to follow the artist, with tracker count when available
+- **RSVP** — shown on events with available ticket offers
+- **Notify Me** — shown on events without available offers
+- **Play My City** — shown when the artist has a Bandsintown config but no upcoming events
+
+Bandsintown events are fetched fresh at build time (not cached). They are merged with existing event sources using three-tier priority: Soundcharts > Bandsintown > tourdates.json. When a Bandsintown event matches a Soundcharts event on the same date and city, the Soundcharts core fields are kept but Bandsintown CTA fields (event URL, ticket offers) are grafted on.
+
+A "Powered by Bandsintown" attribution line is shown in the events section whenever any event originates from the Bandsintown API.
+
+The integration is fully opt-in — artists without a `bandsintown.json` file are completely unaffected.
 
 ### Custom store links (`stores.json`)
 
@@ -654,6 +691,7 @@ Custom Nunjucks filters:
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
 | `src/convertDocs.js` | Converts `.docx` files to `.md` using mammoth |
+| `src/bandsintown.js` | Bandsintown API client — fetches artist info and events at build time |
 | `src/content.js` | Loads content overrides and discovers dynamic pages |
 | `src/merger.js` | Merges scraped data with content overrides |
 | `src/renderer.js` | Renders all HTML pages via Nunjucks |

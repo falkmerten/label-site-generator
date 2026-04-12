@@ -476,4 +476,72 @@ function convertLocalTourDates (tourDates) {
     }))
 }
 
-module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist, convertLocalTourDates }
+/**
+ * Merges Bandsintown events into an existing events array using three-tier priority:
+ * Soundcharts (no source field) > Bandsintown (source: 'bandsintown') > tourdates.json
+ *
+ * Deduplicates by date+city. When events conflict, keeps the higher-priority version
+ * but preserves Bandsintown-specific fields (eventUrl, offers, source) from the BIT event.
+ *
+ * @param {Array} existingEvents - Events from Soundcharts + tourdates.json
+ * @param {Array} bandsintownEvents - Events from Bandsintown API
+ * @returns {Array} Merged, deduplicated, date-sorted events
+ */
+function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
+  const existing = Array.isArray(existingEvents) ? existingEvents : []
+  const bit = Array.isArray(bandsintownEvents) ? bandsintownEvents : []
+
+  // Build a map keyed by date+city (case-insensitive city)
+  const merged = new Map()
+
+  // First pass: index existing events (Soundcharts + tourdates.json, already merged)
+  for (const event of existing) {
+    const key = dedupKey(event)
+    merged.set(key, event)
+  }
+
+  // Second pass: merge Bandsintown events
+  for (const bitEvent of bit) {
+    const key = dedupKey(bitEvent)
+    const existingEvent = merged.get(key)
+
+    if (existingEvent) {
+      // Existing event found — check if it's a Soundcharts event (no source field)
+      // or a tourdates.json event (also no source, but lower priority than BIT)
+      if (!existingEvent.source) {
+        // Could be Soundcharts or tourdates.json — either way, graft BIT fields onto it
+        // Soundcharts core fields are preserved; BIT CTA fields are added
+        merged.set(key, {
+          ...existingEvent,
+          eventUrl: bitEvent.eventUrl || existingEvent.eventUrl || null,
+          offers: bitEvent.offers || existingEvent.offers || [],
+          source: 'bandsintown'
+        })
+      }
+      // If existing event already has source: 'bandsintown', it's a duplicate BIT event — skip
+    } else {
+      // No match — add BIT event as-is
+      merged.set(key, bitEvent)
+    }
+  }
+
+  // Sort by date ascending
+  return [...merged.values()].sort((a, b) => {
+    const dateA = a.date || ''
+    const dateB = b.date || ''
+    return dateA < dateB ? -1 : dateA > dateB ? 1 : 0
+  })
+}
+
+/**
+ * Creates a deduplication key from an event's date and city (case-insensitive).
+ * @param {object} event
+ * @returns {string}
+ */
+function dedupKey (event) {
+  const day = (event.date || '').slice(0, 10)
+  const city = (event.cityName || '').toLowerCase().trim()
+  return `${day}|${city}`
+}
+
+module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist, convertLocalTourDates, mergeBandsintownEvents }

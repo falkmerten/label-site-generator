@@ -4,6 +4,21 @@
 
 ---
 
+### v4.4.0 — 2026-04-12
+
+**Bandsintown Fan Engagement Integration (LSG-88)**
+- New `src/bandsintown.js` module — fetches artist info and events from Bandsintown API at build time
+- Per-artist opt-in via `content/{artist-slug}/bandsintown.json` (requires `app_id` and `artist_name`)
+- Three-tier event merge: Soundcharts > Bandsintown > tourdates.json with field grafting (eventUrl, offers, source preserved from Bandsintown on deduplicated events)
+- Fan engagement CTAs on artist pages: Follow, RSVP, Notify Me, Play My City
+- Tracker count shown next to Follow link when available
+- "Powered by Bandsintown" attribution in events section when Bandsintown events are present
+- All errors non-fatal — API failures, timeouts, and network errors log warnings without breaking generation
+- Property-based tests (6 properties): config validation, event transformation, artist info extraction, three-source merge with dedup/priority/sort, field preservation on merge, Follow CTA URL construction
+- Unit tests for API call construction, error handling, and merge scenarios (SC-only, BIT-only, tourdates-only, all three combined)
+
+---
+
 ### v4.3.0 — 2026-04-11
 
 **Sales Reports (LSG-87)**
