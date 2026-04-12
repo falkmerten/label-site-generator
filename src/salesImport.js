@@ -3,7 +3,7 @@
 const fs = require('fs/promises')
 const path = require('path')
 const crypto = require('crypto')
-const XLSX = require('xlsx')
+const readXlsxFile = require('read-excel-file/node')
 
 // ── CSV parser ───────────────────────────────────────────────────────────────
 
@@ -39,14 +39,11 @@ function parseCsv (text) {
 /**
  * Parse an XLSX file buffer into string[][].
  * @param {Buffer} buffer
- * @returns {string[][]}
+ * @returns {Promise<string[][]>}
  */
-function parseXlsx (buffer) {
-  const wb = XLSX.read(buffer, { type: 'buffer' })
-  const name = wb.SheetNames[0]
-  if (!name) return []
-  const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' })
-  return rows.map(r => r.map(c => String(c)))
+async function parseXlsx (buffer) {
+  const rows = await readXlsxFile(buffer)
+  return rows.map(r => r.map(c => (c == null ? '' : String(c))))
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -541,7 +538,7 @@ async function importCsvFiles (importDir, platform, options = {}) {
     try {
       if (isXlsx) {
         const buffer = await fs.readFile(filePath)
-        rawRows = parseXlsx(buffer)
+        rawRows = await parseXlsx(buffer)
       } else {
         const text = await fs.readFile(filePath, 'utf8')
         rawRows = parseCsv(text)
