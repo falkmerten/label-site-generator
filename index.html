@@ -341,6 +341,62 @@
     <h2>Changelog</h2>
     <div class="changelog">
       <div class="release">
+        <h3>v4.5.0 <span class="release-date">— 12 April 2026</span></h3>
+        <ul>
+          <li>Backup rotation: automatic cleanup keeps at most 5 cache backups (<code>cache.backup.*.json</code>)</li>
+          <li>Enrichment preservation: all enrichment fields (streaming links, UPCs, labels, Soundcharts UUIDs, Discogs data) survive <code>--scrape --artist</code> re-scrapes</li>
+          <li>Artist-level enrichment fields (social links, events, discovery links) preserved during re-scrape</li>
+          <li>Cached albums not found during re-scrape are retained with a warning (no silent data loss)</li>
+          <li>Conflict detection: significant changes (title, track count, description &gt;20% diff) prompt for resolution in interactive mode, default to keep-cached in CI</li>
+          <li>Enrichment fallback chain: Soundcharts quota exhaustion mid-run switches to legacy Spotify path; Spotify 429 disables Spotify for remaining artists</li>
+          <li>Per-artist progress saving: cache written after each artist during enrichment (no lost progress on interruption)</li>
+          <li>Content-first merge priority: <code>pickFirst()</code> helper enforces Content_Store &gt; Cache &gt; Scraped for all fields</li>
+          <li>Enhanced audit report (<code>--cleanup</code>): empty tracklists, missing labels/streaming links/UPCs, label name inconsistencies, duplicate albums</li>
+          <li>20 property-based tests covering all correctness properties</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v4.4.0 <span class="release-date">— 12 April 2026</span></h3>
+        <ul>
+          <li>New <code>src/bandsintown.js</code> module — fetches artist info and events from Bandsintown API at build time</li>
+          <li>Per-artist opt-in via <code>content/{artist-slug}/bandsintown.json</code> (requires <code>app_id</code> and <code>artist_name</code>)</li>
+          <li>Three-tier event merge: Soundcharts &gt; Bandsintown &gt; tourdates.json with field grafting (eventUrl, offers, source preserved from Bandsintown on deduplicated events)</li>
+          <li>Fan engagement CTAs on artist pages: Follow, RSVP, Notify Me, Play My City</li>
+          <li>Tracker count shown next to Follow link when available</li>
+          <li>"Powered by Bandsintown" attribution in events section when Bandsintown events are present</li>
+          <li>All errors non-fatal — API failures, timeouts, and network errors log warnings without breaking generation</li>
+          <li>Property-based tests (6 properties): config validation, event transformation, artist info extraction, three-source merge with dedup/priority/sort, field preservation on merge, Follow CTA URL construction</li>
+          <li>Unit tests for API call construction, error handling, and merge scenarios (SC-only, BIT-only, tourdates-only, all three combined)</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>v4.3.0 <span class="release-date">— 11 April 2026</span></h3>
+        <ul>
+          <li>New <code>--sales-report</code> CLI workflow: generates per-artist GFM Markdown settlement reports from Bandcamp sales data and CSV/XLSX imports</li>
+          <li>Async Bandcamp Sales API integration via OAuth2 (<code>generate_sales_report</code> + <code>fetch_sales_report</code> endpoints)</li>
+          <li>Year range support: <code>--year 2015-2026</code> generates all years in a single run (one auth, one CSV import)</li>
+          <li>CSV/XLSX import from 5 platforms: ElasticStage (physical), Discogs Marketplace (physical, parsed from order items export), Amuse (XLSX, USD), MakeWaves, LabelCaster (digital)</li>
+          <li>Discogs order items parser extracts artist and release from <code>"Artist - Title (Format)"</code> description field</li>
+          <li>XLSX support via SheetJS (<code>xlsx</code> package) for Amuse exports</li>
+          <li>ECB Data Portal integration for monthly GBP/USD→EUR exchange rates (free, no auth, falls back to fixed rates)</li>
+          <li>Import tracking via <code>sales/import/.imported.json</code> — checksums prevent double-counting, <code>--force</code> re-imports all</li>
+          <li>Physical/digital classification from Bandcamp <code>package</code> field (CD, Vinyl, Cassette, digital download)</li>
+          <li>Empty Bandcamp transactions filtered (fee adjustments, zero-quantity rows)</li>
+          <li>Multi-currency support with per-currency grouping and subtotals</li>
+          <li>Refunds included as negative line items</li>
+          <li>Non-roster artist transactions routed to "Various Artists" bucket</li>
+          <li>Period options: <code>--period monthly</code> (12 reports), <code>quarterly</code> (4), <code>half-yearly</code> (2), annual (default)</li>
+          <li><code>--business-report</code> flag generates consolidated label-wide report with Revenue by Artist, Revenue by Source, Revenue by Month, Top 20 Releases</li>
+          <li><code>--pdf</code> flag converts generated reports to PDF via <code>md-to-pdf</code> (year-aware, only converts current run)</li>
+          <li><code>--dry-run</code> prints reports to stdout without writing files</li>
+          <li><code>--sync-s3</code> uploads reports + PDFs to S3 (runs after PDF conversion, auto-syncs when <code>STORAGE_MODE=s3</code>)</li>
+          <li><code>.gitignore</code> check warns if <code>sales/</code> is not excluded from version control</li>
+          <li>New modules: <code>src/salesRenderer.js</code>, <code>src/bandcampSales.js</code>, <code>src/salesImport.js</code>, <code>src/salesReport.js</code></li>
+          <li><code>src/bandcampApi.js</code> now exports <code>getAccessToken</code>, <code>getMyBands</code>, <code>httpsPost</code> for reuse</li>
+          <li>20 unit tests for report rendering</li>
+        </ul>
+      </div>
+      <div class="release">
         <h3>v4.2.0 <span class="release-date">— 7 April 2026</span></h3>
         <ul>
           <li>Albums not found on Discogs marked <code>discogsChecked</code> — no repeated API calls on <code>--enrich</code></li>
@@ -662,7 +718,7 @@
   </section>
 
   <footer>
-    <p>Label Site Generator v4.2.0 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
+    <p>Label Site Generator v4.5.0 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
     <p class="imprint">Aenaos Records · Owner: Falk Merten · Herrnhuter Str. 2, 04318 Leipzig (Germany) · VAT ID DE267690157</p>
   </footer>
 
