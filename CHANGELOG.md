@@ -4,6 +4,15 @@
 
 ---
 
+### v4.5.1 — 2026-04-16
+
+**Security: Upgrade DOMPurify (LSG-95)**
+- Upgrade `isomorphic-dompurify` from 2.36.0 → 3.9.0 (pulls in `dompurify@3.4.0`)
+- Fixes Dependabot alert #32 — security vulnerability in dompurify < 3.4.0
+- No API changes; `DOMPurify.sanitize()` usage in `src/markdown.js` unchanged
+
+---
+
 ### v4.5.0 — 2026-04-12
 
 **Cache Integrity & Enrichment Resilience (LSG-89)**

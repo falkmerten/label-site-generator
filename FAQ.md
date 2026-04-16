@@ -47,13 +47,13 @@ This only applies in legacy mode (no Soundcharts credentials). Spotify has aggre
 Yes. With Soundcharts credentials, Spotify is never called. Without Soundcharts, run `node generate.js --enrich` with `SPOTIFY_CLIENT_ID` unset — iTunes, Deezer, Tidal, and Discogs will still run.
 
 **Can I enrich a single artist?**
-Yes. Run `node generate.js --enrich --artist "Artist Name"`. To force re-enrichment (clear cached Soundcharts data), add `--refresh`.
+Yes. Run `node generate.js --enrich --artist "Artist Name"`. To force re-enrichment (clear cached enrichment data), add `--force`.
 
 **How do I re-check Tidal links only?**
 Run `node generate.js --tidal-only`.
 
 **Soundcharts discovered a release that's actually already on Bandcamp with a different title. What happened?**
-The enricher matches Soundcharts releases to Bandcamp releases by normalized title and UPC. If the titles differ significantly (e.g. "In This Light Single Remixes" on Bandcamp vs "In This Light (Remixes)" on Soundcharts) and no UPC match exists, it gets added as a separate entry. To fix this: delete the duplicate from the cache manually, or re-scrape the artist with `node generate.js --artist "Name"` to refresh the Bandcamp data, then re-enrich with `--refresh`.
+The enricher matches Soundcharts releases to Bandcamp releases by normalized title and UPC. If the titles differ significantly (e.g. "In This Light Single Remixes" on Bandcamp vs "In This Light (Remixes)" on Soundcharts) and no UPC match exists, it gets added as a separate entry. To fix this: delete the duplicate from the cache manually, or re-scrape the artist with `node generate.js --scrape --artist "Name"` to refresh the Bandcamp data, then re-enrich with `--force`.
 
 **How do I add social or streaming links for an artist manually?**
 Create a `links.json` file in `content/{artist-slug}/`:
@@ -66,11 +66,23 @@ Create a `links.json` file in `content/{artist-slug}/`:
 ```
 Manual links take priority. Bandcamp and Soundcharts links fill in the rest.
 
-**Does `--enrich --refresh` re-enrich all artists?**
-`--refresh` only clears Soundcharts data when combined with `--artist`. Running `--enrich --refresh` without `--artist` just runs normal incremental enrichment — it doesn't clear anything. Use `--enrich --artist "Name" --refresh` to force re-enrichment for a specific artist.
+**Does `--enrich --force` re-enrich all artists?**
+`--force` only clears enrichment flags when combined with `--artist`. Running `--enrich --force` without `--artist` clears all `enrichmentChecked` and `discogsChecked` flags globally, allowing re-querying of platforms that previously returned no results. Use `--enrich --artist "Name" --force` to force re-enrichment for a specific artist.
 
 **What is the `--cleanup` command?**
-Reports orphaned content folders that don't match any album in the cache. Dry-run only — doesn't delete anything. Run `node generate.js --cleanup` to check.
+Reports data quality issues in your cache and orphaned content folders. The audit checks for: empty tracklists, missing labels, missing streaming links, missing UPCs, label name inconsistencies, and duplicate albums. It also flags content folders that don't match any album in the cache. Dry-run only — doesn't delete or modify anything. Run `node generate.js --cleanup` to check.
+
+**What happens if Soundcharts quota runs out mid-run?**
+The enricher automatically switches to the legacy Spotify path for remaining artists. Already-enriched artists keep their Soundcharts data. If Spotify also hits a 429 rate limit, it's disabled for the rest of the run — iTunes/Deezer/Tidal/Discogs continue as gap-fill.
+
+**What happens if my machine crashes during enrichment?**
+The cache is written after each artist completes enrichment, so you lose at most one artist's worth of work. On restart, `--enrich` picks up where it left off (already-enriched artists are skipped).
+
+**What about cache backups?**
+Backups are created automatically before destructive operations (`--scrape --artist`, `--enrich`). Backup rotation keeps at most 5 files (`cache.backup.*.json`) — older ones are cleaned up automatically. Use `--rollback` to restore the most recent backup.
+
+**What happens when I re-scrape an artist and Bandcamp data has changed?**
+If the title, track count, or description changed significantly (>20% diff), the generator prompts for resolution in interactive mode (keep cached vs accept scraped). In CI or non-interactive mode, it defaults to keeping the cached version. All enrichment fields (streaming links, UPCs, Discogs data, social links, events) are preserved through re-scrapes.
 
 **How does Soundcharts album discovery work?**
 When enriching, the enricher fetches the artist's full album list from Soundcharts and adds any releases not already in the cache (matched by title, UPC, and Soundcharts UUID). This catches streaming-only releases not on Bandcamp.
@@ -224,6 +236,44 @@ Currently only Bandcamp digital export CSVs are supported. Support for other dis
 
 **Will it overwrite my enriched data?**
 No. Gap filling only writes to fields that are `null` or missing. Existing data (streaming links, artwork, Discogs metadata, etc.) is never overwritten. A timestamped backup is created before any write.
+
+---
+
+## Bandsintown Integration
+
+**How do I enable Bandsintown for an artist?**
+Create `content/{artist-slug}/bandsintown.json` with your `app_id` and `artist_name`. The integration is fully opt-in — artists without this file are unaffected.
+
+**Where do Bandsintown events appear?**
+On the artist page in the "Upcoming Shows" section. Events are merged with Soundcharts and local tourdates.json using three-tier priority: Soundcharts > Bandsintown > tourdates.json. Duplicate events (same date + city) are deduplicated, with CTA fields (event URL, ticket offers) grafted from Bandsintown onto Soundcharts matches.
+
+**What are the fan engagement CTAs?**
+When Bandsintown is configured, artist pages can show: Follow on Bandsintown (with tracker count), RSVP (for events with ticket offers), Notify Me (for events without offers), and Play My City (when no upcoming events exist).
+
+**What if the Bandsintown API is down?**
+All errors are non-fatal. API failures, timeouts, and network errors log warnings but don't break site generation.
+
+---
+
+## Sales Reports
+
+**How do I generate sales reports?**
+Run `node generate.js --sales-report --year 2025`. This fetches Bandcamp sales data via OAuth2 and imports CSV/XLSX files from `sales/import/`. Reports are written as GFM Markdown files to `sales/{artist-slug}/`.
+
+**Which data sources are supported?**
+Bandcamp Sales API (automatic), ElasticStage CSV, Discogs Marketplace CSV, Amuse XLSX, MakeWaves CSV, and LabelCaster CSV. Place distributor exports in the corresponding `sales/import/` subdirectory.
+
+**Will re-running double-count my CSV imports?**
+No. Import tracking via `sales/import/.imported.json` uses checksums to prevent double-counting. Modified files are automatically re-imported. Use `--force` to re-import everything.
+
+**Can I generate reports for multiple years at once?**
+Yes. Use `--year 2015-2026` to generate all years in a single run (one Bandcamp auth, one CSV import pass).
+
+**How do I get PDF reports?**
+Add `--pdf` to the command. Requires `md-to-pdf` (included as a dev dependency). Example: `node generate.js --sales-report --year 2025 --business-report --pdf`.
+
+**What about non-EUR currencies?**
+GBP and USD are automatically converted to EUR using monthly ECB reference rates. Override with `SALES_EXCHANGE_RATES` env var if needed.
 
 ---
 
