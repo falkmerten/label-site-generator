@@ -51,6 +51,11 @@ Options:
   --init-artists       Generate content/artists.json with Spotify URLs
   --init-content       Scaffold content/{artist}/ folders
   --create-campaigns   Create newsletter campaign drafts
+  --import-subscribers [path]  Import subscriber CSV files to newsletter provider
+  --list <id>          Target list/segment ID override (with --import-subscribers)
+  --create-list <name> Auto-create a list (Listmonk) or segment (Keila) before importing
+  --tag <tag>          Tag contacts with a source label (Keila only, stored in data.source)
+  --active-only        Only import active/subscribed subscribers (skip unsubscribed/bounced)
   --analyze-csv <path> Analyze CSV against cache (read-only)
   --fill-gaps <path>   Fill missing metadata in cache from CSV
   --import-csv <path>  Bootstrap cache from CSV (requires --roster-source)
@@ -151,6 +156,25 @@ function parseArgs(argv) {
       options.importCsv = args[++i]
     } else if (arg === '--roster-source') {
       options.rosterSource = args[++i]
+    } else if (arg === '--import-subscribers') {
+      // Optional path argument: if next arg is missing or starts with --, use default
+      const next = args[i + 1]
+      if (next && !next.startsWith('--')) {
+        options.importSubscribers = next
+        i++
+      } else {
+        options.importSubscribers = true // signal to use default path
+      }
+    } else if (arg === '--list') {
+      options.importList = args[++i]
+    } else if (arg === '--active-only') {
+      options.activeOnly = true
+    } else if (arg === '--tag') {
+      options.importTag = args[++i]
+    } else if (arg === '--create-list') {
+      options.createList = args[++i]
+    } else if (arg === '--split-customers') {
+      options.splitCustomers = true
     } else if (arg === '--dry-run') {
       options.dryRun = true
     } else if (arg === '--sales-report') {
@@ -319,6 +343,20 @@ async function run() {
     } else {
       console.log('No new articles to create campaigns for.');
     }
+    return;
+  }
+  if (options.importSubscribers) {
+    const { importSubscribers } = require('./src/subscriberImport')
+    await importSubscribers({
+      importPath: options.importSubscribers,
+      listId: options.importList || process.env.NEWSLETTER_LIST_ID,
+      dryRun: options.dryRun,
+      contentDir: options.contentDir,
+      activeOnly: options.activeOnly,
+      tag: options.importTag,
+      createList: options.createList,
+      splitCustomers: options.splitCustomers
+    })
     return;
   }
   if (options.salesReport) {

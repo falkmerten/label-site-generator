@@ -721,7 +721,8 @@ Custom Nunjucks filters:
 | `src/enricher.js` | Orchestrates the full enrichment pipeline (Soundcharts or legacy mode) |
 | `src/cleanup.js` | Reports orphaned content folders and runs data quality audit on cache |
 | `src/news.js` | Loads news articles from `content/news/` markdown files |
-| `src/newsletterCampaign.js` | Auto-creates newsletter campaign drafts for new news articles (Sendy/Listmonk) |
+| `src/newsletterCampaign.js` | Auto-creates newsletter campaign drafts for new news articles (Sendy/Listmonk/Keila) |
+| `src/subscriberImport.js` | Subscriber CSV import: parsing, deduplication, provider dispatch (Sendy/Listmonk/Keila), name normalization |
 | `src/upcoming.js` | Loads upcoming releases from `content/upcoming.json` private Bandcamp links |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
@@ -749,6 +750,86 @@ Scraped data is saved to `cache.json` (gitignored). Delete it or use `--scrape` 
 Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing. Use `--enrich --force` to re-enrich already-processed albums.
 
 Deprecated flags: `--refresh` still works as an alias for `--scrape` (or `--force` when combined with `--enrich`). `--artist` alone still implies `--scrape --artist`.
+
+---
+
+## Subscriber Import
+
+Import subscriber data from CSV files into your newsletter provider. Supports Sendy, Listmonk, and Keila. Designed for migrating from one provider to another or consolidating subscriber lists from multiple sources.
+
+### Two-step approach
+
+The importer processes Bandcamp mailing list exports first (detected automatically by the `num purchases` column), then overlays data from secondary sources (Sendy, Listmonk, Keila, Mailchimp exports). This means:
+
+1. **Bandcamp first** — establishes the baseline: emails, names, customer/subscriber classification
+2. **Secondary sources** — enrich existing contacts (fill names, update statuses) and add new contacts (website subscribers)
+
+### Basic usage
+
+```bash
+# Import all CSVs from the default directory
+node generate.js --import-subscribers content/newsletter/import/samples
+
+# Import a single file
+node generate.js --import-subscribers path/to/subscribers.csv
+
+# Dry run (no API calls, preview only)
+node generate.js --import-subscribers content/newsletter/import/samples --dry-run
+```
+
+### Customer/subscriber split
+
+```bash
+# Listmonk: creates two lists (Newsletter + Newsletter — Customers)
+node generate.js --import-subscribers content/newsletter/import/samples --split-customers --create-list "Newsletter"
+
+# Keila: imports all contacts, creates two segments (Subscribers + Customers)
+node generate.js --import-subscribers content/newsletter/import/samples --split-customers --create-list "Newsletter"
+```
+
+### CLI flags
+
+| Flag | Description |
+|---|---|
+| `--import-subscribers [path]` | Import CSV files from path (file or directory). Default: `{contentDir}/newsletter/import/` |
+| `--split-customers` | Split into subscriber/customer lists (Listmonk) or segments (Keila) based on purchase data |
+| `--create-list <name>` | Auto-create list (Listmonk, double opt-in) or segment (Keila) before importing |
+| `--list <id>` | Target list/segment ID override |
+| `--tag <tag>` | Tag contacts with a source label (Keila only, stored in `data.source`) |
+| `--active-only` | Only import active/subscribed subscribers (skip unsubscribed/bounced) |
+| `--dry-run` | Preview changes without making API calls |
+
+### Supported CSV formats
+
+The importer auto-detects column names from these sources:
+
+| Source | Email column | Name columns | Status | Customer detection |
+|---|---|---|---|---|
+| Bandcamp | `email` | `firstname`, `lastname`, `fullname` | (none) | `num purchases > 0` |
+| Sendy | `Email` | `Name` | `Status` | `Kundennummer` column |
+| Listmonk | `email` | `name` | `status` | — |
+| Keila | `email` | `first_name`, `last_name` | `status` | — |
+| Mailchimp | `Email Address` | `First Name`, `Last Name` | — | — |
+
+### Name handling
+
+- Proper case normalization: `john doe` → `John Doe`, `JOHN DOE` → `John Doe`
+- Hyphenated names: `jean-pierre` → `Jean-Pierre`
+- Spam bot names filtered (random strings, hash-like tokens)
+- On re-import: existing contacts get case-normalized names and longer/more complete names from secondary sources
+
+### Status mapping
+
+| CSV status | Internal | Sendy | Listmonk | Keila |
+|---|---|---|---|---|
+| subscribed, active, enabled, empty | active | subscribe | enabled + preconfirmed | active |
+| unsubscribed | unsubscribed | subscribe + unsubscribe | enabled + preconfirmed | unsubscribed |
+| bounced, blocklisted, unreachable | bounced | skip | blocklisted | unreachable |
+| unconfirmed | — | skip (GDPR) | skip (GDPR) | skip (GDPR) |
+
+### Environment variables
+
+Uses the same `NEWSLETTER_*` env vars as the signup form. For Listmonk import, `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` are required (BasicAuth). For Keila import, `NEWSLETTER_API_TOKEN` is required (Bearer auth).
 
 ---
 

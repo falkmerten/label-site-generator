@@ -244,3 +244,94 @@ NEWSLETTER_API_TOKEN=your_api_token
 NEWSLETTER_FROM_EMAIL=newsletter@your-label.com
 ```
 Create API users in Listmonk under **Admin → Users**.
+
+---
+
+## Keila (optional — newsletter)
+
+Open-source newsletter tool (AGPL-3.0). Uses embeddable signup forms with double opt-in and a REST API with Bearer auth for campaign creation and subscriber import.
+
+1. Install Keila ([keila.io](https://www.keila.io)) or use the hosted version
+2. Create a **project** and a **form** in the Keila dashboard
+3. Copy the **form ID** from the form URL (e.g. `nfrm_xxxxx`)
+4. Create an **API key** under Settings → API Keys
+5. Add to `.env`:
+   ```
+   NEWSLETTER_PROVIDER=keila
+   NEWSLETTER_ACTION_URL=https://your-keila-installation.com
+   NEWSLETTER_KEILA_FORM_ID=nfrm_xxxxx
+   ```
+
+The signup form POSTs directly to Keila's public form endpoint (`/forms/{formId}`) — no API token needed for subscriptions. The site's single "Name" field is automatically split into first name and last name.
+
+**Important**: In the Keila form settings, enable "Cast" for the `first_name` and `last_name` fields — otherwise names from the signup form won't be stored.
+
+**Auto-campaign drafts** (optional): Set `NEWSLETTER_AUTO_CAMPAIGN=true` and add:
+```
+NEWSLETTER_API_TOKEN=your_bearer_token
+NEWSLETTER_KEILA_SENDER_ID=nms_xxxxx
+```
+Create a sender identity in Keila under your project's Senders settings.
+
+---
+
+## Subscriber Import (all providers)
+
+The `--import-subscribers` CLI flag imports subscriber data from CSV files into your configured newsletter provider. Works with Sendy, Listmonk, and Keila.
+
+### Sendy
+
+Uses the same `NEWSLETTER_API_KEY` and `NEWSLETTER_LIST_ID` as the signup form. No additional setup needed.
+
+```bash
+node generate.js --import-subscribers content/newsletter/import/ --list YOUR_LIST_ID
+```
+
+### Listmonk
+
+Requires API credentials (BasicAuth). Create an API user in Listmonk under **Admin → Users** and generate a token.
+
+```
+NEWSLETTER_API_USER=your_api_username
+NEWSLETTER_API_TOKEN=your_api_token
+```
+
+```bash
+# Single list
+node generate.js --import-subscribers content/newsletter/import/ --create-list "Newsletter"
+
+# Split into subscriber + customer lists
+node generate.js --import-subscribers content/newsletter/import/ --split-customers --create-list "Newsletter"
+```
+
+Lists are created as double opt-in (for future signups). Imported subscribers are preconfirmed — no confirmation emails are sent.
+
+### Keila
+
+Requires a Bearer API token. Create one in Keila under Settings → API Keys.
+
+```
+NEWSLETTER_API_TOKEN=your_bearer_token
+```
+
+```bash
+# Single segment
+node generate.js --import-subscribers content/newsletter/import/ --create-list "Newsletter"
+
+# Split into subscriber + customer segments
+node generate.js --import-subscribers content/newsletter/import/ --split-customers --create-list "Newsletter"
+```
+
+Keila doesn't have lists — all contacts go into one pool. Segments are created with filters on the `data.source` tag to separate subscribers from customers.
+
+### Docker test stack
+
+A local test stack with Listmonk, Keila, Mailpit (mail catcher), and Postgres is available for testing imports without affecting production:
+
+```bash
+docker compose -f docker-compose.newsletter-test.yml up -d
+```
+
+- Listmonk: http://localhost:9000
+- Keila: http://localhost:4000
+- Mailpit: http://localhost:8025 (catches all outgoing mail)

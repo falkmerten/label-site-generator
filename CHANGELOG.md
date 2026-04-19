@@ -4,6 +4,29 @@
 
 ---
 
+### v4.8.0 — 2026-04-20
+
+**Subscriber import CLI (LSG-100)**
+- New `--import-subscribers` CLI flag imports subscriber CSV files into Sendy, Listmonk, or Keila
+- Bandcamp-first processing: Bandcamp mailing list CSVs (detected by `num purchases` header) are processed first as the primary data source, secondary sources (Sendy, Listmonk, Keila exports) enrich and update existing contacts
+- Auto-tagging: Bandcamp `num purchases > 0` = customer, `0` = subscriber; Sendy `Kundennummer` column also detected as customer indicator; all other CSVs default to subscriber tag
+- `--split-customers` flag: Listmonk creates two lists (Newsletter + Customers), Keila creates two segments with `$in` filters on `data.source`
+- `--create-list <name>` auto-creates Listmonk lists (double opt-in for future signups) or Keila segments
+- Proper case name normalization: `john doe` → `John Doe`, `JEAN-PIERRE` → `Jean-Pierre`, `o'brien` → `O'Brien`
+- Name enrichment on re-import: existing contacts get improved names (longer/more complete) and case normalization from secondary sources
+- Spam bot filtering: garbage names (random strings, hash-like tokens) filtered by `sanitizeName()`
+- Local deduplication across all CSV files before API calls — most restrictive status wins, customer tag wins over subscriber
+- Unconfirmed contacts always skipped (never completed double opt-in = no GDPR consent)
+- Status mapping: active/unsubscribed/bounced preserved per provider (Listmonk: enabled/blocklisted, Keila: active/unsubscribed/unreachable)
+- Listmonk: all imported subscribers preconfirmed (`preconfirm_subscriptions: true`) — no confirmation emails sent during import
+- Keila: tag append on duplicate contacts, status downgrade (most restrictive wins), PATCH for non-active status
+- Anti-spam measures on newsletter signup form: JS timing check (3s minimum), email pattern filter (4+ dots in local part), honeypot field
+- `--tag`, `--active-only`, `--dry-run`, `--list` flags for fine-grained control
+- Header alias map handles Bandcamp, Sendy, Listmonk, Keila, Mailchimp CSV formats automatically
+- 74 unit tests + 15 property-based tests
+
+---
+
 ### v4.7.0 — 2026-04-19
 
 **Keila newsletter provider support (LSG-61)**

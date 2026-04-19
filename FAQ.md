@@ -229,6 +229,34 @@ For Sendy: the same `NEWSLETTER_API_KEY` works for both. For Listmonk: the subsc
 
 ---
 
+## Subscriber Import
+
+**How do I import subscribers from Bandcamp?**
+Export your mailing list from Bandcamp (Tools → Mailing List → Export) and place the CSV in `content/newsletter/import/`. Run `node generate.js --import-subscribers content/newsletter/import/`. The importer detects Bandcamp CSVs automatically by the `num purchases` column and processes them first.
+
+**Can I import from multiple sources at once?**
+Yes. Place all CSV files in one directory and point `--import-subscribers` at it. Bandcamp files are processed first (primary source), then other sources enrich and update existing contacts. Deduplication happens locally before any API calls — each email appears only once with the most restrictive status.
+
+**How does the customer/subscriber split work?**
+Use `--split-customers` with `--create-list "Newsletter"`. For Listmonk, this creates two lists: "Newsletter" (subscribers) and "Newsletter — Customers" (contacts with purchases). For Keila, all contacts go into one pool and two segments are created with filters on the `data.source` tag. The split is based on Bandcamp's `num purchases` column (>0 = customer) or the `Kundennummer` column in Sendy exports.
+
+**Will the import send confirmation emails?**
+No. All imported subscribers are preconfirmed — no double opt-in emails are sent during import. The lists are created as double opt-in for future signups via the website form, but imported contacts bypass this.
+
+**What happens to unconfirmed contacts in the CSV?**
+They are always skipped. Unconfirmed means the person never completed double opt-in, so there's no GDPR consent to import them.
+
+**How are names handled?**
+Names are proper-cased automatically (`john doe` → `John Doe`). Spam bot names (random strings) are filtered out. On re-import, existing contacts get improved names if the new source has a longer or more complete name. Only first names are sent to Listmonk and Sendy.
+
+**Can I do a dry run first?**
+Yes. Add `--dry-run` to preview what would be imported without making any API calls.
+
+**What if I run the import twice?**
+Duplicate contacts are handled gracefully. Listmonk returns 409 (already exists). Keila appends new tags and downgrades status if the new source has a more restrictive status (e.g. active → unsubscribed). Names are normalized on re-import.
+
+---
+
 ## CSV Import
 
 **Where do I put the CSV file?**

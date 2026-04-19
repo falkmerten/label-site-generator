@@ -196,7 +196,7 @@ function postRequest (url, data, format, username, password, bearerToken) {
     const req = protocol.request({
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname,
+      path: parsed.pathname + parsed.search,
       method: 'POST',
       headers
     }, res => {

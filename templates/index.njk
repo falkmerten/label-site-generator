@@ -162,14 +162,45 @@
             </div>
             <div style="display:none">
               <input type="text" name="hp" id="nl-hp">
+              <input type="hidden" name="nl-ts" id="nl-ts" value="">
             </div>
           </form>
           <div id="newsletter-msg" class="newsletter-msg" style="display:none"></div>
+          <script>
+            // Anti-spam: record page load time for timing check
+            document.getElementById('nl-ts').value = Date.now().toString();
+
+            // Anti-spam validation — returns error message or null if clean
+            function nlAntiSpam() {
+              var hp = document.getElementById('nl-hp').value;
+              if (hp) return 'bot-honeypot';
+              // Timing check: reject if submitted within 3 seconds of page load
+              var ts = parseInt(document.getElementById('nl-ts').value, 10);
+              if (ts && (Date.now() - ts) < 3000) return 'bot-timing';
+              // Email pattern check: reject excessive dots in local part (spam pattern)
+              var email = document.getElementById('nl-email').value;
+              var local = email.split('@')[0] || '';
+              if ((local.match(/\./g) || []).length >= 4) return 'bot-email-pattern';
+              return null;
+            }
+          </script>
           {% if newsletter.provider == 'sendy' %}
           <script>
             document.getElementById('newsletter-form').addEventListener('submit', function(e) {
               e.preventDefault();
               var msg = document.getElementById('newsletter-msg');
+              var spamCheck = nlAntiSpam();
+              if (spamCheck) {
+                document.getElementById('newsletter-form').style.display = 'none';
+                msg.style.display = 'block';
+                {% if newsletter.doubleOptIn %}
+                msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+                {% else %}
+                msg.textContent = 'Successfully subscribed!';
+                {% endif %}
+                msg.className = 'newsletter-msg newsletter-success';
+                return;
+              }
               var data = new FormData();
               data.append('email', document.getElementById('nl-email').value);
               data.append('name', document.getElementById('nl-name').value);
@@ -225,8 +256,8 @@
             document.getElementById('newsletter-form').addEventListener('submit', function(e) {
               e.preventDefault();
               var msg = document.getElementById('newsletter-msg');
-              var hp = document.getElementById('nl-hp').value;
-              if (hp) {
+              var spamCheck = nlAntiSpam();
+              if (spamCheck) {
                 document.getElementById('newsletter-form').style.display = 'none';
                 msg.style.display = 'block';
                 {% if newsletter.doubleOptIn %}
@@ -285,8 +316,8 @@
             document.getElementById('newsletter-form').addEventListener('submit', function(e) {
               e.preventDefault();
               var msg = document.getElementById('newsletter-msg');
-              var hp = document.getElementById('nl-hp').value;
-              if (hp) {
+              var spamCheck = nlAntiSpam();
+              if (spamCheck) {
                 document.getElementById('newsletter-form').style.display = 'none';
                 msg.style.display = 'block';
                 msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
