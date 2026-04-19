@@ -204,10 +204,13 @@ The latest 10 appear on the homepage in the News section. All articles are liste
 ## Newsletter
 
 **Which newsletter systems are supported?**
-Sendy and Listmonk. Set `NEWSLETTER_PROVIDER=sendy` or `NEWSLETTER_PROVIDER=listmonk` in `.env`. If `NEWSLETTER_PROVIDER` is not set but `NEWSLETTER_ACTION_URL` is, it defaults to Sendy for backward compatibility.
+Sendy, Listmonk, and Keila. Set `NEWSLETTER_PROVIDER=sendy`, `NEWSLETTER_PROVIDER=listmonk`, or `NEWSLETTER_PROVIDER=keila` in `.env`. If `NEWSLETTER_PROVIDER` is not set but `NEWSLETTER_ACTION_URL` is, it defaults to Sendy for backward compatibility.
+
+**How do I set up Keila?**
+Set `NEWSLETTER_PROVIDER=keila`, `NEWSLETTER_ACTION_URL` to your Keila instance URL, and `NEWSLETTER_KEILA_FORM_ID` to your form ID (e.g. `nfrm_xxxxx`). The signup form POSTs directly to Keila's public form endpoint — no API token needed for subscriptions. For auto-campaign drafts, also set `NEWSLETTER_API_TOKEN` (Bearer token) and `NEWSLETTER_KEILA_SENDER_ID` (e.g. `nms_xxxxx`). In the Keila form settings, make sure `first_name` and `last_name` fields have "Cast" enabled — otherwise names from the signup form won't be stored. The site's single "Name" field is automatically split into first name and last name.
 
 **What happens when someone subscribes with an already-subscribed email?**
-Sendy returns "Already subscribed." which is shown as "You are already subscribed to this list." Listmonk returns HTTP 409 with the same message.
+Sendy returns "Already subscribed." which is shown as "You are already subscribed to this list." Listmonk returns HTTP 409 with the same message. Keila handles duplicates silently in its form processing.
 
 **What about bounced or suppressed emails?**
 Sendy returns specific error messages for bounced and suppressed emails. The form shows a message asking the user to contact the label email directly.
@@ -216,13 +219,13 @@ Sendy returns specific error messages for bounced and suppressed emails. The for
 Yes. Sendy allows re-subscription — the user gets a new double opt-in confirmation email. No manual intervention needed.
 
 **I get "Something went wrong" when subscribing on the live site**
-This is a CORS issue. Your Sendy server needs to send `Access-Control-Allow-Origin` headers for your site domain. See the CORS section in `API-SETUP.md`. Listmonk supports CORS by default.
+This is a CORS issue. Your Sendy server needs to send `Access-Control-Allow-Origin` headers for your site domain. See the CORS section in `API-SETUP.md`. Listmonk and Keila support CORS by default.
 
 **How do auto-campaign drafts work?**
 Set `NEWSLETTER_AUTO_CAMPAIGN=true` in `.env`. When you run `node generate.js` and new news articles are detected, a campaign draft is automatically created in your newsletter system. Campaigns are never auto-sent — you review and send manually. Tracking is via `content/news/.campaigns-created` so articles only trigger one campaign each.
 
 **Do I need different credentials for subscribe vs campaigns?**
-For Sendy: the same `NEWSLETTER_API_KEY` works for both. For Listmonk: the subscribe form uses the public API (no auth), but campaign creation requires `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` (BasicAuth).
+For Sendy: the same `NEWSLETTER_API_KEY` works for both. For Listmonk: the subscribe form uses the public API (no auth), but campaign creation requires `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` (BasicAuth). For Keila: the subscribe form uses the public form endpoint (no auth), but campaign creation requires `NEWSLETTER_API_TOKEN` (Bearer auth) and `NEWSLETTER_KEILA_SENDER_ID`.
 
 ---
 

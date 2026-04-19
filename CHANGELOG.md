@@ -4,6 +4,19 @@
 
 ---
 
+### v4.7.0 — 2026-04-19
+
+**Keila newsletter provider support (LSG-61)**
+- Added Keila as a third newsletter provider alongside Sendy and Listmonk
+- Signup form: standard HTML form POST to Keila's public form endpoint (`/forms/{formId}`) with `contact[email]` field and `h[url]` honeypot
+- Campaign drafts: auto-created via `POST /api/v1/campaigns` with Bearer auth and Markdown body
+- Bearer auth support added to `postRequest()` helper (6th positional parameter, takes precedence over basic auth)
+- New env vars: `NEWSLETTER_KEILA_FORM_ID`, `NEWSLETTER_KEILA_SENDER_ID`
+- 6 property-based tests (config validation, campaign body structure, Bearer auth) and 9 unit tests
+- Docker test stack updated: Mailpit now supports insecure SMTP auth for Keila sender testing
+
+---
+
 ### v4.6.0 — 2026-04-19
 
 **Bandsintown email signup form (LSG-96)**

@@ -59,6 +59,7 @@ Generates a complete static website for a Bandcamp music label. Scrapes artist a
 
 - **Sendy** — self-hosted email marketing. Subscribe form on homepage, auto-campaign drafts from news articles. [sendy.co](https://sendy.co)
 - **Listmonk** — self-hosted newsletter manager (Sendy alternative). Public subscription API, campaign creation via REST API. [listmonk.app](https://listmonk.app)
+- **Keila** — open-source newsletter tool (AGPL-3.0). Embeddable signup forms with double opt-in, campaign drafts via REST API with Bearer auth. [keila.io](https://www.keila.io)
 
 ---
 
@@ -117,7 +118,7 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `LABEL_TIKTOK_URL` | TikTok profile URL |
 | `LABEL_TWITTER_URL` | X / Twitter profile URL |
 | **Newsletter** | |
-| `NEWSLETTER_PROVIDER` | Newsletter backend: `sendy` or `listmonk` (defaults to `sendy` if `NEWSLETTER_ACTION_URL` is set) |
+| `NEWSLETTER_PROVIDER` | Newsletter backend: `sendy`, `listmonk`, or `keila` (defaults to `sendy` if `NEWSLETTER_ACTION_URL` is set) |
 | `NEWSLETTER_ACTION_URL` | Newsletter installation URL (without `/subscribe`) |
 | `NEWSLETTER_API_KEY` | Sendy API key (from Sendy Settings) — required for Sendy |
 | `NEWSLETTER_LIST_ID` | Mailing list ID (Sendy encrypted ID / Listmonk list UUID) |
@@ -128,7 +129,9 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `NEWSLETTER_REPLY_TO` | Campaign reply-to email (defaults to `NEWSLETTER_FROM_EMAIL`) |
 | `NEWSLETTER_BRAND_ID` | Sendy brand ID (default: `1`) |
 | `NEWSLETTER_API_USER` | Listmonk API username — required for Listmonk campaign creation |
-| `NEWSLETTER_API_TOKEN` | Listmonk API token — required for Listmonk campaign creation |
+| `NEWSLETTER_API_TOKEN` | Listmonk API token / Keila Bearer token — required for Listmonk and Keila campaign creation |
+| `NEWSLETTER_KEILA_FORM_ID` | Keila form ID for signup (e.g. `nfrm_xxxxx`) — required for Keila |
+| `NEWSLETTER_KEILA_SENDER_ID` | Keila sender identity for campaign creation (e.g. `nms_xxxxx`) |
 | **Physical stores** | |
 | `PHYSICAL_STORES` | Comma-separated store IDs in display order (default: `bandcamp,discogs`) |
 | `ELASTICSTAGE_LABEL_URL` | ElasticStage label page URL for on-demand vinyl/CD |

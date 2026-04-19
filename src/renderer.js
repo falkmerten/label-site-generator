@@ -25,6 +25,15 @@ const NEWSLETTER_PROVIDERS = {
       listId: process.env.NEWSLETTER_LIST_ID || '',
       doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
     })
+  },
+  keila: {
+    required: ['NEWSLETTER_ACTION_URL', 'NEWSLETTER_KEILA_FORM_ID'],
+    resolve: () => ({
+      provider: 'keila',
+      actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
+      formId: process.env.NEWSLETTER_KEILA_FORM_ID || '',
+      formUrl: `${process.env.NEWSLETTER_ACTION_URL}/forms/${process.env.NEWSLETTER_KEILA_FORM_ID}`
+    })
   }
 };
 

@@ -280,6 +280,52 @@
                 });
             });
           </script>
+          {% elif newsletter.provider == 'keila' %}
+          <script>
+            document.getElementById('newsletter-form').addEventListener('submit', function(e) {
+              e.preventDefault();
+              var msg = document.getElementById('newsletter-msg');
+              var hp = document.getElementById('nl-hp').value;
+              if (hp) {
+                document.getElementById('newsletter-form').style.display = 'none';
+                msg.style.display = 'block';
+                msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+                msg.className = 'newsletter-msg newsletter-success';
+                return;
+              }
+              var params = new URLSearchParams();
+              params.append('contact[email]', document.getElementById('nl-email').value);
+              var nlName = document.getElementById('nl-name').value.trim();
+              if (nlName) {
+                var parts = nlName.split(/\s+/);
+                params.append('contact[first_name]', parts[0]);
+                if (parts.length > 1) params.append('contact[last_name]', parts.slice(1).join(' '));
+              }
+              params.append('h[url]', '');
+              fetch('{{ newsletter.actionUrl }}/forms/{{ newsletter.formId }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+              })
+                .then(function(response) {
+                  if (response.ok) {
+                    document.getElementById('newsletter-form').style.display = 'none';
+                    msg.style.display = 'block';
+                    msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+                    msg.className = 'newsletter-msg newsletter-success';
+                  } else {
+                    msg.style.display = 'block';
+                    msg.textContent = 'Something went wrong. Please try again.';
+                    msg.className = 'newsletter-msg newsletter-error';
+                  }
+                })
+                .catch(function() {
+                  msg.style.display = 'block';
+                  msg.textContent = 'Something went wrong. Please try again.';
+                  msg.className = 'newsletter-msg newsletter-error';
+                });
+            });
+          </script>
           {% endif %}
         </div>
       {% elif not newsHtml %}

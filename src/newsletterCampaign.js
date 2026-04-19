@@ -8,7 +8,7 @@ const querystring = require('querystring')
 
 /**
  * Creates newsletter campaign drafts for new news articles.
- * Supports Sendy and Listmonk providers.
+ * Supports Sendy, Listmonk, and Keila providers.
  *
  * @param {Array} articles - news article objects from loadNews()
  * @param {string} contentDir - content directory path
@@ -45,6 +45,8 @@ async function createCampaignDrafts (articles, contentDir) {
         await createSendyCampaign(article, htmlBody, plainText)
       } else if (provider === 'listmonk') {
         await createListmonkCampaign(article, htmlBody)
+      } else if (provider === 'keila') {
+        await createKeilaCampaign(article, plainText)
       }
 
       sentSlugs.add(article.slug)
@@ -146,9 +148,38 @@ async function createListmonkCampaign (article, htmlBody) {
 }
 
 /**
+ * Creates a draft campaign in Keila.
+ */
+async function createKeilaCampaign (article, plainText) {
+  const actionUrl = process.env.NEWSLETTER_ACTION_URL
+  const apiToken = process.env.NEWSLETTER_API_TOKEN
+  const senderId = process.env.NEWSLETTER_KEILA_SENDER_ID
+
+  if (!actionUrl || !apiToken || !senderId) {
+    const missing = [
+      !actionUrl && 'NEWSLETTER_ACTION_URL',
+      !apiToken && 'NEWSLETTER_API_TOKEN',
+      !senderId && 'NEWSLETTER_KEILA_SENDER_ID'
+    ].filter(Boolean)
+    throw new Error(`Missing required env vars for Keila campaign: ${missing.join(', ')}`)
+  }
+
+  const body = JSON.stringify({
+    data: {
+      subject: article.title,
+      text_body: plainText,
+      settings: { type: 'markdown' },
+      sender_id: senderId
+    }
+  })
+
+  return postRequest(actionUrl + '/api/v1/campaigns', body, 'json', null, null, apiToken)
+}
+
+/**
  * Generic HTTP POST helper.
  */
-function postRequest (url, data, format, username, password) {
+function postRequest (url, data, format, username, password, bearerToken) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url)
     const protocol = parsed.protocol === 'https:' ? https : http
@@ -156,7 +187,9 @@ function postRequest (url, data, format, username, password) {
       ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
       : { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(data) }
 
-    if (username && password) {
+    if (bearerToken) {
+      headers.Authorization = 'Bearer ' + bearerToken
+    } else if (username && password) {
       headers.Authorization = 'Basic ' + Buffer.from(`${username}:${password}`).toString('base64')
     }
 
@@ -183,4 +216,4 @@ function postRequest (url, data, format, username, password) {
   })
 }
 
-module.exports = { createCampaignDrafts, buildCampaignHtml }
+module.exports = { createCampaignDrafts, buildCampaignHtml, createKeilaCampaign, postRequest }
