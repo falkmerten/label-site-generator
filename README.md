@@ -420,7 +420,39 @@ Format:
 |---------------|----------|--------------------------------------------------|
 | `app_id`      | yes      | Bandsintown API application ID (per-artist key)  |
 | `artist_name` | yes      | Artist name as registered on Bandsintown          |
-| `artist_id`   | no       | Bandsintown numeric artist ID (for future use)    |
+| `artist_id`   | no       | Bandsintown numeric artist ID (enables email signup form embed) |
+| `email_signup` | no      | Object with iframe styling overrides (see below)  |
+
+When `artist_id` is provided, an embedded Bandsintown email signup form is rendered on the artist page below the events section. The form lets fans subscribe to the artist's Bandsintown mailing list directly from your site.
+
+**Email signup styling overrides** (`email_signup` object):
+
+| Field                | Default                          | Description                    |
+|----------------------|----------------------------------|--------------------------------|
+| `headerText`         | `"Sign up for {Artist} updates"` | Header text above the form     |
+| `title`              | `"Mailing List"`                 | Form title                     |
+| `ctaLabel`           | `"Subscribe"`                    | Button label                   |
+| `backgroundColor`    | `"rgba(255,255,255,1)"`          | Form background color          |
+| `headerTextColor`    | `"rgba(12,0,50,1)"`              | Header text color              |
+| `ctaBackgroundColor` | `"rgba(12,0,50,1)"`              | Button background color        |
+| `ctaFontColor`       | `"rgba(255,255,255,1)"`          | Button text color              |
+| `ctaBorderColor`     | `"rgba(12,0,50,1)"`              | Button border color            |
+| `layout`             | `"wide"`                         | Form layout (`wide` or `slim`) |
+| `font`               | `"Helvetica"`                    | Font family                    |
+
+Example with custom styling:
+```json
+{
+  "app_id": "your-bandsintown-app-id",
+  "artist_name": "Artist Name",
+  "artist_id": "12345678",
+  "email_signup": {
+    "headerText": "Join the mailing list",
+    "ctaBackgroundColor": "rgba(0,180,179,1)",
+    "ctaBorderColor": "rgba(0,180,179,1)"
+  }
+}
+```
 
 When configured, the artist page gains several fan engagement CTAs:
 

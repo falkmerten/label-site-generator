@@ -163,7 +163,9 @@ async function fetchAllArtists (mergedData, content) {
     // Always set base bandsintown metadata from config so Follow CTA works
     artist.bandsintown = {
       appId,
-      artistName
+      artistName,
+      artist_id: artistId,
+      email_signup: config.email_signup || null
     }
 
     // Fetch artist info (non-fatal)

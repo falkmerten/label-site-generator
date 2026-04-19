@@ -188,6 +188,55 @@
       {% endif %}
     </section>
 
+    {% if artist.galleryImages and artist.galleryImages.length %}
+      <section class="artist-gallery">
+        <h2>Photos</h2>
+        <div class="gallery-grid">
+          {% for img in artist.galleryImages %}
+            <button class="gallery-thumb" onclick="openLightbox('{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}')" aria-label="View photo">
+              <picture>
+                <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+                <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toWebp }}" type="image/webp">
+                <img src="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}" alt="{{ artist.name }}" loading="lazy">
+              </picture>
+            </button>
+          {% endfor %}
+        </div>
+      </section>
+
+      <!-- Lightbox -->
+      <div id="lightbox" class="lightbox" onclick="closeLightbox()" role="dialog" aria-modal="true" aria-label="Photo viewer">
+        <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">&times;</button>
+        <button class="lightbox-prev" onclick="event.stopPropagation(); moveLightbox(-1)" aria-label="Previous">&#8249;</button>
+        <img id="lightbox-img" src="" alt="{{ artist.name }}">
+        <button class="lightbox-next" onclick="event.stopPropagation(); moveLightbox(1)" aria-label="Next">&#8250;</button>
+      </div>
+      <script>
+        var _gallery = [{% for img in artist.galleryImages %}'{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}'{% if not loop.last %},{% endif %}{% endfor %}];
+        var _current = 0;
+        function openLightbox(src) {
+          _current = _gallery.indexOf(src);
+          document.getElementById('lightbox-img').src = src;
+          document.getElementById('lightbox').classList.add('open');
+          document.body.style.overflow = 'hidden';
+        }
+        function closeLightbox() {
+          document.getElementById('lightbox').classList.remove('open');
+          document.body.style.overflow = '';
+        }
+        function moveLightbox(dir) {
+          _current = (_current + dir + _gallery.length) % _gallery.length;
+          document.getElementById('lightbox-img').src = _gallery[_current];
+        }
+        document.addEventListener('keydown', function(e) {
+          if (!document.getElementById('lightbox').classList.contains('open')) return;
+          if (e.key === 'Escape') closeLightbox();
+          if (e.key === 'ArrowLeft') moveLightbox(-1);
+          if (e.key === 'ArrowRight') moveLightbox(1);
+        });
+      </script>
+    {% endif %}
+
     {% if artist.events and artist.events.length %}
     <section class="upcoming-shows">
       <h2>Upcoming Shows</h2>
@@ -256,53 +305,26 @@
     </section>
     {% endif %}
 
-    {% if artist.galleryImages and artist.galleryImages.length %}
-      <section class="artist-gallery">
-        <h2>Photos</h2>
-        <div class="gallery-grid">
-          {% for img in artist.galleryImages %}
-            <button class="gallery-thumb" onclick="openLightbox('{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}')" aria-label="View photo">
-              <picture>
-                <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
-                <source srcset="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img | toWebp }}" type="image/webp">
-                <img src="{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}" alt="{{ artist.name }}" loading="lazy">
-              </picture>
-            </button>
-          {% endfor %}
-        </div>
-      </section>
-
-      <!-- Lightbox -->
-      <div id="lightbox" class="lightbox" onclick="closeLightbox()" role="dialog" aria-modal="true" aria-label="Photo viewer">
-        <button class="lightbox-close" onclick="closeLightbox()" aria-label="Close">&times;</button>
-        <button class="lightbox-prev" onclick="event.stopPropagation(); moveLightbox(-1)" aria-label="Previous">&#8249;</button>
-        <img id="lightbox-img" src="" alt="{{ artist.name }}">
-        <button class="lightbox-next" onclick="event.stopPropagation(); moveLightbox(1)" aria-label="Next">&#8250;</button>
-      </div>
-      <script>
-        var _gallery = [{% for img in artist.galleryImages %}'{{ rootPath }}artists/{{ artist.slug }}/images/{{ img }}'{% if not loop.last %},{% endif %}{% endfor %}];
-        var _current = 0;
-        function openLightbox(src) {
-          _current = _gallery.indexOf(src);
-          document.getElementById('lightbox-img').src = src;
-          document.getElementById('lightbox').classList.add('open');
-          document.body.style.overflow = 'hidden';
-        }
-        function closeLightbox() {
-          document.getElementById('lightbox').classList.remove('open');
-          document.body.style.overflow = '';
-        }
-        function moveLightbox(dir) {
-          _current = (_current + dir + _gallery.length) % _gallery.length;
-          document.getElementById('lightbox-img').src = _gallery[_current];
-        }
-        document.addEventListener('keydown', function(e) {
-          if (!document.getElementById('lightbox').classList.contains('open')) return;
-          if (e.key === 'Escape') closeLightbox();
-          if (e.key === 'ArrowLeft') moveLightbox(-1);
-          if (e.key === 'ArrowRight') moveLightbox(1);
-        });
-      </script>
+    {% if artist.bandsintown and artist.bandsintown.artist_id %}
+    {% set bitSignup = artist.bandsintown.email_signup or {} %}
+    {% set bitHeaderText = bitSignup.headerText or ('Sign up for ' + artist.name + ' updates') %}
+    {% set bitTitle = bitSignup.title or 'Mailing List' %}
+    {% set bitCtaLabel = bitSignup.ctaLabel or 'Subscribe' %}
+    {% set bitBgColor = bitSignup.backgroundColor or 'rgba(255,255,255,1)' %}
+    {% set bitHeaderTextColor = bitSignup.headerTextColor or 'rgba(0,0,0,1)' %}
+    {% set bitCtaBgColor = bitSignup.ctaBackgroundColor or 'rgba(12,0,50,1)' %}
+    {% set bitCtaFontColor = bitSignup.ctaFontColor or 'rgba(255,255,255,1)' %}
+    {% set bitCtaBorderColor = bitSignup.ctaBorderColor or 'rgba(12,0,50,1)' %}
+    {% set bitLayout = bitSignup.layout or 'wide' %}
+    {% set bitFont = bitSignup.font or 'Helvetica' %}
+    <section class="bandsintown-signup">
+      <iframe
+        src="https://bandsintown.com/artist/{{ artist.bandsintown.artist_id }}/email_signup_form?headerTextColor={{ bitHeaderTextColor | urlencode }}&backgroundColor={{ bitBgColor | urlencode }}&ctaBackgroundColor={{ bitCtaBgColor | urlencode }}&title={{ bitTitle | urlencode }}&headerTextStyle=normal&headerText={{ bitHeaderText | urlencode }}&font={{ bitFont | urlencode }}&ctaIcon=show&ctaBorderRadius=4px&ctaBorderWidth=2px&ctaBorderColor={{ bitCtaBorderColor | urlencode }}&ctaFontColor={{ bitCtaFontColor | urlencode }}&alignment=center&emailInputField=show&ctaLabel={{ bitCtaLabel | urlencode }}&layout={{ bitLayout }}&locale=en"
+        width="100%" height="280" title="Sign up for {{ artist.name }} updates"
+        scrolling="no"
+        loading="lazy" style="border: none; overflow: hidden; max-width: 600px; display: block; margin: 0 auto;">
+      </iframe>
+    </section>
     {% endif %}
 
   </article>

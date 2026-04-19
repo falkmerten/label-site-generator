@@ -180,6 +180,9 @@ Yes. Any release with a future release date gets the "Coming Soon" badge automat
 **When should I remove an entry from upcoming.json?**
 When the release goes public on Bandcamp. The normal scraper will pick it up, and the "Coming Soon" badge disappears once the release date passes.
 
+**I added a pre-save link to upcoming.json. Do I need to run enrichment?**
+No. Run `node generate.js --scrape` (or `--scrape --artist "Artist Name"` for a single artist). A plain `node generate.js` does not re-read `upcoming.json` — the `--scrape` flag is needed to pick up changes. Enrichment is not required and actually skips upcoming releases entirely.
+
 ---
 
 ## News
@@ -252,6 +255,9 @@ When Bandsintown is configured, artist pages can show: Follow on Bandsintown (wi
 
 **What if the Bandsintown API is down?**
 All errors are non-fatal. API failures, timeouts, and network errors log warnings but don't break site generation.
+
+**How do I enable the email signup form on an artist page?**
+Add `artist_id` (the numeric Bandsintown artist ID) to the artist's `bandsintown.json`. The form is rendered as an iframe below the events section. Default styling uses the site's brand colors. To customize colors, text, or layout, add an `email_signup` object — see the README for all available fields.
 
 ---
 

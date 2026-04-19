@@ -600,7 +600,7 @@ main { min-height: 60vh; }
 }
 
 /* ── Artist Gallery ── */
-.artist-gallery { margin-bottom: 2rem; }
+.artist-gallery { margin-top: 2.5rem; margin-bottom: 2rem; }
 .artist-gallery h2 {
   font-size: 1.1rem;
   font-weight: 700;
@@ -1252,6 +1252,10 @@ main { min-height: 60vh; }
 .play-my-city { color: #aaa; }
 .play-my-city a { color: var(--accent, #8a8aff); text-decoration: none; }
 .play-my-city a:hover { text-decoration: underline; }
+
+/* ── Bandsintown email signup ── */
+.bandsintown-signup { margin-top: 2rem; margin-bottom: 1rem; }
+.bandsintown-signup iframe { border-radius: 8px; }
 
 /* ── Newsletter form ── */
 .newsletter-form { margin-top: 2rem; }

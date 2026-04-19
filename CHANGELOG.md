@@ -4,12 +4,30 @@
 
 ---
 
-### v4.5.1 — 2026-04-16
+### v4.6.0 — 2026-04-19
+
+**Bandsintown email signup form (LSG-96)**
+- Embedded Bandsintown email signup iframe on artist pages when `artist_id` is set in `bandsintown.json`
+- Fans can subscribe to the artist's Bandsintown mailing list directly from the site
+- Default styling uses site brand colors, optional `email_signup` object for per-artist overrides
+- Form placed after events section as the last content block on artist pages
+
+**Artist page layout improvements**
+- Photo gallery moved before events section (content-first, actions last)
+- Added spacing between discography and gallery sections
+
+**Bug fixes**
+- Fixed Spotify title normalization failing with `invalid_client` during `--scrape --artist` — `getAccessToken()` was called without credentials
+- Restored `scripts/update-lsg-site.js` (accidentally deleted in a previous commit)
 
 **Security: Upgrade DOMPurify (LSG-95)**
 - Upgrade `isomorphic-dompurify` from 2.36.0 → 3.9.0 (pulls in `dompurify@3.4.0`)
 - Fixes Dependabot alert #32 — security vulnerability in dompurify < 3.4.0
-- No API changes; `DOMPurify.sanitize()` usage in `src/markdown.js` unchanged
+
+**Documentation**
+- FAQ: added Bandsintown email signup, pre-save link workflow, cache backup rotation, conflict detection, enrichment fallback, sales reports, `--force` flag updates
+- README: updated `bandsintown.json` format with `artist_id` and `email_signup` fields
+- SECURITY.md: updated supported versions to 4.x
 
 ---
 

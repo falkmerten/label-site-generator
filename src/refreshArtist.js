@@ -332,7 +332,7 @@ async function refreshArtist (cachePath, artistFilter) {
 
     if (spotifyUrl && process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) {
       console.log('  → Normalizing titles against Spotify...')
-      const token = await getAccessToken()
+      const token = await getAccessToken(process.env.SPOTIFY_CLIENT_ID, process.env.SPOTIFY_CLIENT_SECRET)
       const spotifyAlbums = await fetchArtistAlbums(token, spotifyUrl)
       if (spotifyAlbums.length > 0) {
         const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
