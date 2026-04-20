@@ -341,6 +341,21 @@
     <h2>Changelog</h2>
     <div class="changelog">
       <div class="release">
+        <h3>v4.8.1 <span class="release-date">— 20 April 2026</span></h3>
+        <ul>
+          <li>Three-tier system for upcoming releases: announce (title + date), preview (+ pre-save/description), full (Bandcamp private URL)</li>
+          <li>Tier auto-derived from fields present in <code>upcoming.json</code> — no explicit tier field needed</li>
+          <li>Announce/preview entries load on every generate (no <code>--scrape</code> needed)</li>
+          <li>Full entries load only during <code>--scrape</code> (existing behavior preserved)</li>
+          <li>Content directories auto-created for new announce/preview entries with CLI hints</li>
+          <li>Template: announce/preview hide Bandcamp embed, streaming links, and tracklist; pre-save button works for all tiers</li>
+          <li>Backward compatible: existing bare URL strings and <code>{url, presaveUrl}</code> objects continue to work</li>
+          <li>Consolidated <code>NEWSLETTER_API_KEY</code> into <code>NEWSLETTER_API_TOKEN</code> — one credential var for all providers (Sendy, Listmonk, Keila). Backward compatible: <code>NEWSLETTER_API_KEY</code> still works as fallback</li>
+          <li>Removed duplicate <code>LABEL_BANDCAMP_URL</code> — use <code>BANDCAMP_LABEL_URL</code> only (already the primary, now also used for social links)</li>
+          <li>Clarified S3 bucket comments: <code>AWS_S3_BUCKET</code> for website deployment, <code>STORAGE_S3_BUCKET</code> for data sync</li>
+        </ul>
+      </div>
+      <div class="release">
         <h3>v4.8.0 <span class="release-date">— 20 April 2026</span></h3>
         <ul>
           <li>New <code>--import-subscribers</code> CLI flag imports subscriber CSV files into Sendy, Listmonk, or Keila</li>
@@ -770,7 +785,7 @@
   </section>
 
   <footer>
-    <p>Label Site Generator v4.8.0 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
+    <p>Label Site Generator v4.8.1 — built by <a href="https://aenaos-records.com">Aenaos Records</a></p>
     <p class="imprint">Aenaos Records · Owner: Falk Merten · Herrnhuter Str. 2, 04318 Leipzig (Germany) · VAT ID DE267690157</p>
   </footer>
 
