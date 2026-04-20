@@ -296,7 +296,7 @@ function validateEnvVars (provider) {
   if (!process.env.NEWSLETTER_ACTION_URL) missing.push('NEWSLETTER_ACTION_URL')
 
   if (provider === 'sendy') {
-    if (!process.env.NEWSLETTER_API_KEY) missing.push('NEWSLETTER_API_KEY')
+    if (!process.env.NEWSLETTER_API_TOKEN && !process.env.NEWSLETTER_API_KEY) missing.push('NEWSLETTER_API_TOKEN')
   } else if (provider === 'listmonk') {
     if (!process.env.NEWSLETTER_API_USER) missing.push('NEWSLETTER_API_USER')
     if (!process.env.NEWSLETTER_API_TOKEN) missing.push('NEWSLETTER_API_TOKEN')
@@ -314,7 +314,7 @@ function validateEnvVars (provider) {
  */
 async function importToSendy (subscribers, listId, dryRun) {
   const actionUrl = process.env.NEWSLETTER_ACTION_URL
-  const apiKey = process.env.NEWSLETTER_API_KEY
+  const apiKey = process.env.NEWSLETTER_API_TOKEN || process.env.NEWSLETTER_API_KEY
   const results = []
 
   for (let i = 0; i < subscribers.length; i++) {

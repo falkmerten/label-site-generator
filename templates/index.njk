@@ -68,7 +68,11 @@
       {% if latestReleases and latestReleases.length %}
         <div class="release-grid">
           {% for album in latestReleases %}
+            {% if album.tier == 'announce' %}
+            <div class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}">
+            {% else %}
             <a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}">
+            {% endif %}
               {% if album.releaseDate | isFuture %}<span class="coming-soon-badge">Coming Soon</span>{% endif %}
               {% if album.artwork | isLocal %}
                 <picture>
@@ -88,7 +92,11 @@
                 {% set formats = album | availableFormats %}
                 {% if formats %}<span class="release-formats">({{ formats }})</span>{% endif %}
               </div>
+            {% if album.tier == 'announce' %}
+            </div>
+            {% else %}
             </a>
+            {% endif %}
           {% endfor %}
         </div>
         {% if totalReleases > 12 %}

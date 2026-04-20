@@ -225,7 +225,7 @@ This is a CORS issue. Your Sendy server needs to send `Access-Control-Allow-Orig
 Set `NEWSLETTER_AUTO_CAMPAIGN=true` in `.env`. When you run `node generate.js` and new news articles are detected, a campaign draft is automatically created in your newsletter system. Campaigns are never auto-sent — you review and send manually. Tracking is via `content/news/.campaigns-created` so articles only trigger one campaign each.
 
 **Do I need different credentials for subscribe vs campaigns?**
-For Sendy: the same `NEWSLETTER_API_KEY` works for both. For Listmonk: the subscribe form uses the public API (no auth), but campaign creation requires `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` (BasicAuth). For Keila: the subscribe form uses the public form endpoint (no auth), but campaign creation requires `NEWSLETTER_API_TOKEN` (Bearer auth) and `NEWSLETTER_KEILA_SENDER_ID`.
+For Sendy: the same `NEWSLETTER_API_TOKEN` works for both. For Listmonk: the subscribe form uses the public API (no auth), but campaign creation requires `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` (BasicAuth). For Keila: the subscribe form uses the public form endpoint (no auth), but campaign creation requires `NEWSLETTER_API_TOKEN` (Bearer auth) and `NEWSLETTER_KEILA_SENDER_ID`.
 
 ---
 

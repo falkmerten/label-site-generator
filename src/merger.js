@@ -152,6 +152,7 @@ async function mergeData (rawData, content) {
               discogsLabel: album.discogsLabel || null,
               discogsLabelUrls: album.discogsLabelUrls || null,
               upcoming: album.upcoming || false,
+              tier: album.tier || null,
               presaveUrl: album.presaveUrl || null,
               labelUrls: album.labelUrls || (album.labelUrl
                 ? [album.labelUrl, ...Array(
@@ -282,6 +283,7 @@ async function mergeData (rawData, content) {
             discogsLabel: album.discogsLabel || null,
             discogsLabelUrls: album.discogsLabelUrls || null,
             upcoming: album.upcoming || false,
+            tier: album.tier || null,
             presaveUrl: album.presaveUrl || null,
             labelUrls: album.labelUrls || (album.labelUrl
               ? [album.labelUrl, ...Array(
@@ -354,18 +356,26 @@ async function mergeData (rawData, content) {
       // Apply links.json overrides (highest priority — manual links come first)
       if (artistContent.links) {
         const cl = artistContent.links
-        // Streaming links
+        // Streaming links (null = explicitly remove)
         if (cl.streaming) {
           mergedArtist.streamingLinks = mergedArtist.streamingLinks || {}
           for (const [key, url] of Object.entries(cl.streaming)) {
-            if (url) mergedArtist.streamingLinks[key] = url
+            if (url === null) {
+              delete mergedArtist.streamingLinks[key]
+            } else if (url) {
+              mergedArtist.streamingLinks[key] = url
+            }
           }
         }
-        // Social links
+        // Social links (null = explicitly remove)
         if (cl.social) {
           mergedArtist.socialLinks = mergedArtist.socialLinks || {}
           for (const [key, url] of Object.entries(cl.social)) {
-            if (url) mergedArtist.socialLinks[key] = url
+            if (url === null) {
+              delete mergedArtist.socialLinks[key]
+            } else if (url) {
+              mergedArtist.socialLinks[key] = url
+            }
           }
         }
         // Website / non-social links (added to bandLinks if not already present)
@@ -493,6 +503,7 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
 
   const merged = new Map()
   const byEventId = new Map() // bandsintown event ID → key in merged
+  const byDateName = new Map() // date|normalizedEventName → key in merged
 
   // First pass: index existing events
   for (const event of existing) {
@@ -500,6 +511,11 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
     merged.set(key, event)
     const eid = extractBitEventId(event.eventUrl)
     if (eid) byEventId.set(eid, key)
+    // Also index by date + event name for fuzzy city matching
+    if (event.name) {
+      const dnKey = (event.date || '').slice(0, 10) + '|' + event.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+      byDateName.set(dnKey, key)
+    }
   }
 
   // Second pass: merge Bandsintown events
@@ -513,6 +529,18 @@ function mergeBandsintownEvents (existingEvents, bandsintownEvents) {
     if (!matchKey) {
       const eid = extractBitEventId(bitEvent.eventUrl)
       if (eid) matchKey = byEventId.get(eid) || null
+    }
+
+    // Fallback: match by date + event name (handles city name mismatches)
+    if (!matchKey && bitEvent.name) {
+      const dnKey = (bitEvent.date || '').slice(0, 10) + '|' + bitEvent.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+      matchKey = byDateName.get(dnKey) || null
+    }
+
+    // Fallback: match by date + venue name against event name (Bandsintown puts festival name in venue)
+    if (!matchKey && bitEvent.venueName) {
+      const dvKey = (bitEvent.date || '').slice(0, 10) + '|' + bitEvent.venueName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+      matchKey = byDateName.get(dvKey) || null
     }
 
     if (matchKey && merged.has(matchKey)) {
@@ -561,7 +589,7 @@ function extractBitEventId (url) {
  */
 function dedupKey (event) {
   const day = (event.date || '').slice(0, 10)
-  const city = (event.cityName || '').toLowerCase().trim()
+  const city = (event.cityName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-\s]+/g, '').trim()
   return `${day}|${city}`
 }
 

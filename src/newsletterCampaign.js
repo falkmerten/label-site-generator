@@ -91,7 +91,7 @@ function buildCampaignHtml (article, articleUrl, imageUrl, labelName) {
  */
 async function createSendyCampaign (article, htmlBody, plainText) {
   const actionUrl = process.env.NEWSLETTER_ACTION_URL
-  const apiKey = process.env.NEWSLETTER_API_KEY
+  const apiKey = process.env.NEWSLETTER_API_TOKEN || process.env.NEWSLETTER_API_KEY
   const listId = process.env.NEWSLETTER_LIST_ID
   const fromName = process.env.NEWSLETTER_FROM_NAME || process.env.LABEL_NAME || 'Newsletter'
   const fromEmail = process.env.NEWSLETTER_FROM_EMAIL || process.env.LABEL_EMAIL || ''
@@ -99,7 +99,7 @@ async function createSendyCampaign (article, htmlBody, plainText) {
   const brandId = process.env.NEWSLETTER_BRAND_ID || '1'
 
   if (!actionUrl || !apiKey || !listId || !fromEmail) {
-    throw new Error('Missing required env vars for Sendy campaign (NEWSLETTER_ACTION_URL, NEWSLETTER_API_KEY, NEWSLETTER_LIST_ID, NEWSLETTER_FROM_EMAIL or LABEL_EMAIL)')
+    throw new Error('Missing required env vars for Sendy campaign (NEWSLETTER_ACTION_URL, NEWSLETTER_API_TOKEN, NEWSLETTER_LIST_ID, NEWSLETTER_FROM_EMAIL or LABEL_EMAIL)')
   }
 
   const data = querystring.stringify({

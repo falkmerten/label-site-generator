@@ -200,7 +200,7 @@ Self-hosted email marketing. Used for the subscribe form on the homepage and aut
    ```
    NEWSLETTER_PROVIDER=sendy
    NEWSLETTER_ACTION_URL=https://your-sendy-installation.com
-   NEWSLETTER_API_KEY=your_api_key
+   NEWSLETTER_API_TOKEN=your_api_key
    NEWSLETTER_LIST_ID=your_encrypted_list_id
    NEWSLETTER_DOUBLE_OPTIN=true
    ```
@@ -281,7 +281,7 @@ The `--import-subscribers` CLI flag imports subscriber data from CSV files into 
 
 ### Sendy
 
-Uses the same `NEWSLETTER_API_KEY` and `NEWSLETTER_LIST_ID` as the signup form. No additional setup needed.
+Uses the same `NEWSLETTER_API_TOKEN` and `NEWSLETTER_LIST_ID` as the signup form. No additional setup needed.
 
 ```bash
 node generate.js --import-subscribers content/newsletter/import/ --list YOUR_LIST_ID

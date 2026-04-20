@@ -58,13 +58,18 @@ async function generate(options) {
   console.log('Loading content overrides...');
   const content = await loadContent(contentDir);
 
-  // Step 4b: Load upcoming releases from private Bandcamp links
-  // Only fetch from Bandcamp on fresh scrape — otherwise data is already in cache
+  // Step 4b: Load upcoming releases — announce/preview tier (always runs, no scraping)
+  const { loadUpcomingLocal, loadUpcomingFull } = require('./upcoming');
+  const localCount = await loadUpcomingLocal(contentDir, rawData, opts.artistFilter);
+  if (localCount > 0) {
+    console.log(`Loaded ${localCount} upcoming release(s) (announce/preview).`);
+  }
+
+  // Step 4c: Load upcoming releases — full tier (only on scrape, requires Bandcamp)
   if (refresh) {
-    const { loadUpcoming } = require('./upcoming');
-    const upcomingCount = await loadUpcoming(contentDir, rawData);
-    if (upcomingCount > 0) {
-      console.log(`Loaded ${upcomingCount} upcoming release(s).`);
+    const fullCount = await loadUpcomingFull(contentDir, rawData, opts.artistFilter);
+    if (fullCount > 0) {
+      console.log(`Loaded ${fullCount} upcoming release(s) (full).`);
     }
   }
 

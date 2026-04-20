@@ -13,7 +13,7 @@ const NEWSLETTER_PROVIDERS = {
       provider: 'sendy',
       actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
       listId: process.env.NEWSLETTER_LIST_ID || '',
-      apiKey: process.env.NEWSLETTER_API_KEY || '',
+      apiKey: process.env.NEWSLETTER_API_TOKEN || process.env.NEWSLETTER_API_KEY || '',
       doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
     })
   },
@@ -249,7 +249,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
 
   // Filter albums for homepage/releases page by label if configured
   const labelBandcampOrigin = (() => {
-    const url = process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || ''
+    const url = process.env.BANDCAMP_LABEL_URL || ''
     try { return new URL(url).origin } catch { return '' }
   })()
 
@@ -284,7 +284,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     newsletter: resolveNewsletter(),
     latestReleases: homepageAlbums.slice(0, 12),
     totalReleases: homepageAlbums.length,
-    labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
+    labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || '',
     labelEmail: process.env.LABEL_EMAIL || '',
     labelAddress: process.env.LABEL_ADDRESS || '',
     labelVatId: process.env.LABEL_VAT_ID || '',
@@ -293,7 +293,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     footerNavPages,
     pages,
     social: {
-      bandcamp:   process.env.BANDCAMP_LABEL_URL || process.env.LABEL_BANDCAMP_URL || '',
+      bandcamp:   process.env.BANDCAMP_LABEL_URL || '',
       spotify:    process.env.LABEL_SPOTIFY_URL || '',
       soundcloud: process.env.LABEL_SOUNDCLOUD_URL || '',
       youtube:    process.env.LABEL_YOUTUBE_URL || '',
@@ -363,7 +363,10 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     }
 
     // Album pages — created for ALL artists including Various Artists
+    // Skip announce-tier upcoming albums (no useful content for a standalone page)
     for (const album of artist.albums || []) {
+      if (album.tier === 'announce') continue
+
       const albumDir = path.join(outputDir, 'artists', artist.slug, album.slug);
       await fs.mkdir(albumDir, { recursive: true });
       const albumUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/${album.slug}/` : null;

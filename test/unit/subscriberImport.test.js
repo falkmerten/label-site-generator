@@ -368,16 +368,17 @@ describe('validateEnvVars', () => {
     delete process.env.NEWSLETTER_PROVIDER
     delete process.env.NEWSLETTER_ACTION_URL
     delete process.env.NEWSLETTER_API_KEY
+    delete process.env.NEWSLETTER_API_TOKEN
     const missing = validateEnvVars('sendy')
     expect(missing).toContain('NEWSLETTER_PROVIDER')
     expect(missing).toContain('NEWSLETTER_ACTION_URL')
-    expect(missing).toContain('NEWSLETTER_API_KEY')
+    expect(missing).toContain('NEWSLETTER_API_TOKEN')
   })
 
   test('returns empty when all sendy vars set', () => {
     process.env.NEWSLETTER_PROVIDER = 'sendy'
     process.env.NEWSLETTER_ACTION_URL = 'http://localhost'
-    process.env.NEWSLETTER_API_KEY = 'key123'
+    process.env.NEWSLETTER_API_TOKEN = 'key123'
     expect(validateEnvVars('sendy')).toEqual([])
   })
 
@@ -449,7 +450,7 @@ describe('discoverCsvFiles', () => {
 describe('importToSendy', () => {
   beforeEach(() => {
     process.env.NEWSLETTER_ACTION_URL = 'http://localhost:3000'
-    process.env.NEWSLETTER_API_KEY = 'test-key'
+    process.env.NEWSLETTER_API_TOKEN = 'test-key'
   })
 
   test('records imported on response "1"', async () => {

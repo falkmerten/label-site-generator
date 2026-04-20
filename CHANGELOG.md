@@ -4,6 +4,24 @@
 
 ---
 
+### v4.8.1 — 2026-04-20
+
+**Upcoming release tiers (LSG-105)**
+- Three-tier system for upcoming releases: announce (title + date), preview (+ pre-save/description), full (Bandcamp private URL)
+- Tier auto-derived from fields present in `upcoming.json` — no explicit tier field needed
+- Announce/preview entries load on every generate (no `--scrape` needed)
+- Full entries load only during `--scrape` (existing behavior preserved)
+- Content directories auto-created for new announce/preview entries with CLI hints
+- Template: announce/preview hide Bandcamp embed, streaming links, and tracklist; pre-save button works for all tiers
+- Backward compatible: existing bare URL strings and `{url, presaveUrl}` objects continue to work
+
+**Environment variable cleanup**
+- Consolidated `NEWSLETTER_API_KEY` into `NEWSLETTER_API_TOKEN` — one credential var for all providers (Sendy, Listmonk, Keila). Backward compatible: `NEWSLETTER_API_KEY` still works as fallback
+- Removed duplicate `LABEL_BANDCAMP_URL` — use `BANDCAMP_LABEL_URL` only (already the primary, now also used for social links)
+- Clarified S3 bucket comments: `AWS_S3_BUCKET` for website deployment, `STORAGE_S3_BUCKET` for data sync
+
+---
+
 ### v4.8.0 — 2026-04-20
 
 **Subscriber import CLI (LSG-100)**

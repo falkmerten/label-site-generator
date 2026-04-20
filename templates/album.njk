@@ -112,7 +112,7 @@
       </div>
     </div>
 
-    {% if album.albumId and not album.upcoming %}
+    {% if album.albumId and (not album.upcoming or album.tier == 'full') %}
       <section class="bandcamp-embed">
         {% if album.itemType === 'track' %}
           <iframe
@@ -126,7 +126,7 @@
             seamless></iframe>
         {% endif %}
       </section>
-    {% elif album.url and not album.upcoming %}
+    {% elif album.url and (not album.upcoming or album.tier == 'full') %}
       <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
     {% endif %}
 
@@ -136,7 +136,7 @@
       </section>
     {% endif %}
 
-    {% if album.streamingLinks or album.url %}
+    {% if (album.streamingLinks or album.url) and (not album.upcoming or album.tier == 'full') %}
       <section class="streaming-links">
         <h2>Listen On</h2>
         <ul class="streaming-list">
@@ -264,7 +264,7 @@
       <p class="album-release-date">{{ album.catalogNumber }}{% if album.labelName %} · {% set labelParts = album.labelName.split(' / ') %}{% for part in labelParts %}{% if album.labelUrls and album.labelUrls[loop.index0] %}<a href="{{ album.labelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ part }}</a>{% else %}{{ part }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}{% endif %}</p>
     {% endif %}
 
-    {% if album.tracks and album.tracks.length %}
+    {% if album.tracks and album.tracks.length and (not album.upcoming or album.tier == 'full') %}
       <section class="tracklist-section">
         <h2>Tracklist</h2>
         <ol class="tracklist">

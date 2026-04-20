@@ -109,7 +109,6 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `MUSICFETCH_RAPIDAPI_KEY` | MusicFetch API key via RapidAPI (optional, legacy fallback) |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key — for `--sync-youtube` ([console.cloud.google.com](https://console.cloud.google.com)) |
 | **Social links (footer)** | |
-| `LABEL_BANDCAMP_URL` | Label Bandcamp URL |
 | `LABEL_SPOTIFY_URL` | Spotify profile URL |
 | `LABEL_SOUNDCLOUD_URL` | SoundCloud URL |
 | `LABEL_YOUTUBE_URL` | YouTube channel URL |
@@ -120,7 +119,7 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | **Newsletter** | |
 | `NEWSLETTER_PROVIDER` | Newsletter backend: `sendy`, `listmonk`, or `keila` (defaults to `sendy` if `NEWSLETTER_ACTION_URL` is set) |
 | `NEWSLETTER_ACTION_URL` | Newsletter installation URL (without `/subscribe`) |
-| `NEWSLETTER_API_KEY` | Sendy API key (from Sendy Settings) — required for Sendy |
+| `NEWSLETTER_API_TOKEN` | API credential — Sendy API key / Listmonk API token / Keila Bearer token |
 | `NEWSLETTER_LIST_ID` | Mailing list ID (Sendy encrypted ID / Listmonk list UUID) |
 | `NEWSLETTER_DOUBLE_OPTIN` | Set to `true` for GDPR double opt-in confirmation email |
 | `NEWSLETTER_AUTO_CAMPAIGN` | Set to `true` to auto-create campaign drafts from new news articles |
@@ -128,8 +127,7 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `NEWSLETTER_FROM_EMAIL` | Campaign sender email (defaults to `LABEL_EMAIL`) |
 | `NEWSLETTER_REPLY_TO` | Campaign reply-to email (defaults to `NEWSLETTER_FROM_EMAIL`) |
 | `NEWSLETTER_BRAND_ID` | Sendy brand ID (default: `1`) |
-| `NEWSLETTER_API_USER` | Listmonk API username — required for Listmonk campaign creation |
-| `NEWSLETTER_API_TOKEN` | Listmonk API token / Keila Bearer token — required for Listmonk and Keila campaign creation |
+| `NEWSLETTER_API_USER` | Listmonk API username — required for Listmonk campaign creation and subscriber import |
 | `NEWSLETTER_KEILA_FORM_ID` | Keila form ID for signup (e.g. `nfrm_xxxxx`) — required for Keila |
 | `NEWSLETTER_KEILA_SENDER_ID` | Keila sender identity for campaign creation (e.g. `nms_xxxxx`) |
 | **Physical stores** | |
