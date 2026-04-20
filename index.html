@@ -174,6 +174,8 @@
     }
     .rm-progress .rm-icon { color: #a78bfa; }
     .rm-progress .rm-badge { background: rgba(167,139,250,0.15); color: #a78bfa; }
+    .rm-done .rm-icon { color: #34d399; }
+    .rm-done .rm-badge { background: rgba(52,211,153,0.15); color: #34d399; }
     .rm-planned .rm-icon { color: #60a5fa; }
     .rm-planned .rm-badge { background: rgba(96,165,250,0.15); color: #60a5fa; }
     .rm-idea .rm-icon { color: #fbbf24; }
@@ -288,20 +290,50 @@
     <h2>Roadmap</h2>
     <div class="roadmap">
       <div class="rm-grid">
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Photo galleries</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Per-format buy links</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Bandsintown integration</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Newsletter (Sendy / Listmonk / Keila)</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Subscriber import &amp; migration</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Sales reports &amp; settlements</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Upcoming release tiers</span>
+          <span class="rm-badge">Done</span>
+        </div>
         <div class="rm-card rm-progress">
           <span class="rm-icon">&#9881;</span>
           <span class="rm-label">Per-artist microsites</span>
           <span class="rm-badge">In Progress</span>
         </div>
-        <div class="rm-card rm-progress">
-          <span class="rm-icon">&#9881;</span>
-          <span class="rm-label">Photo galleries</span>
-          <span class="rm-badge">In Progress</span>
-        </div>
-        <div class="rm-card rm-progress">
-          <span class="rm-icon">&#9881;</span>
-          <span class="rm-label">Per-format buy links</span>
-          <span class="rm-badge">In Progress</span>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">Core API &amp; plugin system (v5)</span>
+          <span class="rm-badge">Planned</span>
         </div>
         <div class="rm-card rm-planned">
           <span class="rm-icon">&#9670;</span>
@@ -315,22 +347,17 @@
         </div>
         <div class="rm-card rm-planned">
           <span class="rm-icon">&#9670;</span>
-          <span class="rm-label">Newsletter redesign</span>
+          <span class="rm-label">Lexware accounting integration</span>
           <span class="rm-badge">Planned</span>
         </div>
         <div class="rm-card rm-planned">
           <span class="rm-icon">&#9670;</span>
-          <span class="rm-label">CSV import pipeline</span>
+          <span class="rm-label">Print-on-demand merch</span>
           <span class="rm-badge">Planned</span>
         </div>
         <div class="rm-card rm-idea">
           <span class="rm-icon">&#9734;</span>
           <span class="rm-label">Lyrics on album pages</span>
-          <span class="rm-badge">Idea</span>
-        </div>
-        <div class="rm-card rm-idea">
-          <span class="rm-icon">&#9734;</span>
-          <span class="rm-label">Bandsintown integration</span>
           <span class="rm-badge">Idea</span>
         </div>
       </div>
