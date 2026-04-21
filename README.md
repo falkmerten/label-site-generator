@@ -127,7 +127,7 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `NEWSLETTER_FROM_EMAIL` | Campaign sender email (defaults to `LABEL_EMAIL`) |
 | `NEWSLETTER_REPLY_TO` | Campaign reply-to email (defaults to `NEWSLETTER_FROM_EMAIL`) |
 | `NEWSLETTER_BRAND_ID` | Sendy brand ID (default: `1`) |
-| `NEWSLETTER_API_USER` | Listmonk API username — required for Listmonk campaign creation and subscriber import |
+| `NEWSLETTER_API_USER` | Listmonk API username — required for Listmonk campaign creation |
 | `NEWSLETTER_KEILA_FORM_ID` | Keila form ID for signup (e.g. `nfrm_xxxxx`) — required for Keila |
 | `NEWSLETTER_KEILA_SENDER_ID` | Keila sender identity for campaign creation (e.g. `nms_xxxxx`) |
 | **Physical stores** | |
@@ -720,7 +720,6 @@ Custom Nunjucks filters:
 | `src/cleanup.js` | Reports orphaned content folders and runs data quality audit on cache |
 | `src/news.js` | Loads news articles from `content/news/` markdown files |
 | `src/newsletterCampaign.js` | Auto-creates newsletter campaign drafts for new news articles (Sendy/Listmonk/Keila) |
-| `src/subscriberImport.js` | Subscriber CSV import: parsing, deduplication, provider dispatch (Sendy/Listmonk/Keila), name normalization |
 | `src/upcoming.js` | Loads upcoming releases from `content/upcoming.json` private Bandcamp links |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |
 | `src/initContent.js` | Scaffolds `content/{artist}/` folders |
@@ -733,10 +732,6 @@ Custom Nunjucks filters:
 | `src/generator.js` | Top-level pipeline: cache → merge → render → assets |
 | `src/slugs.js` | Slug generation (NFD normalisation for accented characters) |
 | `src/importCsv.js` | Bandcamp CSV import: parser, gap analysis, gap filling, full import |
-| `src/salesRenderer.js` | Sales report Markdown renderer: GFM tables, artist reports, business reports |
-| `src/bandcampSales.js` | Bandcamp Sales API client: OAuth2 auth, roster resolution, paginated sales fetch |
-| `src/salesImport.js` | CSV import adapter for sales reports: ElasticStage, Amuse, MakeWaves, LabelCaster |
-| `src/salesReport.js` | Sales report orchestrator: fetches, classifies, groups, renders, writes reports |
 | `src/markdown.js` | Markdown rendering |
 
 ---
@@ -748,86 +743,6 @@ Scraped data is saved to `cache.json` (gitignored). Delete it or use `--scrape` 
 Streaming links and enrichment data are stored in the cache. Re-running `--enrich` only fetches what's missing. Use `--enrich --force` to re-enrich already-processed albums.
 
 Deprecated flags: `--refresh` still works as an alias for `--scrape` (or `--force` when combined with `--enrich`). `--artist` alone still implies `--scrape --artist`.
-
----
-
-## Subscriber Import
-
-Import subscriber data from CSV files into your newsletter provider. Supports Sendy, Listmonk, and Keila. Designed for migrating from one provider to another or consolidating subscriber lists from multiple sources.
-
-### Two-step approach
-
-The importer processes Bandcamp mailing list exports first (detected automatically by the `num purchases` column), then overlays data from secondary sources (Sendy, Listmonk, Keila, Mailchimp exports). This means:
-
-1. **Bandcamp first** — establishes the baseline: emails, names, customer/subscriber classification
-2. **Secondary sources** — enrich existing contacts (fill names, update statuses) and add new contacts (website subscribers)
-
-### Basic usage
-
-```bash
-# Import all CSVs from the default directory
-node generate.js --import-subscribers content/newsletter/import/samples
-
-# Import a single file
-node generate.js --import-subscribers path/to/subscribers.csv
-
-# Dry run (no API calls, preview only)
-node generate.js --import-subscribers content/newsletter/import/samples --dry-run
-```
-
-### Customer/subscriber split
-
-```bash
-# Listmonk: creates two lists (Newsletter + Newsletter — Customers)
-node generate.js --import-subscribers content/newsletter/import/samples --split-customers --create-list "Newsletter"
-
-# Keila: imports all contacts, creates two segments (Subscribers + Customers)
-node generate.js --import-subscribers content/newsletter/import/samples --split-customers --create-list "Newsletter"
-```
-
-### CLI flags
-
-| Flag | Description |
-|---|---|
-| `--import-subscribers [path]` | Import CSV files from path (file or directory). Default: `{contentDir}/newsletter/import/` |
-| `--split-customers` | Split into subscriber/customer lists (Listmonk) or segments (Keila) based on purchase data |
-| `--create-list <name>` | Auto-create list (Listmonk, double opt-in) or segment (Keila) before importing |
-| `--list <id>` | Target list/segment ID override |
-| `--tag <tag>` | Tag contacts with a source label (Keila only, stored in `data.source`) |
-| `--active-only` | Only import active/subscribed subscribers (skip unsubscribed/bounced) |
-| `--dry-run` | Preview changes without making API calls |
-
-### Supported CSV formats
-
-The importer auto-detects column names from these sources:
-
-| Source | Email column | Name columns | Status | Customer detection |
-|---|---|---|---|---|
-| Bandcamp | `email` | `firstname`, `lastname`, `fullname` | (none) | `num purchases > 0` |
-| Sendy | `Email` | `Name` | `Status` | `Kundennummer` column |
-| Listmonk | `email` | `name` | `status` | — |
-| Keila | `email` | `first_name`, `last_name` | `status` | — |
-| Mailchimp | `Email Address` | `First Name`, `Last Name` | — | — |
-
-### Name handling
-
-- Proper case normalization: `john doe` → `John Doe`, `JOHN DOE` → `John Doe`
-- Hyphenated names: `jean-pierre` → `Jean-Pierre`
-- Spam bot names filtered (random strings, hash-like tokens)
-- On re-import: existing contacts get case-normalized names and longer/more complete names from secondary sources
-
-### Status mapping
-
-| CSV status | Internal | Sendy | Listmonk | Keila |
-|---|---|---|---|---|
-| subscribed, active, enabled, empty | active | subscribe | enabled + preconfirmed | active |
-| unsubscribed | unsubscribed | subscribe + unsubscribe | enabled + preconfirmed | unsubscribed |
-| bounced, blocklisted, unreachable | bounced | skip | blocklisted | unreachable |
-| unconfirmed | — | skip (GDPR) | skip (GDPR) | skip (GDPR) |
-
-### Environment variables
-
-Uses the same `NEWSLETTER_*` env vars as the signup form. For Listmonk import, `NEWSLETTER_API_USER` and `NEWSLETTER_API_TOKEN` are required (BasicAuth). For Keila import, `NEWSLETTER_API_TOKEN` is required (Bearer auth).
 
 ---
 
@@ -917,49 +832,6 @@ Old URL redirects are handled by static HTML pages in `dist/` (meta-refresh + JS
 
 Standalone scripts in `scripts/` for tasks outside the main generation pipeline.
 
-### Label Copy Export
-
-Generates formatted release metadata (label copy) for distribution to stores, press, and partners.
-
-```bash
-# Export all artists from cache (no API calls) — recommended
-node scripts/export-label-copy.js
-
-# Export a single artist from cache
-node scripts/export-label-copy.js --artist "Artist Name"
-
-# Export a single release from cache
-node scripts/export-label-copy.js --artist "Artist Name" --release "Album Title"
-
-# Use Soundcharts as source (full credits: composers, producers, publishers)
-node scripts/export-label-copy.js --source api --artist "Artist Name"
-
-# Use Spotify as source (tracklist + ISRCs only, no credits)
-node scripts/export-label-copy.js --source spotify --artist "Artist Name"
-
-# Custom output directory
-node scripts/export-label-copy.js --output ./my-exports
-```
-
-The default `--source cache` reads from `cache.json` — no API calls, no rate limits. This is the recommended mode for day-to-day use. Run `node generate.js --enrich` first to populate the cache with streaming links, ISRCs, and metadata.
-
-Output is written to `label-copy/` (one Markdown file per artist). Includes tracklist with ISRCs, UPC, catalog number, label, release date, and credits.
-
-**Data source comparison:**
-
-| Field | `--source cache` | `--source api` (Spotify) | `--source api` (Soundcharts) |
-|---|---|---|---|
-| Tracklist + ISRCs | ✅ | ✅ | ✅ |
-| UPC | ✅ | ✅ | ✅ |
-| Label | ✅ | ❌ | ✅ |
-| Distributor | ✅ (if SC enriched) | ❌ | ✅ |
-| Copyright (P-line) | ✅ (if SC enriched) | ❌ | ✅ |
-| Composers/Writers | ❌ | ❌ | ✅ (via ISWC) |
-| Producers | ❌ | ❌ | ✅ |
-| Publishers | ❌ | ❌ | ✅ (via ISWC) |
-
-**Note:** The Spotify Web API does not expose songwriter, producer, or publisher credits — these are only available through Soundcharts. For complete label copy with credits, use `--source api` with Soundcharts credentials configured. The default `--source cache` is recommended for day-to-day use (no API calls, no rate limits).
-
 ### SEO Check
 
 Validates the generated site for SEO basics.
@@ -969,170 +841,6 @@ node scripts/check-seo.js
 ```
 
 Checks all `dist/` pages for: meta description, Open Graph tags, Twitter Card, canonical URL, JSON-LD structured data, lang attribute. Also verifies sitemap.xml and robots.txt.
-
-### Newsletter Migration
-
-Migrates subscribers from Sendy to Listmonk.
-
-```bash
-# Preview (no changes)
-node scripts/migrate-sendy-to-listmonk.js export.csv --dry-run
-
-# Execute migration
-node scripts/migrate-sendy-to-listmonk.js export.csv
-```
-
-Requires `LISTMONK_URL`, `LISTMONK_API_USER`, `LISTMONK_API_TOKEN`, `LISTMONK_LIST_ID` in `.env`.
-
----
-
-## Sales Reports
-
-Generate per-artist settlement reports and an optional consolidated business report from Bandcamp sales data and CSV imports from digital distributors. Reports are GFM Markdown files designed for PDF conversion.
-
-### Configuration
-
-Add these to your `.env`:
-
-| Variable | Required | Description |
-|---|---|---|
-| `BANDCAMP_CLIENT_ID` | yes | Already configured for site generation |
-| `BANDCAMP_CLIENT_SECRET` | yes | Already configured for site generation |
-| `STORAGE_S3_BUCKET` | for S3 sync | S3 bucket for report backup |
-| `STORAGE_S3_PREFIX` | no | S3 key prefix (e.g. `my-label/`) |
-| `STORAGE_MODE` | no | Set to `s3` to auto-sync after generation |
-
-### Data sources
-
-| Source | Type | How it gets in |
-|---|---|---|
-| Bandcamp Sales API | Physical + Digital | Automatic via OAuth2 |
-| ElasticStage | Physical | CSV in `sales/import/elasticstage/` |
-| Discogs Marketplace | Physical | CSV in `sales/import/discogs/` |
-| Amuse | Digital | XLSX in `sales/import/amuse/` |
-| MakeWaves | Digital | CSV in `sales/import/makewaves/` |
-| LabelCaster | Digital | CSV in `sales/import/labelcaster/` |
-
-### CSV import
-
-Place CSV exports from your distributors in the corresponding `sales/import/` subdirectory. Required columns: `artist`, `release`, `revenue`, `currency`, `date`. Column names are matched flexibly (case-insensitive, common aliases supported).
-
-Files are tracked via `sales/import/.imported.json` — re-running won't double-count. Modified files (changed checksum) are automatically re-imported. Use `--force` to re-import everything.
-
-Non-EUR currencies (GBP, USD) are automatically converted to EUR using monthly ECB reference rates. Override with `SALES_EXCHANGE_RATES` env var (JSON, e.g. `{"GBP":1.17,"USD":0.92}`).
-
-Year ranges are supported: `--year 2015-2026` generates reports for all years in a single run (one Bandcamp auth, one CSV import).
-
-### Usage
-
-```bash
-# Annual reports for all artists
-node generate.js --sales-report --year 2025
-
-# Single artist
-node generate.js --sales-report --year 2025 --artist "Artist Name"
-
-# Quarterly reports
-node generate.js --sales-report --year 2025 --period quarterly
-
-# Monthly reports
-node generate.js --sales-report --year 2025 --period monthly
-
-# Half-yearly reports
-node generate.js --sales-report --year 2025 --period half-yearly
-
-# Include consolidated business report
-node generate.js --sales-report --year 2025 --business-report
-
-# Preview without writing files
-node generate.js --sales-report --year 2025 --dry-run
-
-# Re-import all CSVs (ignore tracking)
-node generate.js --sales-report --year 2025 --force
-
-# Sync reports to S3
-node generate.js --sales-report --year 2025 --sync-s3
-
-# Convert reports to PDF
-node generate.js --sales-report --year 2025 --pdf
-
-# Full run: all years, business reports, PDF, S3 sync
-node generate.js --sales-report --year 2015-2026 --business-report --pdf --force
-```
-
-### Flags
-
-| Flag | Description |
-|---|---|
-| `--sales-report` | Enable sales report generation |
-| `--year <YYYY>` | Reporting year or range (required with `--sales-report`) |
-| `--period <value>` | `monthly`, `quarterly`, `half-yearly` (default: annual) |
-| `--business-report` | Generate consolidated label-wide report |
-| `--artist <name>` | Filter to a single artist |
-| `--dry-run` | Print reports to stdout, don't write files |
-| `--force` | Re-import all CSV files (ignore tracking) |
-| `--sync-s3` | Upload reports to S3 after generation |
-| `--pdf` | Convert generated reports to PDF (requires `md-to-pdf`) |
-
-### Output structure
-
-```
-sales/
-  {artist-slug}/
-    {artist-slug}-2025.md              # Annual report
-    {artist-slug}-2025-Q1.md           # Quarterly
-    {artist-slug}-2025-01.md           # Monthly
-    {artist-slug}-2025-H1.md           # Half-yearly
-  various-artists/
-    various-artists-2025.md            # Non-roster artist transactions
-  business-report-2025.md              # Consolidated label report
-  import/
-    .imported.json                     # Import tracking
-    elasticstage/                      # ElasticStage CSV files
-    discogs/                           # Discogs Marketplace CSV files
-    amuse/                             # Amuse XLSX files
-    makewaves/                         # MakeWaves CSV files
-    labelcaster/                       # LabelCaster CSV files
-```
-
-### Report sections (per-artist)
-
-1. Header (artist name, period, generation date)
-2. Summary (total revenue per currency, physical/digital breakdown)
-3. Bandcamp Sales — Physical (grouped by currency)
-4. Bandcamp Sales — Digital (grouped by currency)
-5. ElasticStage Sales
-6. Other Distribution Overview (Discogs, Amuse, MakeWaves, LabelCaster)
-7. Totals (grand total per currency)
-
-Empty sections show "No data for this period." Multi-currency transactions are grouped with per-currency subtotals. Refunds appear as negative line items.
-
-### Business report sections
-
-1. Label Summary (revenue, units, transactions, physical/digital breakdown)
-2. Revenue by Artist (sorted by total revenue descending)
-3. Revenue by Source (Bandcamp Physical/Digital, ElasticStage, distributors)
-4. Revenue by Month (12 rows, January–December)
-5. Top Selling Releases (max 20, sorted by revenue descending)
-6. Totals
-
-### Typical workflow
-
-```bash
-# 1. Export CSVs from your distributors and place in sales/import/
-# 2. Generate annual reports
-node generate.js --sales-report --year 2025
-
-# 3. Generate with business report + PDF
-node generate.js --sales-report --year 2025 --business-report --pdf
-
-# 4. Full run: all years, all sources, business reports, PDF, S3 sync
-node generate.js --sales-report --year 2015-2026 --business-report --pdf --force
-```
-
-### Privacy
-
-The `sales/` directory is gitignored. The generator warns if `sales/` is not in `.gitignore` before writing any reports.
 
 ---
 
