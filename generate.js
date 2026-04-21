@@ -26,11 +26,6 @@ Common workflows:
   node generate.js --enrich                           Enrich all artists
   node generate.js --scrape --enrich                  Re-scrape + enrich all artists
   node generate.js --enrich --deploy                  Enrich, generate, and deploy
-  node generate.js --sales-report --year 2025                    Generate annual sales reports
-  node generate.js --sales-report --year 2025 --artist "Name"    Sales report for one artist
-  node generate.js --sales-report --year 2025 --period quarterly  Quarterly reports
-  node generate.js --sales-report --year 2025 --business-report  Include business report
-  node generate.js --sales-report --year 2015-2026 --business-report --pdf --force  Full run
 
 Options:
   --output <dir>       Output directory (default: ./dist)
@@ -51,21 +46,10 @@ Options:
   --init-artists       Generate content/artists.json with Spotify URLs
   --init-content       Scaffold content/{artist}/ folders
   --create-campaigns   Create newsletter campaign drafts
-  --import-subscribers [path]  Import subscriber CSV files to newsletter provider
-  --list <id>          Target list/segment ID override (with --import-subscribers)
-  --create-list <name> Auto-create a list (Listmonk) or segment (Keila) before importing
-  --tag <tag>          Tag contacts with a source label (Keila only, stored in data.source)
-  --active-only        Only import active/subscribed subscribers (skip unsubscribed/bounced)
   --analyze-csv <path> Analyze CSV against cache (read-only)
   --fill-gaps <path>   Fill missing metadata in cache from CSV
   --import-csv <path>  Bootstrap cache from CSV (requires --roster-source)
   --roster-source <s>  Active roster source: cache or api (with --import-csv)
-  --sales-report       Generate sales reports from Bandcamp + CSV data
-  --year <YYYY>        Reporting year (required with --sales-report)
-  --period <value>     Period: monthly, quarterly, half-yearly (default: annual)
-  --business-report    Generate consolidated label business report
-  --sync-s3            Upload reports to S3 after generation
-  --pdf                Convert generated reports to PDF
   --dry-run            Preview changes without writing
   --help               Print this help message
 
@@ -93,12 +77,6 @@ function parseArgs(argv) {
     importCsv: null,
     rosterSource: null,
     dryRun: false,
-    salesReport: false,
-    year: null,
-    period: null,
-    businessReport: false,
-    syncS3: false,
-    pdf: false,
     // Deprecated — kept for backward compatibility
     refresh: false,
   };
@@ -156,39 +134,8 @@ function parseArgs(argv) {
       options.importCsv = args[++i]
     } else if (arg === '--roster-source') {
       options.rosterSource = args[++i]
-    } else if (arg === '--import-subscribers') {
-      // Optional path argument: if next arg is missing or starts with --, use default
-      const next = args[i + 1]
-      if (next && !next.startsWith('--')) {
-        options.importSubscribers = next
-        i++
-      } else {
-        options.importSubscribers = true // signal to use default path
-      }
-    } else if (arg === '--list') {
-      options.importList = args[++i]
-    } else if (arg === '--active-only') {
-      options.activeOnly = true
-    } else if (arg === '--tag') {
-      options.importTag = args[++i]
-    } else if (arg === '--create-list') {
-      options.createList = args[++i]
-    } else if (arg === '--split-customers') {
-      options.splitCustomers = true
     } else if (arg === '--dry-run') {
       options.dryRun = true
-    } else if (arg === '--sales-report') {
-      options.salesReport = true
-    } else if (arg === '--year') {
-      options.year = args[++i]
-    } else if (arg === '--period') {
-      options.period = args[++i]
-    } else if (arg === '--business-report') {
-      options.businessReport = true
-    } else if (arg === '--sync-s3') {
-      options.syncS3 = true
-    } else if (arg === '--pdf') {
-      options.pdf = true
     }
   }
 
@@ -208,8 +155,7 @@ function parseArgs(argv) {
   // ── Backward compat: --artist alone implies --scrape ─────────────────────
   // (Old behavior: --artist without --enrich triggered refreshArtist)
   if (options.artistFilter && !options.enrich && !options.scrape &&
-      !options.syncYouTube && !options.syncElasticStage && !options.cleanup &&
-      !options.salesReport) {
+      !options.syncYouTube && !options.syncElasticStage && !options.cleanup) {
     options.scrape = true
   }
 
@@ -227,24 +173,6 @@ function parseArgs(argv) {
   // Full import requires --roster-source
   if (options.importCsv && !options.rosterSource) {
     console.error('Full import requires --roster-source <cache|api> to filter inactive artists')
-    process.exit(1)
-  }
-
-  // Sales report validation
-  if (options.salesReport && !options.year) {
-    console.error('Usage: --sales-report requires --year <YYYY> or --year <YYYY-YYYY>')
-    process.exit(1)
-  }
-  if (options.year && !/^\d{4}(-\d{4})?$/.test(options.year)) {
-    console.error(`Invalid year: ${options.year}. Expected a four-digit year (e.g. 2025) or range (e.g. 2012-2026)`)
-    process.exit(1)
-  }
-  if (options.period && !['monthly', 'quarterly', 'half-yearly'].includes(options.period)) {
-    console.error(`Invalid period: ${options.period}. Expected: monthly, quarterly, half-yearly`)
-    process.exit(1)
-  }
-  if (options.businessReport && !options.salesReport) {
-    console.error('Usage: --business-report requires --sales-report --year <YYYY>')
     process.exit(1)
   }
 
@@ -345,44 +273,6 @@ async function run() {
     }
     return;
   }
-  if (options.importSubscribers) {
-    const { importSubscribers } = require('./src/subscriberImport')
-    await importSubscribers({
-      importPath: options.importSubscribers,
-      listId: options.importList || process.env.NEWSLETTER_LIST_ID,
-      dryRun: options.dryRun,
-      contentDir: options.contentDir,
-      activeOnly: options.activeOnly,
-      tag: options.importTag,
-      createList: options.createList,
-      splitCustomers: options.splitCustomers
-    })
-    return;
-  }
-  if (options.salesReport) {
-    const { generateSalesReports } = require('./src/salesReport');
-    // Expand year range (e.g. "2012-2026") into array of years
-    let years
-    if (options.year.includes('-')) {
-      const [from, to] = options.year.split('-').map(Number)
-      years = []
-      for (let y = from; y <= to; y++) years.push(y)
-    } else {
-      years = [parseInt(options.year, 10)]
-    }
-    await generateSalesReports({
-      years,
-      artistFilter: options.artistFilter,
-      period: options.period || 'annual',
-      businessReport: options.businessReport,
-      dryRun: options.dryRun,
-      force: options.force,
-      syncS3: options.syncS3 || false,
-      pdf: options.pdf || false,
-      cachePath: options.cachePath
-    });
-    return;
-  }
   if (options.analyzeCsv) {
     const fsNode = require('fs/promises')
     const pathNode = require('path')
@@ -463,7 +353,7 @@ async function run() {
     await initContent(options.cachePath, options.contentDir);
     return;
   }
-  if (options.artistFilter && !options.enrich && !options.syncYouTube && !options.syncElasticStage && !options.cleanup && !options.salesReport) {
+  if (options.artistFilter && !options.enrich && !options.syncYouTube && !options.syncElasticStage && !options.cleanup) {
     // --scrape --artist (or legacy --artist alone)
     const backupPath = await backupCache(options.cachePath);
     if (backupPath) console.log(`Cache backed up to ${backupPath}`);
