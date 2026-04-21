@@ -237,11 +237,16 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   });
 
   // Collect all upcoming events across all artists, sorted by date
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const allEvents = []
   for (const artist of data.artists || []) {
     const eventUrl = (artist.eventLinks && artist.eventLinks.bandsintown) ||
       (artist.eventLinks && artist.eventLinks.songkick) || null
     for (const event of artist.events || []) {
+      // Filter out past events
+      const eventDate = new Date(event.date)
+      if (eventDate < today) continue
       allEvents.push({ ...event, artistName: artist.name, artistSlug: artist.slug, eventUrl: event.eventUrl || eventUrl })
     }
   }
@@ -352,7 +357,8 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
             if (!a.releaseDate) return 1;
             if (!b.releaseDate) return -1;
             return new Date(b.releaseDate) - new Date(a.releaseDate);
-          })
+          }),
+          events: (artist.events || []).filter(e => new Date(e.date) >= today)
         },
         rootPath: '../../',
         canonicalUrl: artistUrl,

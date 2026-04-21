@@ -117,10 +117,18 @@ async function mergeData (rawData, content) {
             const packages = (album.raw && album.raw.packages) || []
             const bandcampPhysicalFormats = [...new Set(packages.map(p => {
               const t = (p.type_name || '').toLowerCase()
+              const title = (p.title || '').toLowerCase()
+              // Classify by type_name first
               if (t.includes('vinyl') || t.includes('lp')) return 'Vinyl'
               if (t.includes('cd') || t.includes('compact disc')) return 'CD'
               if (t.includes('cass') || t.includes('tape')) return 'Cassette'
               if (t.includes('box')) return 'Box Set'
+              // Book/Magazine often bundles a disc — check title for format
+              if (t.includes('book') || t.includes('magazine')) {
+                if (title.includes('cd-r') || title.includes('cd ') || title.includes(' cd')) return 'CD'
+                if (title.includes('vinyl') || title.includes(' lp')) return 'Vinyl'
+                if (title.includes('cassette') || title.includes('tape')) return 'Cassette'
+              }
               return null
             }).filter(Boolean))]
             return {
@@ -246,10 +254,16 @@ async function mergeData (rawData, content) {
           const packages2 = (album.raw && album.raw.packages) || []
           const bandcampPhysicalFormats2 = [...new Set(packages2.map(p => {
             const t = (p.type_name || '').toLowerCase()
+            const title = (p.title || '').toLowerCase()
             if (t.includes('vinyl') || t.includes('lp')) return 'Vinyl'
             if (t.includes('cd') || t.includes('compact disc')) return 'CD'
             if (t.includes('cass') || t.includes('tape')) return 'Cassette'
             if (t.includes('box')) return 'Box Set'
+            if (t.includes('book') || t.includes('magazine')) {
+              if (title.includes('cd-r') || title.includes('cd ') || title.includes(' cd')) return 'CD'
+              if (title.includes('vinyl') || title.includes(' lp')) return 'Vinyl'
+              if (title.includes('cassette') || title.includes('tape')) return 'Cassette'
+            }
             return null
           }).filter(Boolean))]
           const mergedAlbum = {
