@@ -292,63 +292,73 @@
       <div class="rm-grid">
         <div class="rm-card rm-done">
           <span class="rm-icon">&#10003;</span>
-          <span class="rm-label">Photo galleries</span>
+          <span class="rm-label">Bandcamp scraping &amp; caching</span>
           <span class="rm-badge">Done</span>
         </div>
         <div class="rm-card rm-done">
           <span class="rm-icon">&#10003;</span>
-          <span class="rm-label">Per-format buy links</span>
+          <span class="rm-label">Bandcamp CSV metadata import</span>
           <span class="rm-badge">Done</span>
         </div>
         <div class="rm-card rm-done">
           <span class="rm-icon">&#10003;</span>
-          <span class="rm-label">Bandsintown integration</span>
+          <span class="rm-label">Streaming link enrichment</span>
           <span class="rm-badge">Done</span>
         </div>
         <div class="rm-card rm-done">
           <span class="rm-icon">&#10003;</span>
-          <span class="rm-label">Newsletter (Sendy / Listmonk / Keila)</span>
+          <span class="rm-label">Physical products &amp; buy links</span>
           <span class="rm-badge">Done</span>
         </div>
         <div class="rm-card rm-done">
           <span class="rm-icon">&#10003;</span>
-          <span class="rm-label">Anti-spam protection</span>
+          <span class="rm-label">Photo galleries &amp; lightbox</span>
           <span class="rm-badge">Done</span>
         </div>
         <div class="rm-card rm-done">
           <span class="rm-icon">&#10003;</span>
-          <span class="rm-label">Upcoming release tiers</span>
+          <span class="rm-label">Tour dates &amp; events</span>
           <span class="rm-badge">Done</span>
         </div>
-        <div class="rm-card rm-progress">
-          <span class="rm-icon">&#9881;</span>
-          <span class="rm-label">Per-artist microsites</span>
-          <span class="rm-badge">In Progress</span>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Newsletter integration</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Bandsintown fan engagement</span>
+          <span class="rm-badge">Done</span>
+        </div>
+        <div class="rm-card rm-done">
+          <span class="rm-icon">&#10003;</span>
+          <span class="rm-label">Upcoming &amp; pre-order releases</span>
+          <span class="rm-badge">Done</span>
         </div>
         <div class="rm-card rm-planned">
           <span class="rm-icon">&#9670;</span>
-          <span class="rm-label">Core API &amp; plugin system (v5)</span>
+          <span class="rm-label">CMS news backend</span>
           <span class="rm-badge">Planned</span>
         </div>
         <div class="rm-card rm-planned">
           <span class="rm-icon">&#9670;</span>
-          <span class="rm-label">Multi-tenant platform</span>
+          <span class="rm-label">Core API &amp; plugin system</span>
           <span class="rm-badge">Planned</span>
         </div>
         <div class="rm-card rm-planned">
           <span class="rm-icon">&#9670;</span>
-          <span class="rm-label">Ghost CMS for news</span>
-          <span class="rm-badge">Planned</span>
-        </div>
-        <div class="rm-card rm-planned">
-          <span class="rm-icon">&#9670;</span>
-          <span class="rm-label">Print-on-demand merch</span>
-          <span class="rm-badge">Planned</span>
-        </div>
-        <div class="rm-card rm-idea">
-          <span class="rm-icon">&#9734;</span>
           <span class="rm-label">Lyrics on album pages</span>
-          <span class="rm-badge">Idea</span>
+          <span class="rm-badge">Planned</span>
+        </div>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">Sales reports &amp; settlements</span>
+          <span class="rm-badge">Planned</span>
+        </div>
+        <div class="rm-card rm-planned">
+          <span class="rm-icon">&#9670;</span>
+          <span class="rm-label">Label copy export</span>
+          <span class="rm-badge">Planned</span>
         </div>
         <div class="rm-card rm-idea">
           <span class="rm-icon">&#9734;</span>
@@ -357,16 +367,27 @@
         </div>
         <div class="rm-card rm-idea">
           <span class="rm-icon">&#9734;</span>
-          <span class="rm-label">Deezer &amp; Apple Music charts</span>
+          <span class="rm-label">Newsletter template builder</span>
           <span class="rm-badge">Idea</span>
         </div>
         <div class="rm-card rm-idea">
           <span class="rm-icon">&#9734;</span>
-          <span class="rm-label">Songkick integration</span>
+          <span class="rm-label">Multi-label platform</span>
+          <span class="rm-badge">Idea</span>
+        </div>
+        <div class="rm-card rm-idea">
+          <span class="rm-icon">&#9734;</span>
+          <span class="rm-label">Business analytics dashboard</span>
           <span class="rm-badge">Idea</span>
         </div>
       </div>
     </div>
+    <p style="text-align:center; margin-top:1.5rem; font-size:0.85rem; opacity:0.6;">
+      Integrates with Bandcamp, Spotify, Soundcharts, Discogs, Tidal, iTunes, Deezer, YouTube, Bandsintown, ElasticStage, Sendy, Listmonk, and Keila.
+    </p>
+    <p style="text-align:center; margin-top:0.75rem;">
+      <a href="https://github.com/falkmerten/label-site-generator/wiki" style="color:#60a5fa; font-size:0.95rem; font-weight:600; text-decoration:none;">Full documentation →</a>
+    </p>
   </section>
 
   <section>
@@ -374,444 +395,63 @@
     <div class="changelog">
       <div class="release">
         <h3>v4.8.1 <span class="release-date">— 20 April 2026</span></h3>
-        <ul>
-          <li>Three-tier system for upcoming releases: announce (title + date), preview (+ pre-save/description), full (Bandcamp private URL)</li>
-          <li>Tier auto-derived from fields present in <code>upcoming.json</code> — no explicit tier field needed</li>
-          <li>Announce/preview entries load on every generate (no <code>--scrape</code> needed)</li>
-          <li>Full entries load only during <code>--scrape</code> (existing behavior preserved)</li>
-          <li>Content directories auto-created for new announce/preview entries with CLI hints</li>
-          <li>Template: announce/preview hide Bandcamp embed, streaming links, and tracklist; pre-save button works for all tiers</li>
-          <li>Backward compatible: existing bare URL strings and <code>{url, presaveUrl}</code> objects continue to work</li>
-          <li>Consolidated <code>NEWSLETTER_API_KEY</code> into <code>NEWSLETTER_API_TOKEN</code> — one credential var for all providers (Sendy, Listmonk, Keila). Backward compatible: <code>NEWSLETTER_API_KEY</code> still works as fallback</li>
-          <li>Removed duplicate <code>LABEL_BANDCAMP_URL</code> — use <code>BANDCAMP_LABEL_URL</code> only (already the primary, now also used for social links)</li>
-          <li>Clarified S3 bucket comments: <code>AWS_S3_BUCKET</code> for website deployment, <code>STORAGE_S3_BUCKET</code> for data sync</li>
-        </ul>
+        <ul><li>Upcoming release tiers (announce/preview/full). Environment variable cleanup.</li></ul>
       </div>
       <div class="release">
         <h3>v4.8.0 <span class="release-date">— 20 April 2026</span></h3>
-        <ul>
-          <li>New <code>--import-subscribers</code> CLI flag imports subscriber CSV files into Sendy, Listmonk, or Keila</li>
-          <li>Bandcamp-first processing: Bandcamp mailing list CSVs (detected by <code>num purchases</code> header) are processed first as the primary data source, secondary sources (Sendy, Listmonk, Keila exports) enrich and update existing contacts</li>
-          <li>Auto-tagging: Bandcamp <code>num purchases &gt; 0</code> = customer, <code>0</code> = subscriber; Sendy <code>Kundennummer</code> column also detected as customer indicator; all other CSVs default to subscriber tag</li>
-          <li><code>--split-customers</code> flag: Listmonk creates two lists (Newsletter + Customers), Keila creates two segments with <code>$in</code> filters on <code>data.source</code></li>
-          <li><code>--create-list &lt;name&gt;</code> auto-creates Listmonk lists (double opt-in for future signups) or Keila segments</li>
-          <li>Proper case name normalization: <code>john doe</code> → <code>John Doe</code>, <code>JEAN-PIERRE</code> → <code>Jean-Pierre</code>, <code>o'brien</code> → <code>O'Brien</code></li>
-          <li>Name enrichment on re-import: existing contacts get improved names (longer/more complete) and case normalization from secondary sources</li>
-          <li>Spam bot filtering: garbage names (random strings, hash-like tokens) filtered by <code>sanitizeName()</code></li>
-          <li>Local deduplication across all CSV files before API calls — most restrictive status wins, customer tag wins over subscriber</li>
-          <li>Unconfirmed contacts always skipped (never completed double opt-in = no GDPR consent)</li>
-          <li>Status mapping: active/unsubscribed/bounced preserved per provider (Listmonk: enabled/blocklisted, Keila: active/unsubscribed/unreachable)</li>
-          <li>Listmonk: all imported subscribers preconfirmed (<code>preconfirm_subscriptions: true</code>) — no confirmation emails sent during import</li>
-          <li>Keila: tag append on duplicate contacts, status downgrade (most restrictive wins), PATCH for non-active status</li>
-          <li>Anti-spam measures on newsletter signup form: JS timing check (3s minimum), email pattern filter (4+ dots in local part), honeypot field</li>
-          <li><code>--tag</code>, <code>--active-only</code>, <code>--dry-run</code>, <code>--list</code> flags for fine-grained control</li>
-          <li>Header alias map handles Bandcamp, Sendy, Listmonk, Keila, Mailchimp CSV formats automatically</li>
-          <li>74 unit tests + 15 property-based tests</li>
-        </ul>
+        <ul><li>Subscriber import CLI for Sendy, Listmonk, and Keila. Anti-spam measures on signup form.</li></ul>
       </div>
       <div class="release">
         <h3>v4.7.0 <span class="release-date">— 19 April 2026</span></h3>
-        <ul>
-          <li>Added Keila as a third newsletter provider alongside Sendy and Listmonk</li>
-          <li>Signup form: standard HTML form POST to Keila's public form endpoint (<code>/forms/{formId}</code>) with <code>contact[email]</code> field and <code>h[url]</code> honeypot</li>
-          <li>Campaign drafts: auto-created via <code>POST /api/v1/campaigns</code> with Bearer auth and Markdown body</li>
-          <li>Bearer auth support added to <code>postRequest()</code> helper (6th positional parameter, takes precedence over basic auth)</li>
-          <li>New env vars: <code>NEWSLETTER_KEILA_FORM_ID</code>, <code>NEWSLETTER_KEILA_SENDER_ID</code></li>
-          <li>6 property-based tests (config validation, campaign body structure, Bearer auth) and 9 unit tests</li>
-          <li>Docker test stack updated: Mailpit now supports insecure SMTP auth for Keila sender testing</li>
-        </ul>
+        <ul><li>Keila as third newsletter provider. Bearer auth support for campaign creation.</li></ul>
       </div>
       <div class="release">
         <h3>v4.6.0 <span class="release-date">— 19 April 2026</span></h3>
-        <ul>
-          <li>Embedded Bandsintown email signup iframe on artist pages when <code>artist_id</code> is set in <code>bandsintown.json</code></li>
-          <li>Fans can subscribe to the artist's Bandsintown mailing list directly from the site</li>
-          <li>Default styling uses site brand colors, optional <code>email_signup</code> object for per-artist overrides</li>
-          <li>Form placed after events section as the last content block on artist pages</li>
-          <li>Photo gallery moved before events section (content-first, actions last)</li>
-          <li>Added spacing between discography and gallery sections</li>
-          <li>Fixed Spotify title normalization failing with <code>invalid_client</code> during <code>--scrape --artist</code> — <code>getAccessToken()</code> was called without credentials</li>
-          <li>Restored <code>scripts/update-lsg-site.js</code> (accidentally deleted in a previous commit)</li>
-          <li>Upgrade <code>isomorphic-dompurify</code> from 2.36.0 → 3.9.0 (pulls in <code>dompurify@3.4.0</code>)</li>
-          <li>Fixes Dependabot alert #32 — security vulnerability in dompurify &lt; 3.4.0</li>
-          <li>FAQ: added Bandsintown email signup, pre-save link workflow, cache backup rotation, conflict detection, enrichment fallback, sales reports, <code>--force</code> flag updates</li>
-          <li>README: updated <code>bandsintown.json</code> format with <code>artist_id</code> and <code>email_signup</code> fields</li>
-          <li>SECURITY.md: updated supported versions to 4.x</li>
-        </ul>
+        <ul><li>Bandsintown email signup form on artist pages. Layout improvements. Spotify auth fix.</li></ul>
       </div>
       <div class="release">
         <h3>v4.5.0 <span class="release-date">— 12 April 2026</span></h3>
-        <ul>
-          <li>Backup rotation: automatic cleanup keeps at most 5 cache backups (<code>cache.backup.*.json</code>)</li>
-          <li>Enrichment preservation: all enrichment fields (streaming links, UPCs, labels, Soundcharts UUIDs, Discogs data) survive <code>--scrape --artist</code> re-scrapes</li>
-          <li>Artist-level enrichment fields (social links, events, discovery links) preserved during re-scrape</li>
-          <li>Cached albums not found during re-scrape are retained with a warning (no silent data loss)</li>
-          <li>Conflict detection: significant changes (title, track count, description &gt;20% diff) prompt for resolution in interactive mode, default to keep-cached in CI</li>
-          <li>Enrichment fallback chain: Soundcharts quota exhaustion mid-run switches to legacy Spotify path; Spotify 429 disables Spotify for remaining artists</li>
-          <li>Per-artist progress saving: cache written after each artist during enrichment (no lost progress on interruption)</li>
-          <li>Content-first merge priority: <code>pickFirst()</code> helper enforces Content_Store &gt; Cache &gt; Scraped for all fields</li>
-          <li>Enhanced audit report (<code>--cleanup</code>): empty tracklists, missing labels/streaming links/UPCs, label name inconsistencies, duplicate albums</li>
-          <li>20 property-based tests covering all correctness properties</li>
-        </ul>
+        <ul><li>Cache integrity and enrichment resilience. Backup rotation. Conflict detection.</li></ul>
       </div>
       <div class="release">
         <h3>v4.4.0 <span class="release-date">— 12 April 2026</span></h3>
-        <ul>
-          <li>New <code>src/bandsintown.js</code> module — fetches artist info and events from Bandsintown API at build time</li>
-          <li>Per-artist opt-in via <code>content/{artist-slug}/bandsintown.json</code> (requires <code>app_id</code> and <code>artist_name</code>)</li>
-          <li>Three-tier event merge: Soundcharts &gt; Bandsintown &gt; tourdates.json with field grafting (eventUrl, offers, source preserved from Bandsintown on deduplicated events)</li>
-          <li>Fan engagement CTAs on artist pages: Follow, RSVP, Notify Me, Play My City</li>
-          <li>Tracker count shown next to Follow link when available</li>
-          <li>"Powered by Bandsintown" attribution in events section when Bandsintown events are present</li>
-          <li>All errors non-fatal — API failures, timeouts, and network errors log warnings without breaking generation</li>
-          <li>Property-based tests (6 properties): config validation, event transformation, artist info extraction, three-source merge with dedup/priority/sort, field preservation on merge, Follow CTA URL construction</li>
-          <li>Unit tests for API call construction, error handling, and merge scenarios (SC-only, BIT-only, tourdates-only, all three combined)</li>
-        </ul>
+        <ul><li>Bandsintown fan engagement integration. Three-tier event merge. Follow/RSVP CTAs.</li></ul>
       </div>
       <div class="release">
         <h3>v4.3.0 <span class="release-date">— 11 April 2026</span></h3>
-        <ul>
-          <li>New <code>--sales-report</code> CLI workflow: generates per-artist GFM Markdown settlement reports from Bandcamp sales data and CSV/XLSX imports</li>
-          <li>Async Bandcamp Sales API integration via OAuth2 (<code>generate_sales_report</code> + <code>fetch_sales_report</code> endpoints)</li>
-          <li>Year range support: <code>--year 2015-2026</code> generates all years in a single run (one auth, one CSV import)</li>
-          <li>CSV/XLSX import from 5 platforms: ElasticStage (physical), Discogs Marketplace (physical, parsed from order items export), Amuse (XLSX, USD), MakeWaves, LabelCaster (digital)</li>
-          <li>Discogs order items parser extracts artist and release from <code>"Artist - Title (Format)"</code> description field</li>
-          <li>XLSX support via SheetJS (<code>xlsx</code> package) for Amuse exports</li>
-          <li>ECB Data Portal integration for monthly GBP/USD→EUR exchange rates (free, no auth, falls back to fixed rates)</li>
-          <li>Import tracking via <code>sales/import/.imported.json</code> — checksums prevent double-counting, <code>--force</code> re-imports all</li>
-          <li>Physical/digital classification from Bandcamp <code>package</code> field (CD, Vinyl, Cassette, digital download)</li>
-          <li>Empty Bandcamp transactions filtered (fee adjustments, zero-quantity rows)</li>
-          <li>Multi-currency support with per-currency grouping and subtotals</li>
-          <li>Refunds included as negative line items</li>
-          <li>Non-roster artist transactions routed to "Various Artists" bucket</li>
-          <li>Period options: <code>--period monthly</code> (12 reports), <code>quarterly</code> (4), <code>half-yearly</code> (2), annual (default)</li>
-          <li><code>--business-report</code> flag generates consolidated label-wide report with Revenue by Artist, Revenue by Source, Revenue by Month, Top 20 Releases</li>
-          <li><code>--pdf</code> flag converts generated reports to PDF via <code>md-to-pdf</code> (year-aware, only converts current run)</li>
-          <li><code>--dry-run</code> prints reports to stdout without writing files</li>
-          <li><code>--sync-s3</code> uploads reports + PDFs to S3 (runs after PDF conversion, auto-syncs when <code>STORAGE_MODE=s3</code>)</li>
-          <li><code>.gitignore</code> check warns if <code>sales/</code> is not excluded from version control</li>
-          <li>New modules: <code>src/salesRenderer.js</code>, <code>src/bandcampSales.js</code>, <code>src/salesImport.js</code>, <code>src/salesReport.js</code></li>
-          <li><code>src/bandcampApi.js</code> now exports <code>getAccessToken</code>, <code>getMyBands</code>, <code>httpsPost</code> for reuse</li>
-          <li>20 unit tests for report rendering</li>
-        </ul>
+        <ul><li>Sales reports from Bandcamp and CSV imports. Multi-currency. PDF export.</li></ul>
       </div>
       <div class="release">
         <h3>v4.2.0 <span class="release-date">— 7 April 2026</span></h3>
-        <ul>
-          <li>Albums not found on Discogs marked <code>discogsChecked</code> — no repeated API calls on <code>--enrich</code></li>
-          <li>Per-platform <code>enrichmentChecked</code> object tracks iTunes/Deezer/Tidal/MusicFetch lookups</li>
-          <li>Bandcamp-only albums (no Spotify, no UPC) skip gap-fill pipeline entirely</li>
-          <li><code>--force</code> clears all checked flags for re-querying</li>
-          <li>Discogs sell URLs verified against marketplace <code>num_for_sale</code> on every <code>--enrich</code> run</li>
-          <li>Albums with zero active listings have sell URLs cleared automatically</li>
-          <li>False streaming links cleaned from 9 Bandcamp-only releases (title search false matches)</li>
-          <li>New <code>content/stores.json</code> config for search-based physical stores (Poponaut, Going Underground, etc.)</li>
-          <li>Supports both GET (URL with query params) and POST (hidden form) methods</li>
-          <li><code>{artist}</code> and <code>{album}</code> placeholders replaced with actual values</li>
-          <li>Physical section now shows whenever album has physical formats (not gated on Discogs sell URLs)</li>
-          <li>Amazon search link no longer disappears when Discogs has no listings</li>
-          <li><code>content/{artist}/{album}/stores.json</code> with <code>{ "hidePhysical": true }</code> suppresses the physical section</li>
-          <li>Object format supports both <code>hidePhysical</code> and custom <code>stores</code> array</li>
-          <li>Array format for custom store links still works (backward compatible)</li>
-          <li><code>scripts/update-lsg-site.js</code> syncs <code>CHANGELOG.md</code> to gh-pages landing page</li>
-          <li>Parses changelog, converts to HTML, updates <code>index.html</code>, commits and pushes</li>
-          <li>Skips versions before v3.0.0</li>
-          <li>HTML-escapes <code>&lt;</code> and <code>&gt;</code> to prevent broken tags</li>
-          <li>Imprint added to footer</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v4.1.0 <span class="release-date">— 7 April 2026</span></h3>
-        <ul>
-          <li>Sell URLs are now verified against Discogs marketplace on every <code>--enrich</code> run</li>
-          <li>Albums with zero active listings have their sell URLs cleared — no more "Buy on Discogs" buttons for unavailable releases</li>
-          <li>Release listing checks are deduplicated across artists (shared cache)</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v4.0.2 <span class="release-date">— 7 April 2026</span></h3>
-        <ul>
-          <li>Albums not found on Discogs are now marked <code>discogsChecked: true</code> — no more repeated API calls on every <code>--enrich</code> run</li>
-          <li>Albums not found on iTunes/Deezer/Tidal/MusicFetch are now tracked via <code>enrichmentChecked</code> object — per-platform skip on future runs</li>
-          <li>Bandcamp-only albums (no Spotify link, no UPC) are now skipped in the gap-fill pipeline — nothing to search with</li>
-          <li><code>--force</code> clears all checked flags to allow re-querying when needed</li>
-        </ul>
+        <ul><li>Enrichment caching. Extra search stores. Per-album <code>hidePhysical</code> flag.</li></ul>
       </div>
       <div class="release">
         <h3>v4.0.0 <span class="release-date">— 7 April 2026</span></h3>
-        <ul>
-          <li>New <code>--scrape</code> flag replaces confusing <code>--refresh</code> for Bandcamp re-scraping</li>
-          <li>New <code>--force</code> flag for re-enrichment (replaces <code>--refresh --enrich</code>)</li>
-          <li><code>--scrape --enrich --artist "Name"</code> works in one run (previously required two commands)</li>
-          <li><code>--refresh</code> and <code>--artist</code> alone still work as deprecated aliases</li>
-          <li>Updated <code>--help</code> with common workflows and clearer descriptions</li>
-          <li>Discogs labels now rendered as clickable links to their Discogs label pages</li>
-          <li>Multi-label releases (e.g. "Label A / Label B / Label C") — each label linked individually</li>
-          <li>Duplicate labels filtered (label appearing in both Spotify and Discogs not shown twice)</li>
-          <li><code>discogsLabelUrls</code> array stored alongside <code>discogsLabel</code> for per-label URLs</li>
-          <li>Label URL map in merger backfills missing URLs from other albums in the cache</li>
-          <li>New <code>buildLabelData</code> pure function with property-based tests</li>
-          <li><code>description</code>, <code>releaseDate</code>, <code>slug</code> removed from enrichment preservation — Bandcamp changes now come through</li>
-          <li>Release dates preserved from Spotify/Soundcharts (authoritative) — Bandcamp dates only used as fallback for new albums</li>
-          <li>Slug preserved when title unchanged, regenerated when title changes</li>
-          <li><code>loadUpcoming</code> re-scrapes existing upcoming releases to pick up new info (description, tracks, artwork)</li>
-          <li><code>upcoming.json</code> presaveUrl is authoritative — empty value correctly clears cache</li>
-          <li>Default label (<code>LABEL_NAME</code>) set on upcoming releases</li>
-          <li>Upcoming releases skipped in all enrichment pipelines (prevents false matches)</li>
-          <li><code>loadUpcoming</code> no longer called on plain generate/deploy — only during <code>--scrape</code></li>
-          <li><code>content/{artist-slug}/tourdates.json</code> for manual tour date entries</li>
-          <li>Merged with Soundcharts events, deduplicated by date+city</li>
-          <li>Past dates automatically filtered out</li>
-          <li>Ticket purchase URLs supported</li>
-        </ul>
+        <ul><li>CLI overhaul. Discogs label linking. Upcoming releases with Coming Soon badges.</li></ul>
       </div>
       <div class="release">
         <h3>v3.6.0 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>Atomic cache writes: <code>writeCache</code> schreibt in Temp-Datei, dann atomares Rename (verhindert Korruption bei Crash)</li>
-          <li>Per-artist cache checkpoints im Enrichment (verifiziert — bereits implementiert)</li>
-          <li>Bandcamp exponential backoff: 429 Retry mit 5s × 2^attempt, max 3 Retries, capped 30s</li>
-          <li><code>--rollback</code> CLI Flag: stellt den neuesten Cache-Backup wieder her</li>
-          <li><code>.env</code> Validierung: Warnung wenn BANDCAMP_CLIENT_ID/SECRET oder SITE_URL fehlt</li>
-          <li>Credential-Leakage: Spotify/Bandcamp API Fehler-Responses werden vor dem Logging gekürzt</li>
-          <li>Release-Date-Validierung: <code>normalizeDate()</code> Helper validiert ISO 8601 Format</li>
-          <li>Fortschrittsanzeige: <code>[1/N] ArtistName</code> Counter im Enrichment</li>
-          <li>Remix-Suffix-Normalisierung: "Track - Remix Version" matched jetzt "Track (Remix)"</li>
-        </ul>
+        <ul><li>Production hardening. Atomic cache writes. Bandcamp retry with backoff.</li></ul>
       </div>
       <div class="release">
         <h3>v3.5.0 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>When <code>NEWSLETTER_AUTO_CAMPAIGN=true</code>, new news articles automatically create campaign drafts</li>
-          <li>Sendy: POST to <code>/api/campaigns/create.php</code> with <code>send_campaign=0</code> (draft only)</li>
-          <li>Listmonk: POST to <code>/api/campaigns</code> with <code>status: draft</code> (requires BasicAuth via <code>NEWSLETTER_API_USER</code>/<code>NEWSLETTER_API_TOKEN</code>)</li>
-          <li>Campaign contains: title, excerpt, "Read more" button linking to article, feature image</li>
-          <li>Tracking via <code>content/news/.campaigns-created</code> file — only new articles trigger campaigns</li>
-          <li>Campaigns are never auto-sent — always created as drafts for manual review</li>
-        </ul>
+        <ul><li>Auto-create newsletter campaign drafts from news articles.</li></ul>
       </div>
       <div class="release">
         <h3>v3.4.0 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>Provider-agnostic newsletter integration with <code>NEWSLETTER_PROVIDER</code> env var (sendy, listmonk)</li>
-          <li>Sendy: switched from <code>mode: 'no-cors'</code> HTML endpoint to API mode (<code>boolean=true</code> + <code>api_key</code>) with real response parsing</li>
-          <li>Listmonk: JSON POST to <code>/api/public/subscription</code> (no auth required) with proper HTTP status handling</li>
-          <li>Specific error messages for subscriber states:</li>
-          <li>"Already subscribed" (Sendy plain-text / Listmonk HTTP 409)</li>
-          <li>"Bounced email address" → contact label email</li>
-          <li>"Email is suppressed" → contact label email</li>
-          <li>Honeypot spam protection: Sendy sends <code>hp</code> field server-side, Listmonk checks client-side</li>
-          <li>Double opt-in: DOI-aware success messages ("Check your inbox" vs "Successfully subscribed")</li>
-          <li>Sendy <code>silent=true</code> parameter when DOI is disabled</li>
-          <li>Backward compatible: no <code>NEWSLETTER_PROVIDER</code> + <code>NEWSLETTER_ACTION_URL</code> set = sendy default</li>
-          <li>Provider config via extensible <code>NEWSLETTER_PROVIDERS</code> map in renderer (add new providers with one entry)</li>
-          <li><code>resolveNewsletter()</code> exported for testing</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.3.0 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>After <code>fetchArtistAlbums</code> builds the album list, Bandcamp albums without a Spotify match now get a title-based search fallback via <code>searchAlbum</code></li>
-          <li>Catches albums that Spotify's artist page doesn't list (e.g., one artist had 9 of 20 albums missing from the artist endpoint)</li>
-          <li><code>albumBelongsToArtist</code> filter applied to search fallback — skips albums from other artists on shared Bandcamp pages (e.g., other artists' releases on shared Bandcamp pages)</li>
-          <li>Works in both Soundcharts and legacy enrichment paths</li>
-          <li>Rate limit (429) propagated correctly — disables Spotify for remaining artists</li>
-          <li>Hardened <code>searchAlbum</code> scoring validation:</li>
-          <li>Artist-only match (score 1) removed — was causing false positives</li>
-          <li>Short artist names (≤3 chars after normalisation) require exact album match</li>
-          <li>Artists normalising to &lt;2 chars (e.g. <code>Artist</code> → <code>a</code>) skip search entirely</li>
-          <li>Partial album match (score 2) requires target album ≥6 chars and only accepted with single candidate</li>
-          <li><code>scoreSearchResult</code> extracted as testable function with 20 property-based tests</li>
-          <li>Verified against live Spotify API: missing albums confirmed not on Spotify, short-name artist correctly blocked by short-name protection</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.2.5 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>Spotify title normalization during <code>--artist</code> refresh (LSG-10) — after re-scraping, titles are normalized against Spotify catalog if artist has a configured Spotify URL</li>
-          <li>Cache integrity property-based tests (LSG-4) — 20 tests covering backup rotation, enrichment preservation, conflict detection, content-first priority, and audit report completeness</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.2.4 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>Fixed Bandcamp URL verification not scraping album data after HEAD request (LSG-25) — verified albums now get full metadata (albumId for embedded player, tracks, tags, artwork)</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.2.3 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>Fixed news article image auto-detection not finding date-prefixed image files (e.g. <code>02-27-my-article.jpg</code>) — now checks both <code>{slug}.ext</code> and <code>{MM-DD-slug}.ext</code> naming conventions</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.2.2 <span class="release-date">— 6 April 2026</span></h3>
-        <ul>
-          <li>Fixed missing mobile <code>&lt;source&gt;</code> entries in <code>artist.njk</code> (hero, gallery, discography) and <code>album.njk</code> (hero) — mobile browsers now receive optimized <code>-mobile.webp</code> variants via <code>toMobileWebp</code> filter with <code>media="(max-width: 640px)"</code></li>
-          <li>Fixed missing mobile <code>&lt;source&gt;</code> in homepage news section (<code>index.njk</code>)</li>
-          <li>Fixed image optimizer skipping mobile variant generation for images ≤ 600px wide — now always generates <code>-mobile.webp</code> and <code>-mobile.jpg</code> (at original size for small images, resized to 600px for larger ones)</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.2.1 <span class="release-date">— 5 April 2026</span></h3>
-        <ul>
-          <li>Fixed incomplete HTML tag sanitization in news excerpt extraction — iterative stripping prevents nested tag bypass (e.g. <code>&lt;scr&lt;script&gt;ipt&gt;</code>)</li>
-          <li>Fixed incomplete URL substring check for Bandcamp domain — now validates hostname properly instead of substring match</li>
-          <li>Added <code>permissions: contents: read</code> to GitHub Actions workflow (least privilege)</li>
-          <li>Updated Actions to v4, Node test matrix to 18/20/22</li>
-          <li>Fixed Discogs physical format misattribution for singles sharing album title (LSG-20) — singles (≤3 tracks, <code>/track/</code> URL, or itemType track) skip physical format assignment</li>
-          <li>Fixed "Coming Soon" badge covering entire card — now overlays artwork only</li>
-          <li>Fixed Bandcamp player showing for private/upcoming releases</li>
-          <li>Fixed <code>content/news/</code> flagged as orphaned artist folder</li>
-          <li>Fixed label inconsistencies: inconsistent label name casing normalized</li>
-        </ul>
+        <ul><li>Newsletter API integration. Sendy and Listmonk support. Double opt-in.</li></ul>
       </div>
       <div class="release">
         <h3>v3.2.0 <span class="release-date">— 5 April 2026</span></h3>
-        <ul>
-          <li><code>content/upcoming.json</code> — add private Bandcamp stream links for unreleased albums</li>
-          <li>Private stream links (<code>https://bandcamp.com/private/{CODE}</code>) are scraped for metadata (title, artist, artwork, release date)</li>
-          <li>"Coming Soon" badge on album cards for releases with future release dates (pre-orders and upcoming)</li>
-          <li>Album pages show "Pre-order" instead of "Released" for future dates</li>
-          <li>Upcoming releases bypass the homepage label filter — always shown</li>
-          <li><code>--artist</code> refresh now loads upcoming releases for the refreshed artist</li>
-          <li>When Spotify and Discogs report different labels, both are stored</li>
-          <li><code>discogsLabel</code> field preserves the physical release label from Discogs</li>
-          <li>Album pages show both labels separated by " / " when they differ</li>
-          <li>Only set when the Discogs label comes from an actual physical release (Vinyl/CD/Cassette)</li>
-          <li>Label extraction now prefers C-line (© = label) over P-line (℗ = sound recording copyright)</li>
-          <li>Spotify release dates are authoritative — override Bandcamp dates when different</li>
-          <li>Batch album endpoint (<code>/v1/albums?ids=</code>) blocked in dev mode — reverted to per-album calls</li>
-          <li>Release dates extracted from Bandcamp raw data for 34 albums that were missing them</li>
-          <li>UPCs fetched for 18 albums that had Spotify URLs but no UPC</li>
-          <li><code>compilations.json</code> — direct Spotify album ID mapping for Various Artists compilations</li>
-          <li>Various Artists excluded from Spotify/Soundcharts enrichment (prevents junk matches)</li>
-          <li><code>albumBelongsToArtist</code> uses NFD normalization for accented artist names (fixes accented artist names)</li>
-          <li><code>refreshArtist</code> preserves Spotify-only and upcoming albums during re-scrape</li>
-          <li><code>releaseDate</code> and <code>slug</code> added to enrichment field preservation list</li>
-          <li>Artist slug mismatch fixed in <code>artists.json</code></li>
-          <li>Inconsistent label name normalized</li>
-          <li>Self-hosted Font Awesome (no CDN dependency, served from own CloudFront)</li>
-          <li>Font preloading (<code>woff2</code> files) + <code>font-display: swap</code> override</li>
-          <li><code>fetchpriority="high"</code> on hero banner image</li>
-          <li>Mobile image variants (600px WebP) for all images</li>
-          <li><code>&lt;picture&gt;</code> tags with mobile srcset on grid cards</li>
-          <li>Banner and logo converted to WebP with mobile variants</li>
-          <li>S3 deploy with per-file-type <code>Cache-Control</code> headers</li>
-          <li><code>SiteNavigationElement</code> structured data for Google sitelinks</li>
-          <li>Hamburger menu breakpoint raised to 960px for tablets</li>
-          <li>Image optimizer skip logic fixed (small images no longer re-processed)</li>
-          <li>File-based news: <code>content/news/{year}/MM-DD-slug.md</code> (or <code>.docx</code>)</li>
-          <li>Homepage shows latest 10 articles, <code>/news/</code> listing with pagination</li>
-          <li>Individual article pages at <code>/news/{slug}/</code></li>
-          <li>Front-matter: <code>title</code>, <code>excerpt</code>, <code>image</code> fields</li>
-          <li>News heading styles fixed (no section border/uppercase)</li>
-          <li>Front-matter parsing handles Windows CRLF line endings</li>
-          <li>Compilation album pages link back to <code>/releases/</code> (not non-existent VA artist page)</li>
-          <li>Duplicate detection considers item type and URL (no false positives)</li>
-          <li>Removed spurious <code>appears_on</code> artifact from cache</li>
-          <li>Cleaned up licensing: single <code>LICENSE</code> file with dual-license header</li>
-          <li>FAQ updated with troubleshooting section</li>
-          <li>YouTrack project tracking (LSG)</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.1.2 <span class="release-date">— 4 April 2026</span></h3>
-        <ul>
-          <li>New file-based news system: <code>content/news/{year}/MM-DD-slug.md</code> (or <code>.docx</code>)</li>
-          <li>Homepage shows latest 10 articles with title, excerpt, date, and feature image</li>
-          <li>Dedicated <code>/news/</code> listing page with pagination (12 per page)</li>
-          <li>Individual article pages at <code>/news/{slug}/</code></li>
-          <li>Front-matter support: <code>title</code>, <code>excerpt</code>, <code>image</code> fields</li>
-          <li>Auto-detection of feature images by slug name in year folder</li>
-          <li>"News" nav link appears in header when articles exist</li>
-          <li>Backward compatible: no <code>content/news/</code> folder = existing behavior unchanged</li>
-          <li>Fixed <code>albumBelongsToArtist</code> dropping albums with accented artist names (e.g. accented vs non-accented artist names) — NFD normalization now decomposes accents before comparison</li>
-          <li>Fixed news article <code>h2</code>/<code>h3</code> headings inheriting section border-bottom and uppercase styling</li>
-          <li>Fixed news item titles on listing pages inheriting section heading styles</li>
-          <li>Fixed front-matter parsing failing on Windows CRLF line endings</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.1.1 <span class="release-date">— 4 April 2026</span></h3>
-        <ul>
-          <li>Fixed Soundcharts pre-check wasting 35+ seconds retrying on rate limit — now uses a single API call with no retry</li>
-          <li>Fixed Soundcharts quota exhaustion mid-artist not triggering immediate fallback to Spotify — previously only detected after the artist was fully processed</li>
-          <li>Fixed Spotify label fallback blocked when SC credentials exist but quota is exhausted — guard now checks actual mode, not just credential presence</li>
-          <li>Fixed <code>fetchArtistAlbums</code> silently returning empty on Spotify rate limit — now throws a typed error so the enricher disables Spotify for remaining artists immediately</li>
-          <li>Fixed <code>fetchArtistAlbums</code> rate limit error crashing the enrichment run in Soundcharts mode — now caught and handled gracefully</li>
-          <li>Fixed Spotify <code>limit</code> parameter rejected by API (HTTP 400 "Invalid limit") — removed explicit limit, uses Spotify's default page size with <code>data.next</code> pagination</li>
-          <li>Optimized <code>fetchArtistAlbums</code> UPC fetching — batch endpoint (<code>/v1/albums?ids=</code>) replaces per-album calls, reducing Spotify API calls from ~263 to ~62 for a full enrich</li>
-          <li>Fixed scraper classifying all unscraped label page albums as "Various Artists" — now checks actual Bandcamp artist field, only albums with artist "Various Artists"/"various" are treated as compilations</li>
-          <li>Fixed <code>fetchArtistAlbums</code> pulling <code>appears_on</code> compilations into individual artist catalogs — reverted to <code>album,single</code> groups only</li>
-          <li>Fixed compilation album pages not being created — renderer now generates album pages for Various Artists while skipping the artist page and grid entry</li>
-          <li>Fixed compilation album page back-links pointing to non-existent <code>/artists/various-artists/</code> — now links to <code>/releases/</code> page</li>
-          <li>Fixed renderer label filter excluding label Bandcamp albums without a matching homepage label — albums from <code>BANDCAMP_LABEL_URL</code> origin always included</li>
-          <li>Fixed duplicate album detection false positives for album+single pairs with same title (multiple artists) — now considers item type and URL</li>
-          <li>Normalized inconsistent label names across catalog</li>
-          <li>Removed spurious <code>appears_on</code> artifact from cache</li>
-          <li>Restored missing album from cache backup</li>
-          <li>Scraped and added missing EP from Bandcamp</li>
-          <li>Added "Join the dark side, we have the music!" compilation under Various Artists</li>
-        </ul>
+        <ul><li>Upcoming releases with Coming Soon badges. News system with RSS. Performance optimizations.</li></ul>
       </div>
       <div class="release">
         <h3>v3.1.0 <span class="release-date">— 3 April 2026</span></h3>
-        <ul>
-          <li>Spotify-only albums are now automatically verified against Bandcamp by constructing URLs from the title and checking with HEAD requests</li>
-          <li>Catches albums the Bandcamp scraper misses due to <code>/music</code> page limitations (e.g. older releases not listed)</li>
-          <li>Bandcamp-style slug generation drops apostrophes (Heart's → hearts) matching Bandcamp's URL format</li>
-          <li><code>/music</code> page now parses the <code>#pagedata</code> data-blob JSON for album URLs, with fallback to <code>&lt;a&gt;</code> tag parsing</li>
-          <li>Finds more albums on pages where Bandcamp embeds the catalog in JSON rather than HTML links</li>
-          <li>Pipeline order: Bandcamp → Spotify (album list) → Bandcamp verification → Soundcharts → gap-fill → Discogs</li>
-          <li>Spotify builds the album catalog with title matching, Soundcharts enriches without adding extra releases</li>
-          <li>Automatic cache backup before <code>--artist</code> re-scrape and <code>--enrich</code> operations</li>
-          <li>New "New release workflow" section in README</li>
-          <li>Updated enrichment pipeline documentation</li>
-        </ul>
-      </div>
-      <div class="release">
-        <h3>v3.0.1 <span class="release-date">— 3 April 2026</span></h3>
-        <ul>
-          <li>Fixed artwork resolution for duplicate-title albums (e.g. self-titled album + EP) — merger now checks URL-derived and year-deduped content folder slugs</li>
-          <li>Fixed missing label URLs — labels known from other albums (e.g. known from other albums) now get their Discogs link across the catalog</li>
-          <li>Fixed <code>--sync-youtube --artist</code> triggering a Bandcamp re-scrape instead of filtering YouTube sync</li>
-          <li>Fixed CLI argument parsing for <code>--sync-youtube</code>, <code>--sync-elasticstage</code>, <code>--cleanup</code> — no longer exits early, allows combining with <code>--artist</code></li>
-          <li>Automatic cache backup before destructive operations (<code>--artist</code> re-scrape, <code>--enrich</code>) — saved as <code>cache.backup.{timestamp}.json</code></li>
-          <li><code>--sync-youtube --artist "Name"</code> — sync YouTube videos for a single artist only</li>
-        </ul>
+        <ul><li>Bandcamp URL verification. Enrichment pipeline restructured.</li></ul>
       </div>
       <div class="release">
         <h3>v3.0.0 <span class="release-date">— 3 April 2026</span></h3>
-        <ul>
-          <li>Soundcharts replaces Spotify/iTunes/Deezer/Tidal as the primary enrichment source when credentials are configured</li>
-          <li>All streaming links (Spotify, Apple Music, Deezer, Tidal, Amazon Music, YouTube, SoundCloud) fetched in 1 API call per artist + 2 per album</li>
-          <li>Album metadata: UPC, label, distributor, copyright (P-line) from Soundcharts</li>
-          <li>Social media links auto-populated: Facebook, Instagram, TikTok, X/Twitter, Linktree</li>
-          <li>Discovery links: Genius, Last.fm, MusicBrainz</li>
-          <li>Upcoming shows/tour dates from Soundcharts events endpoint, rendered on artist pages</li>
-          <li>Bandsintown and Songkick "More dates" links on artist pages</li>
-          <li>Gap-fill: iTunes/Deezer/Tidal called only for links Soundcharts didn't return</li>
-          <li>Legacy mode: full existing pipeline runs when Soundcharts credentials are absent</li>
-          <li>Quota tracking: logs remaining credits, warns below 100, stops at 0</li>
-          <li>Incremental: skips already-enriched artists/albums, only processes new or changed data</li>
-          <li><code>--enrich --artist "Name"</code> enriches a single artist without processing the full roster</li>
-          <li><code>--enrich --artist "Name" --refresh</code> forces re-enrichment (clears Soundcharts UUIDs)</li>
-          <li>Unified links section: website + social media links with branded icons, then streaming links</li>
-          <li>"Upcoming Shows" section with date, venue, city, country, festival badges</li>
-          <li>Social links merged from both Bandcamp and Soundcharts (no duplicates)</li>
-          <li>Replaced the original bandcamp-scraper library (MIT) with a native implementation (GPL-3.0)</li>
-          <li>New <code>src/bandcamp.js</code> using native <code>https</code> + <code>cheerio</code> with async/await</li>
-          <li>Removed <code>lib/</code>, <code>schemas/</code>, <code>spec/</code> directories and <code>LICENSE-MIT</code></li>
-          <li>Dropped dependencies: <code>tinyreq</code>, <code>scrape-it</code>, <code>ajv</code>, <code>json5</code>, <code>linez</code>, <code>jasmine</code></li>
-          <li>Codebase is now fully GPL-3.0</li>
-          <li><code>--cleanup</code> command to report orphaned content folders not matching any album in cache</li>
-          <li><code>links.json</code> support for manual artist link overrides (social, streaming, websites)</li>
-          <li>Album discovery from Soundcharts — releases not on Bandcamp are automatically added (matched by title, UPC, and Soundcharts UUID)</li>
-          <li>Fuzzy title matching for dedup (strips Single/Remastered suffixes, preserves Deluxe/Remixes/EP)</li>
-          <li>Mobile navigation scroll fix (max-height + overflow-y on mobile nav)</li>
-          <li>"Built with Label Site Generator" footer credit with GitHub link</li>
-        </ul>
+        <ul><li>First production-ready release. Soundcharts API. Native Bandcamp scraper. Artist pages with events and social links.</li></ul>
       </div>
     </div>
   </section>
