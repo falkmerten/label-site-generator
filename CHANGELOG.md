@@ -4,6 +4,21 @@
 
 ---
 
+### v4.9.0 — 2026-04-20
+
+**Ghost CMS integration (LSG-111)**
+- New `src/ghost.js` module fetches published posts from a self-hosted Ghost CMS via the Content API
+- Uses native `https` module (same pattern as `src/soundcharts.js`) - no new dependencies
+- Auto-paginates Ghost API responses (Ghost 6.0 max 100 per page)
+- When `GHOST_URL` and `GHOST_CONTENT_API_KEY` are set, Ghost is the exclusive news source - local `content/news/` files are skipped entirely
+- Graceful degradation: if Ghost API fails at build time, falls back to local news files
+- Ghost post HTML sanitized with `isomorphic-dompurify` before rendering
+- Ghost images served as absolute URLs from the Ghost origin (no local download)
+- New env vars in `.env.example`: `GHOST_URL`, `GHOST_CONTENT_API_KEY`
+- Existing templates, sitemap, RSS feed, and SEO tags work with Ghost articles without modification
+
+---
+
 ### v4.8.1 — 2026-04-20
 
 **Upcoming release tiers (LSG-105)**

@@ -116,6 +116,9 @@ All label-specific settings live in `.env` (gitignored, never committed).
 | `LABEL_FACEBOOK_URL` | Facebook page URL |
 | `LABEL_TIKTOK_URL` | TikTok profile URL |
 | `LABEL_TWITTER_URL` | X / Twitter profile URL |
+| **Ghost CMS (headless news)** | |
+| `GHOST_URL` | Ghost instance URL (e.g. `https://news.your-label.com`). When set with `GHOST_CONTENT_API_KEY`, Ghost is the exclusive news source |
+| `GHOST_CONTENT_API_KEY` | Ghost Content API key (from Ghost Admin → Integrations) |
 | **Newsletter** | |
 | `NEWSLETTER_PROVIDER` | Newsletter backend: `sendy`, `listmonk`, or `keila` (defaults to `sendy` if `NEWSLETTER_ACTION_URL` is set) |
 | `NEWSLETTER_ACTION_URL` | Newsletter installation URL (without `/subscribe`) |
@@ -719,6 +722,7 @@ Custom Nunjucks filters:
 | `src/enricher.js` | Orchestrates the full enrichment pipeline (Soundcharts or legacy mode) |
 | `src/cleanup.js` | Reports orphaned content folders and runs data quality audit on cache |
 | `src/news.js` | Loads news articles from `content/news/` markdown files |
+| `src/ghost.js` | Ghost Content API client — fetches published posts from a headless Ghost CMS |
 | `src/newsletterCampaign.js` | Auto-creates newsletter campaign drafts for new news articles (Sendy/Listmonk/Keila) |
 | `src/upcoming.js` | Loads upcoming releases from `content/upcoming.json` private Bandcamp links |
 | `src/initArtists.js` | Generates `content/artists.json` with Spotify artist URLs + validation |

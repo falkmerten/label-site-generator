@@ -77,11 +77,33 @@ async function generate(options) {
   console.log('Merging data...');
   const mergedData = await mergeData(rawData, content);
 
-  // Step 5b: Load news articles
+  // Step 5b: Load news articles (Ghost or local)
   const { loadNews } = require('./news');
-  const newsArticles = await loadNews(contentDir);
-  if (newsArticles.length > 0) {
-    console.log(`Loaded ${newsArticles.length} news article(s).`);
+  let newsArticles = [];
+  const ghostUrl = process.env.GHOST_URL;
+  const ghostApiKey = process.env.GHOST_CONTENT_API_KEY;
+
+  if (ghostUrl && ghostApiKey) {
+    // Ghost is configured — use as exclusive news source
+    const { createGhostClient, normalizePost } = require('./ghost');
+    const ghost = createGhostClient({ url: ghostUrl, apiKey: ghostApiKey });
+    try {
+      const rawPosts = await ghost.fetchAllPosts();
+      newsArticles = rawPosts.map(normalizePost);
+      console.log(`Fetched ${newsArticles.length} Ghost post(s).`);
+    } catch (err) {
+      console.warn(`[generator] Ghost fetch failed: ${err.message} — falling back to local news`);
+      newsArticles = await loadNews(contentDir);
+      if (newsArticles.length > 0) {
+        console.log(`Loaded ${newsArticles.length} local news article(s) (Ghost fallback).`);
+      }
+    }
+  } else {
+    // Ghost not configured — use local news files
+    newsArticles = await loadNews(contentDir);
+    if (newsArticles.length > 0) {
+      console.log(`Loaded ${newsArticles.length} news article(s).`);
+    }
   }
 
   // Step 5c: Create newsletter campaign drafts for new articles
