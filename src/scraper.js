@@ -170,6 +170,59 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
 
   console.log(`Scraping complete. ${artists.length} artist(s) collected.`)
 
+  // ── Fetch label profile image (for auto-logo) ────────────────────────────
+  let labelProfileImage = null
+  if (labelUrl) {
+    try {
+      labelProfileImage = await bandcamp.getProfileImage(labelUrl)
+    } catch { /* non-fatal */ }
+  }
+
+  // ── Extract Bandcamp theme colors ─────────────────────────────────────────
+  let themeColors = {}
+  if (labelUrl) {
+    try {
+      themeColors = await bandcamp.getThemeColors(labelUrl)
+      if (Object.keys(themeColors).length > 0) {
+        console.log(`  Extracted Bandcamp theme colors: ${JSON.stringify(themeColors)}`)
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // ── Regroup albums by artist field (for band accounts acting as labels) ───
+  // When a single Bandcamp URL was scraped (band account, no /artists page),
+  // albums may belong to different artists. Regroup them by the album's artist field.
+  if (artists.length === 1 && artists[0].albums.length > 0) {
+    const singleArtist = artists[0]
+    const albumsByArtist = {}
+    for (const album of singleArtist.albums) {
+      const artistName = (album.artist || singleArtist.name || 'Unknown').trim()
+      if (!albumsByArtist[artistName]) {
+        albumsByArtist[artistName] = []
+      }
+      albumsByArtist[artistName].push(album)
+    }
+
+    const uniqueArtists = Object.keys(albumsByArtist)
+    if (uniqueArtists.length > 1) {
+      console.log(`  Regrouping ${singleArtist.albums.length} album(s) into ${uniqueArtists.length} artist(s) (band account with multiple artists)`)
+      artists.length = 0
+      for (const [name, albums] of Object.entries(albumsByArtist)) {
+        artists.push({
+          url: singleArtist.url,
+          name,
+          location: singleArtist.location,
+          description: name === singleArtist.name ? singleArtist.description : '',
+          coverImage: name === singleArtist.name ? singleArtist.coverImage : null,
+          bandLinks: name === singleArtist.name ? singleArtist.bandLinks : [],
+          streamingLinks: undefined,
+          albums
+        })
+        console.log(`    ${name}: ${albums.length} album(s)`)
+      }
+    }
+  }
+
   // ── Scrape label page for compilations (Various Artists) ──────────────────
   if (labelUrl) {
     const labelClean = cleanUrl(labelUrl)
@@ -247,6 +300,8 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
 
   return {
     scrapedAt: new Date().toISOString(),
+    labelProfileImage,
+    themeColors,
     artists
   }
 }

@@ -85,6 +85,7 @@ async function getArtistInfo (artistUrl) {
   const name = $('#band-name-location .title').text().trim()
   const location = $('#band-name-location .location').text().trim()
   const coverImage = $('.bio-pic a').attr('href') || null
+  const profileImage = $('img.band-photo').attr('src') || null
   const description = $('p#bio-text').text().trim()
 
   // Albums from music grid
@@ -141,6 +142,7 @@ async function getArtistInfo (artistUrl) {
     location,
     description,
     coverImage,
+    profileImage,
     albums: mergedAlbums,
     shows,
     bandLinks
@@ -315,9 +317,63 @@ async function getAlbumInfo (albumUrl) {
   return object
 }
 
+/**
+ * Fetches the profile image from a Bandcamp label or artist page.
+ * Looks for img.band-photo (the round avatar on the page).
+ * @param {string} pageUrl - The Bandcamp page URL
+ * @returns {Promise<string|null>} Profile image URL or null
+ */
+async function getProfileImage (pageUrl) {
+  try {
+    const html = await fetchPage(pageUrl)
+    const $ = cheerio.load(html)
+    return $('img.band-photo').attr('src') || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Extracts theme colors from a Bandcamp page's inline CSS.
+ * Bandcamp injects custom colors in a style tag targeting #pgBd.
+ * @param {string} html - Raw HTML of the Bandcamp page
+ * @returns {{ background?: string, text?: string, link?: string, button?: string }}
+ */
+function extractThemeColors (html) {
+  const $ = cheerio.load(html)
+  const colors = {}
+
+  $('style').each((_, el) => {
+    const css = $(el).html() || ''
+    const bgMatch = css.match(/#pgBd\s*\{[^}]*background:\s*(#[0-9a-fA-F]{3,6})/s)
+    if (bgMatch) colors.background = bgMatch[1]
+    const textMatch = css.match(/#pgBd\s*\{[^}]*\bcolor:\s*(#[0-9a-fA-F]{3,6})/s)
+    if (textMatch) colors.text = textMatch[1]
+    const linkMatch = css.match(/a\.custom-color[^{]*\{[^}]*\bcolor:\s*(#[0-9a-fA-F]{3,6})/s)
+    if (linkMatch) colors.link = linkMatch[1]
+    const btnMatch = css.match(/\.g-button[^{]*\{[^}]*background-color:\s*(#[0-9a-fA-F]{3,6})/s)
+    if (btnMatch) colors.button = btnMatch[1]
+  })
+
+  return colors
+}
+
+/**
+ * Fetches a Bandcamp page and extracts its theme colors.
+ * @param {string} pageUrl - The Bandcamp page URL
+ * @returns {Promise<{ background?: string, text?: string, link?: string, button?: string }>}
+ */
+async function getThemeColors (pageUrl) {
+  const html = await fetchPage(pageUrl)
+  return extractThemeColors(html)
+}
+
 module.exports = {
   getArtistUrls,
   getArtistInfo,
   getAlbumUrls,
-  getAlbumInfo
+  getAlbumInfo,
+  getProfileImage,
+  getThemeColors,
+  extractThemeColors
 }

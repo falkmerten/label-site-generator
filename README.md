@@ -682,6 +682,8 @@ Place brand images in `assets/` (gitignored):
 
 On artist and album pages, the artist photo / album artwork replaces the banner.
 
+If no `logo-round.png` is found in `assets/` or `content/global/`, the generator automatically downloads the Bandcamp profile image and uses it as the site logo.
+
 ---
 
 ## Templates
@@ -713,7 +715,7 @@ Custom Nunjucks filters:
 
 | Module | Description |
 |---|---|
-| `src/bandcamp.js` | Bandcamp HTML scraper: artist info, album info, album URLs, artist URLs |
+| `src/bandcamp.js` | Bandcamp HTML scraper: artist info, album info, album URLs, artist URLs, profile image |
 | `src/scraper.js` | Orchestrates Bandcamp scraping for the full label roster |
 | `src/refreshArtist.js` | Re-scrapes a single artist, preserving enrichment data |
 | `src/bandcampApi.js` | Fetches label artist roster via Bandcamp OAuth2 API |
@@ -737,8 +739,8 @@ Custom Nunjucks filters:
 | `src/content.js` | Loads content overrides and discovers dynamic pages |
 | `src/merger.js` | Merges scraped data with content overrides |
 | `src/renderer.js` | Renders all HTML pages via Nunjucks |
-| `src/assets.js` | Copies static assets, writes default stylesheet |
-| `src/generator.js` | Top-level pipeline: cache → merge → render → assets |
+| `src/assets.js` | Copies static assets, writes default stylesheet, auto-downloads Bandcamp logo |
+| `src/generator.js` | Top-level pipeline: cache → merge → render → assets → summary |
 | `src/slugs.js` | Slug generation (NFD normalisation for accented characters) |
 | `src/importCsv.js` | Bandcamp CSV import: parser, gap analysis, gap filling, full import |
 | `src/markdown.js` | Markdown rendering |

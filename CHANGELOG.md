@@ -4,6 +4,26 @@
 
 ---
 
+### v4.9.2 - 2026-04-27
+
+**Auto-retrieve logo from Bandcamp, CLI summary after generate (LSG-118)**
+- Auto-download Bandcamp profile image as site logo when no custom `assets/logo-round.png` or `content/global/logo.png` exists
+- New `getProfileImage()` function in `src/bandcamp.js` scrapes `img.band-photo` from the label page
+- Label profile image URL stored in `cache.json` as `labelProfileImage` and passed through the pipeline
+- `copyAssets()` downloads the profile image via native HTTPS when no local logo is found
+- CLI summary printed after every `generate` run showing artists, albums, news, logo, and configuration status
+- Summary highlights missing content (photos, bios, streaming links, artwork) and unconfigured integrations (newsletter, enrichment, deploy)
+
+**Bandcamp theme color extraction (LSG-119)**
+- Auto-extract Bandcamp theme colors (background, text, link, button) and apply as CSS variables
+- Labels and bands get their Bandcamp color scheme automatically - no manual configuration needed
+- New `extractThemeColors()` and `getThemeColors()` functions in `src/bandcamp.js` parse inline CSS from `#pgBd` styles
+- Theme colors stored in `cache.json` as `themeColors` and passed through the pipeline
+- CSS `:root` block prepended to `style.css` with Bandcamp color overrides when available
+- Manual override via `THEME_COLOR_BACKGROUND`, `THEME_COLOR_TEXT`, `THEME_COLOR_LINK` env vars
+
+---
+
 ### v4.9.1 - 2026-04-26
 
 **Bandcamp band account support (LSG-115)**

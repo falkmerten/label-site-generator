@@ -2,6 +2,44 @@
 
 const fs = require('fs/promises')
 const path = require('path')
+const https = require('https')
+const http = require('http')
+
+/**
+ * Downloads a file from a URL and saves it to the given path.
+ * Follows redirects (up to 5). Returns true on success, false on failure.
+ * @param {string} url - The URL to download
+ * @param {string} destPath - Local file path to save to
+ * @returns {Promise<boolean>}
+ */
+function downloadFile (url, destPath, maxRedirects = 5) {
+  return new Promise((resolve) => {
+    const protocol = url.startsWith('https') ? https : http
+    protocol.get(url, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume()
+        if (maxRedirects <= 0) return resolve(false)
+        const redirectUrl = new URL(res.headers.location, url).toString()
+        return resolve(downloadFile(redirectUrl, destPath, maxRedirects - 1))
+      }
+      if (res.statusCode !== 200) {
+        res.resume()
+        return resolve(false)
+      }
+      const chunks = []
+      res.on('data', chunk => chunks.push(chunk))
+      res.on('end', async () => {
+        try {
+          await fs.writeFile(destPath, Buffer.concat(chunks))
+          resolve(true)
+        } catch {
+          resolve(false)
+        }
+      })
+      res.on('error', () => resolve(false))
+    }).on('error', () => resolve(false))
+  })
+}
 
 const DEFAULT_CSS = `/* Label Site Generator — Default Theme */
 
@@ -1469,7 +1507,39 @@ async function copyAssets (data, contentDir, outputDir) {
 
   // 2. Write default style.css if none was found
   if (!hasStyleCss) {
-    await fs.writeFile(path.join(outputDir, 'style.css'), DEFAULT_CSS, 'utf8')
+    // Build theme color overrides from Bandcamp + env vars
+    const themeColors = {
+      ...(data.themeColors || {}),
+      ...(process.env.THEME_COLOR_BACKGROUND ? { background: process.env.THEME_COLOR_BACKGROUND } : {}),
+      ...(process.env.THEME_COLOR_TEXT ? { text: process.env.THEME_COLOR_TEXT } : {}),
+      ...(process.env.THEME_COLOR_LINK ? { link: process.env.THEME_COLOR_LINK } : {})
+    }
+
+    let css = DEFAULT_CSS
+    if (Object.keys(themeColors).length > 0) {
+      const overrides = []
+      if (themeColors.background) {
+        overrides.push(`  --bg: ${themeColors.background};`)
+        overrides.push(`  --header-bg: ${themeColors.background};`)
+        overrides.push(`  --footer-bg: ${themeColors.background};`)
+        overrides.push(`  --brand-dark: ${themeColors.background};`)
+      }
+      if (themeColors.text) {
+        overrides.push(`  --text: ${themeColors.text};`)
+        overrides.push(`  --brand-light: ${themeColors.text};`)
+      }
+      if (themeColors.link) {
+        overrides.push(`  --accent: ${themeColors.link};`)
+        overrides.push(`  --accent-hover: ${themeColors.link};`)
+        overrides.push(`  --brand-accent: ${themeColors.link};`)
+      }
+      if (themeColors.button) {
+        overrides.push(`  --brand-mid: ${themeColors.button};`)
+      }
+      css = `/* Bandcamp theme color overrides */\n:root {\n${overrides.join('\n')}\n}\n\n${DEFAULT_CSS}`
+    }
+
+    await fs.writeFile(path.join(outputDir, 'style.css'), css, 'utf8')
   }
 
   // 3. Copy brand assets (logo, banner, placeholder, favicons) from ./assets/
@@ -1480,6 +1550,19 @@ async function copyAssets (data, contentDir, outputDir) {
       await fs.copyFile(src, path.join(outputDir, file))
     } catch (err) {
       if (err.code !== 'ENOENT') console.warn(`[assets] Could not copy ${file}:`, err.message)
+    }
+  }
+
+  // 3a. Auto-download Bandcamp profile image as logo if no custom logo exists
+  if (data._labelProfileImage) {
+    const logoPath = path.join(outputDir, 'logo-round.png')
+    let hasLogo = false
+    try { await fs.access(logoPath); hasLogo = true } catch { /* no logo */ }
+    if (!hasLogo) {
+      const ok = await downloadFile(data._labelProfileImage, logoPath)
+      if (ok) {
+        console.log('Using Bandcamp profile image as site logo (no content/global/logo.png found)')
+      }
     }
   }
 

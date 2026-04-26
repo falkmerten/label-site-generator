@@ -82,6 +82,16 @@ async function generate(options) {
   console.log('Merging data...');
   const mergedData = await mergeData(rawData, content);
 
+  // Pass label profile image through for auto-logo in copyAssets
+  if (rawData.labelProfileImage) {
+    mergedData._labelProfileImage = rawData.labelProfileImage
+  }
+
+  // Pass theme colors through for CSS variable overrides in copyAssets
+  if (rawData.themeColors && Object.keys(rawData.themeColors).length > 0) {
+    mergedData.themeColors = rawData.themeColors
+  }
+
   // Step 5b: Load news articles (Ghost or local)
   const { loadNews } = require('./news');
   let newsArticles = [];
@@ -148,6 +158,67 @@ async function generate(options) {
 
   // Step 10: Generate redirects
   await generateRedirects(contentDir, outputDir);
+
+  // Step 11: Print summary
+  const fs = require('fs/promises');
+  const path = require('path');
+  const allArtists = (mergedData.artists || []).filter(a => a.name.toLowerCase() !== 'various artists');
+  const allAlbums = allArtists.flatMap(a => a.albums || []);
+
+  let withoutPhotos = 0;
+  let withoutBios = 0;
+  for (const artist of allArtists) {
+    const photoPath = path.join(contentDir, artist.slug, 'photo.jpg');
+    try { await fs.access(photoPath); } catch { withoutPhotos++; }
+    const bioPath = path.join(contentDir, artist.slug, 'bio.md');
+    try { await fs.access(bioPath); } catch { withoutBios++; }
+  }
+
+  const withoutStreaming = allAlbums.filter(a => !a.streamingLinks || Object.keys(a.streamingLinks).length === 0).length;
+  const withoutArtwork = allAlbums.filter(a => !a.artwork).length;
+
+  // Determine logo source
+  let hasCustomLogo = false;
+  try { await fs.access(path.join(contentDir, 'global', 'logo.png')); hasCustomLogo = true; } catch { /* */ }
+  if (!hasCustomLogo) {
+    try { await fs.access(path.join('assets', 'logo-round.png')); hasCustomLogo = true; } catch { /* */ }
+  }
+
+  const hasNewsletter = !!(process.env.NEWSLETTER_PROVIDER || process.env.NEWSLETTER_ACTION_URL);
+  const hasEnrichment = !!(process.env.SOUNDCHARTS_APP_ID || process.env.SPOTIFY_CLIENT_ID);
+  const hasDeploy = !!process.env.AWS_S3_BUCKET;
+
+  console.log('\n--- Summary ---');
+
+  // Artists line
+  const artistWarnings = [];
+  if (withoutPhotos > 0) artistWarnings.push(`${withoutPhotos} without photos`);
+  if (withoutBios > 0) artistWarnings.push(`${withoutBios} without bios`);
+  console.log(`Artists: ${allArtists.length}${artistWarnings.length ? ' (' + artistWarnings.join(', ') + ')' : ''}`);
+
+  // Albums line
+  const albumWarnings = [];
+  if (withoutStreaming > 0) albumWarnings.push(`${withoutStreaming} without streaming links`);
+  if (withoutArtwork > 0) albumWarnings.push(`${withoutArtwork} without artwork`);
+  console.log(`Albums: ${allAlbums.length}${albumWarnings.length ? ' (' + albumWarnings.join(', ') + ')' : ''}`);
+
+  // News line
+  if (newsArticles.length > 0) {
+    const newsSource = (process.env.GHOST_URL && process.env.GHOST_CONTENT_API_KEY) ? 'from Ghost' : 'local';
+    console.log(`News: ${newsArticles.length} article(s) (${newsSource})`);
+  }
+
+  // Logo line (only if no custom logo)
+  if (!hasCustomLogo && rawData.labelProfileImage) {
+    console.log('Logo: Using Bandcamp profile image (no custom logo)');
+  } else if (!hasCustomLogo && !rawData.labelProfileImage) {
+    console.log('Logo: Not found (add assets/logo-round.png or content/global/logo.png)');
+  }
+
+  // Config warnings
+  if (!hasNewsletter) console.log('Newsletter: Not configured (set NEWSLETTER_PROVIDER in .env)');
+  if (!hasEnrichment) console.log('Enrichment: Not configured (set SOUNDCHARTS_APP_ID or SPOTIFY_CLIENT_ID in .env)');
+  if (!hasDeploy) console.log('Deploy: Not configured (set AWS_S3_BUCKET in .env)');
 
   return { outputDir, pageCount };
 }

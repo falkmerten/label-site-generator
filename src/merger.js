@@ -469,6 +469,7 @@ async function mergeData (rawData, content) {
 
   return {
     scrapedAt: rawData.scrapedAt,
+    themeColors: rawData.themeColors || {},
     artists: mergedArtists
   }
 }
