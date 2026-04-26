@@ -20,7 +20,8 @@ Generates a complete static website for a Bandcamp music label. Scrapes artist a
 - **Upcoming releases**: private Bandcamp stream links in `content/upcoming.json` — "Coming Soon" badge on pre-orders and unreleased albums
 - **Compilations**: `content/compilations.json` maps compilation slugs to Spotify album IDs — no search needed for Various Artists
 - **Word document conversion** — drop `bio.docx` in an artist folder, auto-converted to `bio.md` on generate
-- **Dynamic static pages** — any `.md` or `.docx` in `content/pages/` becomes a page with a footer link
+- **Dynamic static pages** - any `.md` or `.docx` in `content/pages/` becomes a page with a footer link
+- **Ghost CMS integration** - headless Ghost as exclusive news source when configured, with automatic fallback to local news files
 - Artist pages with blurred hero banner, round artist photo, photo gallery with lightbox
 - Album pages with Bandcamp embed, streaming links, physical release badges, Discogs sell link, YouTube videos
 - **Branded design**: dark header, hero banner, brand colour scheme (`#0c0032` / `#cacadb`)
@@ -57,9 +58,13 @@ Generates a complete static website for a Bandcamp music label. Scrapes artist a
 
 ### Optional (Newsletter)
 
-- **Sendy** — self-hosted email marketing. Subscribe form on homepage, auto-campaign drafts from news articles. [sendy.co](https://sendy.co)
-- **Listmonk** — self-hosted newsletter manager (Sendy alternative). Public subscription API, campaign creation via REST API. [listmonk.app](https://listmonk.app)
-- **Keila** — open-source newsletter tool (AGPL-3.0). Embeddable signup forms with double opt-in, campaign drafts via REST API with Bearer auth. [keila.io](https://www.keila.io)
+- **Sendy** - self-hosted email marketing. Subscribe form on homepage, auto-campaign drafts from news articles. [sendy.co](https://sendy.co)
+- **Listmonk** - self-hosted newsletter manager (Sendy alternative). Public subscription API, campaign creation via REST API. [listmonk.app](https://listmonk.app)
+- **Keila** - open-source newsletter tool (AGPL-3.0). Embeddable signup forms with double opt-in, campaign drafts via REST API with Bearer auth. [keila.io](https://www.keila.io)
+
+### Optional (Headless CMS)
+
+- **Ghost CMS** - headless news source via Content API. When configured, Ghost is the exclusive news source and local markdown files are skipped. Automatic fallback if Ghost is unavailable. [ghost.org](https://ghost.org)
 
 ---
 

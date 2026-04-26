@@ -155,6 +155,63 @@ Used to add analytics tracking to the generated site.
 
 ---
 
+## Ghost CMS (optional - headless news)
+
+Used to source news articles from a self-hosted Ghost CMS instead of local markdown files. When configured, Ghost is the exclusive news source - local `content/news/` files are skipped entirely. If the Ghost API fails at build time, the generator falls back to local news files automatically.
+
+### Setting up Ghost in headless mode
+
+1. Install Ghost on your server ([ghost.org/docs/install](https://ghost.org/docs/install/))
+2. In Ghost Admin, go to **Settings - General** and enable **Make this site private** (Private Site Mode). This hides the Ghost frontend so it only serves as a headless CMS - your label site is the public frontend.
+3. Publish posts normally in Ghost Admin. Only published posts are fetched by the generator.
+
+### Creating a Content API key
+
+1. In Ghost Admin, go to **Settings - Integrations**
+2. Click **Add custom integration**
+3. Give it a name (e.g. "Label Site Generator")
+4. Copy the **Content API Key** (a 26-character hex string)
+5. Note the **API URL** shown on the integration page - this is your `GHOST_URL`
+
+### Environment variables
+
+Add to `.env`:
+```
+GHOST_URL=https://news.your-label.com
+GHOST_CONTENT_API_KEY=your_content_api_key_here
+```
+
+| Variable | Description |
+|---|---|
+| `GHOST_URL` | Ghost instance URL (e.g. `https://news.your-label.com`). No trailing slash. |
+| `GHOST_CONTENT_API_KEY` | Content API key from Ghost Admin - Integrations (26-character hex string) |
+
+### Behavior
+
+- When both `GHOST_URL` and `GHOST_CONTENT_API_KEY` are set, Ghost is the **exclusive** news source
+- Local `content/news/` markdown files are skipped entirely
+- If the Ghost API fails at build time, the generator falls back to local news files
+- Ghost post HTML is sanitized with DOMPurify before rendering
+- Ghost images are served as absolute URLs from the Ghost origin (no local download)
+- Auto-pagination handles Ghost's 100-per-page limit (Ghost 6.0+)
+- Existing templates, sitemap, RSS feed, and SEO tags work with Ghost articles without modification
+- Newsletter auto-campaign drafts work with Ghost articles the same way as local articles
+
+### Ghost post fields used
+
+| Ghost field | Maps to |
+|---|---|
+| `title` | Article title |
+| `slug` | URL slug (`/news/{slug}/`) |
+| `published_at` | Publication date |
+| `custom_excerpt` or `excerpt` | Listing excerpt (max 300 chars) |
+| `feature_image` | Feature image (absolute URL) |
+| `html` | Article body (sanitized) |
+| `tags`, `authors` | Metadata (available in templates) |
+| `meta_title`, `meta_description` | SEO overrides |
+
+---
+
 ## AWS S3 + CloudFront (optional)
 
 Used by `--deploy` to sync the generated site to S3 and invalidate CloudFront.

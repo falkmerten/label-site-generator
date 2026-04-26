@@ -4,7 +4,8 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 4.x     | ✅ Active support   |
+| 4.9.x   | ✅ Active support (current) |
+| 4.8.x   | ⚠️ Security fixes only |
 | 3.x     | ❌ No longer supported |
 | 2.x     | ❌ No longer supported |
 | 1.x     | ❌ No longer supported |
@@ -51,14 +52,14 @@ This policy covers the Label Site Generator codebase, including:
 Out of scope:
 
 - Third-party APIs (Bandcamp, Spotify, Soundcharts, Discogs, etc.)
-- Self-hosted newsletter systems (Sendy, Listmonk) — report to their respective maintainers
-- Infrastructure configuration (AWS, Nginx) — these are user-managed
+- Self-hosted newsletter systems (Sendy, Listmonk, Keila) - report to their respective maintainers
+- Infrastructure configuration (AWS, Nginx) - these are user-managed
 
 ## Security Measures
 
 The project implements the following security practices:
 
-- **HTML sanitization**: All user-generated content (Markdown, news articles) is sanitized via DOMPurify before rendering
+- **HTML sanitization**: All user-generated content (Markdown, news articles, Ghost CMS posts) is sanitized via DOMPurify before rendering
 - **Credential isolation**: All API keys and secrets are stored in `.env` (gitignored), never committed
 - **Input validation**: Artist/album names normalized via NFD decomposition; slug generation strips non-alphanumeric characters
 - **Dependency scanning**: CodeQL analysis runs on every push to `master`

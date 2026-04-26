@@ -201,6 +201,22 @@ The latest 10 appear on the homepage in the News section. All articles are liste
 
 ---
 
+## Ghost CMS
+
+**How do I use Ghost for news?**
+Set `GHOST_URL` to your Ghost instance URL (e.g. `https://news.your-label.com`) and `GHOST_CONTENT_API_KEY` to a Content API key from Ghost Admin - Integrations. When both are set, Ghost is the exclusive news source and local `content/news/` files are skipped.
+
+**Can I use both Ghost and local news files?**
+No. When Ghost is configured, it is the exclusive news source. Local `content/news/` files are only used as a fallback when Ghost is not configured or when the Ghost API fails at build time.
+
+**What happens if Ghost is down?**
+The generator falls back to local `content/news/` files automatically. If no local files exist either, the site generates without news articles.
+
+**What Ghost fields are used?**
+Title, slug, published date, excerpt (or custom_excerpt), feature image, HTML content, tags, and authors. Ghost post HTML is sanitized with DOMPurify before rendering. Feature images are served as absolute URLs from the Ghost origin - no local download.
+
+---
+
 ## Newsletter
 
 **Which newsletter systems are supported?**
