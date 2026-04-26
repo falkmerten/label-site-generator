@@ -19,12 +19,17 @@ cp .env.example .env
 Edit `.env` with your label's details:
 
 ```env
+# For a LABEL page (multiple artists):
 BANDCAMP_LABEL_URL=https://your-label.bandcamp.com/
+
+# OR for a single ARTIST/BAND page:
+# BANDCAMP_ARTIST_URL=https://your-band.bandcamp.com/
+
 LABEL_NAME=Your Label Name
 SITE_URL=https://www.your-label.com/
 ```
 
-For artist pages (not labels), use `BANDCAMP_ARTIST_URL` instead of `BANDCAMP_LABEL_URL`.
+**Important:** Use `BANDCAMP_LABEL_URL` only for Bandcamp label accounts (pages with an `/artists` section). For individual band/artist pages, use `BANDCAMP_ARTIST_URL` instead. Using the wrong one will cause a 404 error.
 
 ## Generate
 

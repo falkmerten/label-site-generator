@@ -11,7 +11,7 @@ const { generateRedirects } = require('./redirects');
 const { fetchAllArtists } = require('./bandsintown');
 
 const DEFAULTS = {
-  labelUrl: process.env.BANDCAMP_LABEL_URL || 'https://your-label.bandcamp.com/',
+  labelUrl: process.env.BANDCAMP_LABEL_URL || process.env.BANDCAMP_ARTIST_URL || '',
   labelName: process.env.LABEL_NAME || 'My Label',
   outputDir: './dist',
   contentDir: './content',
@@ -23,12 +23,17 @@ async function generate(options) {
   const opts = { ...DEFAULTS, ...options };
   const { labelUrl, labelName, outputDir, contentDir, cachePath, refresh } = opts;
 
-  // Environment validation warnings
+  // Environment validation
+  if (!labelUrl) {
+    console.error('[error] No Bandcamp URL configured. Set BANDCAMP_LABEL_URL (for labels with multiple artists) or BANDCAMP_ARTIST_URL (for a single band/artist) in your .env file.');
+    process.exit(1);
+  }
+
   if (!process.env.BANDCAMP_CLIENT_ID || !process.env.BANDCAMP_CLIENT_SECRET) {
-    console.warn('[warn] BANDCAMP_CLIENT_ID/SECRET not set — falling back to HTML scraping (slower, less reliable)');
+    console.warn('[warn] BANDCAMP_CLIENT_ID/SECRET not set - falling back to HTML scraping (slower, less reliable)');
   }
   if (!process.env.SITE_URL) {
-    console.warn('[warn] SITE_URL not set — canonical URLs, sitemap, and OG tags will be incomplete');
+    console.warn('[warn] SITE_URL not set - canonical URLs, sitemap, and OG tags will be incomplete');
   }
 
   // Step 1-3: Resolve raw data from cache or scrape

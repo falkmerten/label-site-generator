@@ -4,7 +4,23 @@
 
 ---
 
-### v4.9.0 — 2026-04-20
+### v4.9.1 - 2026-04-26
+
+**Bandcamp band account support (LSG-115)**
+- Auto-detect band vs. label Bandcamp accounts: when `/artists` returns 404, the generator treats the URL as a single artist/band and scrapes `/music` instead
+- Albums from band accounts are regrouped by artist field - labels using band accounts get separate artist pages automatically
+- Fixed lazy-loading: parse `data-client-items` attribute on `ol#music-grid` to find all albums, not just the first 16 visible ones
+- `BANDCAMP_ARTIST_URL` now works as fallback when `BANDCAMP_LABEL_URL` is not set
+- Clear error message when no Bandcamp URL is configured
+- Albums from band accounts are regrouped by the `artist` field from Bandcamp metadata - labels using band accounts with multiple artists are correctly separated
+- Fixed lazy-loaded albums not being scraped: parse `data-client-items` attribute on `ol#music-grid` to find albums beyond the initial 16 visible items
+- Added `BANDCAMP_ARTIST_URL` as fallback when `BANDCAMP_LABEL_URL` is not set
+- Clear error message when no Bandcamp URL is configured
+- Updated QUICKSTART.md with label vs. artist URL distinction
+
+---
+
+### v4.9.0 - 2026-04-20
 
 **Ghost CMS integration (LSG-111)**
 - New `src/ghost.js` module fetches published posts from a self-hosted Ghost CMS via the Content API

@@ -47,7 +47,18 @@ function fetchPage (pageUrl, maxRedirects = 5, _retryCount = 0) {
  */
 async function getArtistUrls (labelUrl) {
   const url = new urlHelper.URL('/artists', labelUrl).toString()
-  const html = await fetchPage(url)
+  let html
+  try {
+    html = await fetchPage(url)
+  } catch (err) {
+    if (err.message && err.message.includes('404')) {
+      // No /artists page - this is likely a band/artist account, not a label
+      // Treat the URL itself as a single artist
+      console.log(`  No /artists page found - treating as single artist/band account`)
+      return [labelUrl.replace(/\/+$/, '')]
+    }
+    throw err
+  }
   const $ = cheerio.load(html)
   const artistUrls = []
   $('a[href]').each((_, el) => {
@@ -147,7 +158,7 @@ async function getAlbumUrls (artistUrl) {
   const $ = cheerio.load(html)
   const albumUrls = []
 
-  // Method 1: Parse the data-blob JSON (contains ALL albums, even those not in <a> tags)
+  // Method 1: Parse the #pagedata data-blob JSON (label accounts)
   const pageData = $('#pagedata')
   if (pageData.length > 0) {
     const blobRaw = pageData.attr('data-blob')
@@ -166,11 +177,41 @@ async function getAlbumUrls (artistUrl) {
             }
           }
         }
-      } catch { /* fall through to link parsing */ }
+      } catch { /* fall through */ }
     }
   }
 
-  // Method 2: Fallback to <a> tag parsing if data-blob didn't yield results
+  // Method 2: Parse ol#music-grid data-client-items (lazy-loaded albums on band accounts)
+  // Bandcamp stores non-visible albums as escaped JSON in this attribute
+  if (albumUrls.length === 0) {
+    const musicGrid = $('ol#music-grid')
+    if (musicGrid.length > 0) {
+      // First: get albums from visible <li> elements
+      musicGrid.find('li[data-item-id] a[href]').each((_, el) => {
+        const href = $(el).attr('href')
+        if (href && /^\/(track|album)\//.test(href)) {
+          const full = new urlHelper.URL(href, artistUrl).toString()
+          if (albumUrls.indexOf(full) === -1) albumUrls.push(full)
+        }
+      })
+
+      // Second: get lazy-loaded albums from data-client-items attribute
+      const clientItems = musicGrid.attr('data-client-items')
+      if (clientItems) {
+        try {
+          const items = JSON.parse(clientItems)
+          for (const item of items) {
+            if (item.page_url) {
+              const full = new urlHelper.URL(item.page_url, artistUrl).toString()
+              if (albumUrls.indexOf(full) === -1) albumUrls.push(full)
+            }
+          }
+        } catch { /* fall through */ }
+      }
+    }
+  }
+
+  // Method 3: Fallback to generic <a> tag parsing
   if (albumUrls.length === 0) {
     $('a[href]').each((_, el) => {
       const href = $(el).attr('href')
