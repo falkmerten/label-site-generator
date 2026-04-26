@@ -75,7 +75,7 @@ function resolveNewsletter() {
  */
 async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   newsArticles = newsArticles || []
-  labelName = labelName || process.env.LABEL_NAME || 'My Label';
+  labelName = labelName || process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site';
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
   const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
   const physicalStores = (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -254,7 +254,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
 
   // Filter albums for homepage/releases page by label if configured
   const labelBandcampOrigin = (() => {
-    const url = process.env.BANDCAMP_LABEL_URL || ''
+    const url = process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || ''
     try { return new URL(url).origin } catch { return '' }
   })()
 
@@ -271,14 +271,64 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     : allAlbums;
 
   // Sort artists alphabetically, exclude compilations from artist grid
+  // Compute top genre tags per artist (filter out location/nonsense tags, normalize variants)
+  const TAG_NORMALIZE = {
+    'post punk': 'post-punk', 'dark wave': 'darkwave', 'goth': 'gothic rock',
+    'goth rock': 'gothic rock', 'gothic': 'gothic rock', 'synth': 'electronic',
+    'synthpop': 'synth-pop', 'electro': 'electronic', 'dark music': 'darkwave',
+    'martial': 'industrial', 'indietronica': 'electronic',
+    'alternative': 'alternative rock', 'independent': 'independent',
+    'dark pop; art pop; electronic': 'dark pop', 'shoegaze folk': 'shoegaze'
+  }
+  const SKIP_TAGS = new Set([
+    'rock', 'pop', 'metal', 'diy',
+    'wave',
+    'leipzig', 'berlin', 'copenhagen', 'cologne', 'stockholm', 'uppsala',
+    'germany', 'sweden', 'denmark', 'vancouver', 'buenos aires', 'salem',
+    'diest', 'dgrs'
+  ])
+  // Dynamically add label name and aliases to skip list
+  const siteNameLower = (process.env.SITE_NAME || process.env.LABEL_NAME || '').toLowerCase().trim()
+  if (siteNameLower) SKIP_TAGS.add(siteNameLower)
+  const labelAliases = (process.env.LABEL_ALIASES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  for (const alias of labelAliases) SKIP_TAGS.add(alias)
   const sortedArtists = [...(data.artists || [])]
     .filter(a => a.name.toLowerCase() !== 'various artists' && a.name.toLowerCase() !== 'various')
+    .map(a => {
+      const tagCounts = new Map()
+      for (const al of a.albums || []) {
+        for (const t of al.tags || []) {
+          let name = (t.name || t).toLowerCase().trim()
+          if (!name || SKIP_TAGS.has(name) || name === a.name.toLowerCase()) continue
+          name = TAG_NORMALIZE[name] || name
+          tagCounts.set(name, (tagCounts.get(name) || 0) + 1)
+        }
+      }
+      const topTags = [...tagCounts.entries()]
+        .sort((x, y) => y[1] - x[1])
+        .slice(0, 3)
+        .map(([n]) => n)
+      return { ...a, topTags }
+    })
     .sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
     );
 
+  // Check which brand assets exist (for conditional rendering in templates)
+  let hasBanner = false
+  let hasLogo = false
+  try { await fs.access(path.join(outputDir, 'banner.jpg')); hasBanner = true } catch { /* */ }
+  if (!hasBanner) { try { await fs.access(path.join('assets', 'banner.jpg')); hasBanner = true } catch { /* */ } }
+  try { await fs.access(path.join(outputDir, 'logo-round.png')); hasLogo = true } catch { /* */ }
+  if (!hasLogo) { try { await fs.access(path.join('assets', 'logo-round.png')); hasLogo = true } catch { /* */ } }
+
+  const showOtherLabels = (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
+
   const baseCtx = {
     artists: sortedArtists,
+    hasBanner,
+    hasLogo,
+    showOtherLabels,
     labelName,
     siteUrl,
     gaMeasurementId,
@@ -289,16 +339,17 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     newsletter: resolveNewsletter(),
     latestReleases: homepageAlbums.slice(0, 12),
     totalReleases: homepageAlbums.length,
-    labelBandcampUrl: process.env.BANDCAMP_LABEL_URL || '',
-    labelEmail: process.env.LABEL_EMAIL || '',
-    labelAddress: process.env.LABEL_ADDRESS || '',
-    labelVatId: process.env.LABEL_VAT_ID || '',
+    labelBandcampUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
+    labelEmail: process.env.SITE_EMAIL || process.env.LABEL_EMAIL || '',
+    labelAddress: process.env.SITE_ADDRESS || process.env.LABEL_ADDRESS || '',
+    labelVatId: process.env.SITE_VAT_ID || process.env.LABEL_VAT_ID || '',
+    siteTagline: process.env.SITE_TAGLINE || '',
     extraPages,
     mainNavPages,
     footerNavPages,
     pages,
     social: {
-      bandcamp:   process.env.BANDCAMP_LABEL_URL || '',
+      bandcamp:   process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
       spotify:    process.env.LABEL_SPOTIFY_URL || '',
       soundcloud: process.env.LABEL_SOUNDCLOUD_URL || '',
       youtube:    process.env.LABEL_YOUTUBE_URL || '',

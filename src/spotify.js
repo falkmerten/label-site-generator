@@ -172,10 +172,12 @@ async function getAlbumUpc (token, albumId) {
       res.on('end', () => {
         try {
           const data = JSON.parse(raw)
-          resolve((data.external_ids && data.external_ids.upc) || null)
-        } catch { resolve(null) }
+          const upc = (data.external_ids && data.external_ids.upc) || null
+          const label = data.label || null
+          resolve({ upc, label })
+        } catch { resolve({ upc: null, label: null }) }
       })
-    }).on('error', () => resolve(null))
+    }).on('error', () => resolve({ upc: null, label: null }))
   })
 }
 
@@ -191,7 +193,8 @@ async function getAlbumUpcBySpotifyUrl (token, spotifyUrl) {
   try {
     const match = spotifyUrl.match(/album\/([A-Za-z0-9]+)/)
     if (!match) return null
-    return await getAlbumUpc(token, match[1])
+    const { upc } = await getAlbumUpc(token, match[1])
+    return upc
   } catch { return null }
 }
 
@@ -223,8 +226,45 @@ async function searchArtist (token, artistName) {
           if (!items || items.length === 0) return resolve(null)
           const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
           const target = normalise(artistName)
-          const match = items.find(item => normalise(item.name) === target) || items[0]
+          const match = items.find(item => normalise(item.name) === target)
           resolve(match ? match.external_urls.spotify : null)
+        } catch { resolve(null) }
+      })
+    }).on('error', () => resolve(null))
+  })
+}
+
+/**
+ * Fetches the artist image URL from Spotify by artist ID.
+ * Returns the largest available image URL, or null.
+ * @param {string} token - Spotify access token
+ * @param {string} artistUrl - Spotify artist URL (e.g. https://open.spotify.com/artist/xxx)
+ * @returns {Promise<string|null>}
+ */
+async function getArtistImageUrl (token, artistUrl) {
+  const match = artistUrl.match(/artist\/([A-Za-z0-9]+)/)
+  if (!match) return null
+  const artistId = match[1]
+
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.spotify.com',
+      path: `/v1/artists/${artistId}`,
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` }
+    }
+    https.get(options, (res) => {
+      let raw = ''
+      res.on('data', chunk => { raw += chunk })
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(raw)
+          if (data.images && data.images.length > 0) {
+            // Return the largest image (first in array, sorted by size desc)
+            resolve(data.images[0].url)
+          } else {
+            resolve(null)
+          }
         } catch { resolve(null) }
       })
     }).on('error', () => resolve(null))
@@ -288,6 +328,8 @@ async function enrichArtistWithSpotify (artist, clientId, clientSecret) {
       artist.streamingLinks = artist.streamingLinks || {}
       artist.streamingLinks.spotify = url
       console.log(`  ✓ Spotify artist: "${artist.name}" → ${url}`)
+    } else {
+      console.warn(`  [warn] No exact Spotify match for "${artist.name}" — add spotifyArtistUrl to content/artists.json if this artist exists on Spotify under a different name`)
     }
   } catch { /* ignore */ }
 }
@@ -384,11 +426,12 @@ async function fetchArtistAlbums (token, artistUrl) {
   const results = []
   for (const item of allItems) {
     await delay(DELAY_MS)
-    const upc = await getAlbumUpc(token, item.id)
+    const { upc, label } = await getAlbumUpc(token, item.id)
     results.push({
       title: item.name,
       spotifyUrl: item.external_urls.spotify,
       upc,
+      label: label || null,
       albumType: item.album_type,
       releaseDate: item.release_date ? new Date(item.release_date).toISOString() : null
     })
@@ -551,4 +594,4 @@ async function fetchAlbumTrackIsrcs (token, spotifyAlbumUrl) {
   return tracks
 }
 
-module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult, fetchAlbumTrackIsrcs }
+module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult, fetchAlbumTrackIsrcs, getArtistImageUrl }

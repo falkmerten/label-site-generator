@@ -5,7 +5,7 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const { readCache, writeCache } = require('./cache')
-const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify, fetchAlbumTrackIsrcs } = require('./spotify')
+const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify, fetchAlbumTrackIsrcs, getArtistImageUrl } = require('./spotify')
 const { enrichAlbumsWithItunes } = require('./itunes')
 const { enrichAlbumsWithDeezer } = require('./deezer')
 const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
@@ -272,6 +272,38 @@ function deduplicateAlbumsByUpc (albums) {
     result.push(album)
   }
   return result
+}
+
+/**
+ * Filters out Spotify-only albums that belong to other labels.
+ * Only applies when OTHER_LABEL_CONTENT is not set (default behavior).
+ * Albums with a Bandcamp URL are always kept (they were scraped from the user's page).
+ * Albums without a labelName are kept (no data to filter on).
+ *
+ * @param {Array} albums - artist's album list
+ * @param {string[]} ownLabelNames - lowercased label names considered "own"
+ * @returns {{ kept: Array, removed: number }}
+ */
+function filterSpotifyOnlyByLabel (albums, ownLabelNames) {
+  if (!ownLabelNames || ownLabelNames.length === 0) return { kept: albums, removed: 0 }
+  let removed = 0
+  const kept = albums.filter(album => {
+    // Always keep albums with a Bandcamp URL (scraped from user's page)
+    if (album.url) return true
+    // Keep albums without label info (can't filter)
+    if (!album.labelName) return true
+    // Keep upcoming/pre-order albums
+    if (album.upcoming) return true
+    // Check if any of the album's labels match our own
+    const albumLabels = album.labelName.toLowerCase().split('/').map(s => s.trim())
+    const isOwn = albumLabels.some(al => ownLabelNames.some(own => al.includes(own) || own.includes(al)))
+    if (!isOwn) {
+      console.log(`    – Filtered (other label "${album.labelName}"): "${album.title}"`)
+      removed++
+    }
+    return isOwn
+  })
+  return { kept, removed }
 }
 
 /**
@@ -667,6 +699,7 @@ function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
         credits: null,
         streamingLinks: { spotify: sa.spotifyUrl },
         upc: sa.upc || null,
+        labelName: sa.label || null,
         slug: toSlug(sa.title)
       })
       console.log(`    + Spotify-only: "${sa.title}"${sa.upc ? ` (UPC: ${sa.upc})` : ''}`)
@@ -828,6 +861,17 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     catch (err) { console.warn(`  [spotify] Auth failed: ${err.message}`) }
   }
 
+  // ── Label content filter (LSG-124) ────────────────────────────────────────
+  // When OTHER_LABEL_CONTENT is not set or false (default), Spotify-only albums
+  // from other labels are filtered out after enrichment. This prevents artists
+  // who share a name with a major-label act from polluting the site.
+  const includeOtherLabelContent = (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
+  const siteMode = process.env.SITE_MODE || ''
+  const siteName = (process.env.SITE_NAME || process.env.LABEL_NAME || '').trim()
+  const extraLabelNames = (process.env.LABEL_ALIASES || process.env.EXTRA_LABEL_NAMES || '')
+    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  const ownLabelNames = [siteName.toLowerCase(), ...extraLabelNames].filter(Boolean)
+
   const totalArtists = artists.length
   const labelUrlCache = {} // shared across artists — avoids duplicate Discogs label lookups
   const sellListingCache = {} // shared across artists — releaseId → boolean (has active listings)
@@ -964,6 +1008,16 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         const artistSpotifyUrl = config.spotifyArtistUrl ||
           (artist.streamingLinks && artist.streamingLinks.spotify)
 
+        // Fetch artist image from Spotify if not already stored
+        if (artistSpotifyUrl && spotifyToken && !artist._spotifyImageUrl) {
+          try {
+            const imgUrl = await getArtistImageUrl(spotifyToken, artistSpotifyUrl)
+            if (imgUrl) {
+              artist._spotifyImageUrl = imgUrl
+            }
+          } catch { /* non-fatal */ }
+        }
+
         if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
           try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
           console.log('  → Spotify album list (source of truth)...')
@@ -971,6 +1025,16 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
             if (spotifyAlbums.length > 0) {
               artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+            }
+
+            // Early label filter: remove Spotify-only albums from other labels
+            // before expensive metadata/ISRC/gap-fill calls (saves API calls)
+            if (!includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
+              const { kept, removed } = filterSpotifyOnlyByLabel(artist.albums || [], ownLabelNames)
+              if (removed > 0) {
+                artist.albums = kept
+                console.log(`  → Filtered ${removed} Spotify-only album(s) from other labels (early)`)
+              }
             }
 
             // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
@@ -1095,6 +1159,16 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
       // ── Gap-fill: iTunes/Deezer/Tidal/MusicFetch for albums still missing links ──
       // NO Spotify calls in Soundcharts mode (Task 3.7)
+
+      // ── Label content filter (LSG-125) ──────────────────────────────────────
+      if (!includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
+        const { kept, removed } = filterSpotifyOnlyByLabel(artist.albums || [], ownLabelNames)
+        if (removed > 0) {
+          artist.albums = kept
+          console.log(`  → Filtered ${removed} album(s) from other labels`)
+        }
+      }
+
       const albums = artist.albums || []
       const needsGapFill = albums.filter(al =>
         !al.upcoming &&
@@ -1247,12 +1321,32 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         const artistSpotifyUrl = config.spotifyArtistUrl ||
           (artist.streamingLinks && artist.streamingLinks.spotify)
 
+        // 1b-pre. Fetch artist image from Spotify if no local photo exists
+        if (artistSpotifyUrl && spotifyToken && !artist._spotifyImageUrl) {
+          try {
+            const imgUrl = await getArtistImageUrl(spotifyToken, artistSpotifyUrl)
+            if (imgUrl) {
+              artist._spotifyImageUrl = imgUrl
+            }
+          } catch { /* non-fatal */ }
+        }
+
         if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
           try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
           console.log(`  → Spotify artist page fetch (rebuilding album list)...`)
           const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
           if (spotifyAlbums.length > 0) {
             artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
+          }
+
+          // Early label filter: remove Spotify-only albums from other labels
+          // before expensive metadata/ISRC/gap-fill calls (saves API calls)
+          if (!includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
+            const { kept, removed } = filterSpotifyOnlyByLabel(artist.albums || [], ownLabelNames)
+            if (removed > 0) {
+              artist.albums = kept
+              console.log(`  → Filtered ${removed} Spotify-only album(s) from other labels (early)`)
+            }
           }
 
           // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
@@ -1341,6 +1435,16 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
 
       // ── Steps 2–4+6: iTunes, Deezer, Tidal, MusicFetch ─────────────────────
+
+      // ── Label content filter (LSG-125) ──────────────────────────────────────
+      if (!includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
+        const { kept, removed } = filterSpotifyOnlyByLabel(artist.albums || [], ownLabelNames)
+        if (removed > 0) {
+          artist.albums = kept
+          console.log(`  → Filtered ${removed} album(s) from other labels`)
+        }
+      }
+
       const albums = artist.albums || []
       const needsEnrichment = albums.filter(al =>
         !al.upcoming &&

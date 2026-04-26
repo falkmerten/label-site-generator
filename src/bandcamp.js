@@ -47,18 +47,7 @@ function fetchPage (pageUrl, maxRedirects = 5, _retryCount = 0) {
  */
 async function getArtistUrls (labelUrl) {
   const url = new urlHelper.URL('/artists', labelUrl).toString()
-  let html
-  try {
-    html = await fetchPage(url)
-  } catch (err) {
-    if (err.message && err.message.includes('404')) {
-      // No /artists page - this is likely a band/artist account, not a label
-      // Treat the URL itself as a single artist
-      console.log(`  No /artists page found - treating as single artist/band account`)
-      return [labelUrl.replace(/\/+$/, '')]
-    }
-    throw err
-  }
+  const html = await fetchPage(url)
   const $ = cheerio.load(html)
   const artistUrls = []
   $('a[href]').each((_, el) => {

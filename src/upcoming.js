@@ -181,7 +181,7 @@ async function loadUpcomingLocal (contentDir, rawData, artistFilter) {
         upcoming: true,
         tier,
         slug: albumSlug,
-        labelName: process.env.LABEL_NAME || null,
+        labelName: process.env.SITE_NAME || process.env.LABEL_NAME || null,
         artist: artist.name,
         url: null,
         privateUrl: null,
@@ -309,7 +309,7 @@ async function loadUpcomingFull (contentDir, rawData, artistFilter) {
           if (releaseDate) existing.releaseDate = releaseDate
           // Set default label if not yet assigned
           if (!existing.labelName && existing.upcoming) {
-            existing.labelName = process.env.LABEL_NAME || null
+            existing.labelName = process.env.SITE_NAME || process.env.LABEL_NAME || null
           }
           if (existing.upcoming) {
             console.log(`  ✓ Upcoming "${info.title}" re-scraped from private link`)
@@ -317,7 +317,7 @@ async function loadUpcomingFull (contentDir, rawData, artistFilter) {
           continue
         }
 
-        const defaultLabel = process.env.LABEL_NAME || null
+        const defaultLabel = process.env.SITE_NAME || process.env.LABEL_NAME || null
         const albumSlug = toSlug(info.title)
 
         artist.albums.push({
@@ -357,7 +357,62 @@ async function loadUpcomingFull (contentDir, rawData, artistFilter) {
   return count
 }
 
+/**
+ * Applies presaveUrl from upcoming.json to existing albums in the cache.
+ * Runs on every generate (no scraping). Only updates presaveUrl for albums
+ * that already exist in the cache by title match.
+ *
+ * @param {string} contentDir - Path to content directory
+ * @param {object} rawData - Raw site data (mutated in place)
+ * @returns {Promise<number>} Number of presaveUrls applied
+ */
+async function applyPresaveUrls (contentDir, rawData) {
+  let config
+  try {
+    const raw = await fs.readFile(path.join(contentDir, 'upcoming.json'), 'utf8')
+    config = JSON.parse(raw)
+  } catch {
+    return 0
+  }
+
+  let count = 0
+  for (const [artistSlug, entries] of Object.entries(config)) {
+    if (!Array.isArray(entries) || entries.length === 0) continue
+    const artist = (rawData.artists || []).find(a => {
+      return toSlug(a.name) === artistSlug || norm(a.name) === norm(artistSlug)
+    })
+    if (!artist) continue
+
+    for (const entry of entries) {
+      if (!entry || typeof entry === 'string') continue
+      if (!entry.presaveUrl) continue
+
+      // Match by URL or title
+      let existing = null
+      if (entry.url) {
+        existing = artist.albums.find(a => a.url && a.url === entry.url)
+        if (!existing) {
+          // Try title match via scraping the URL — but we don't scrape here.
+          // Instead match by normalized URL slug
+          const urlSlug = entry.url.replace(/.*\/(album|track)\//, '').replace(/[-/]/g, '')
+          existing = artist.albums.find(a => a.slug && a.slug.replace(/-/g, '') === urlSlug)
+        }
+      }
+      if (!existing && entry.title) {
+        const titleNorm = norm(entry.title)
+        existing = artist.albums.find(a => norm(a.title) === titleNorm)
+      }
+
+      if (existing && existing.presaveUrl !== entry.presaveUrl) {
+        existing.presaveUrl = entry.presaveUrl
+        count++
+      }
+    }
+  }
+  return count
+}
+
 // Backward-compatible alias
 const loadUpcoming = loadUpcomingFull
 
-module.exports = { loadUpcoming, loadUpcomingFull, loadUpcomingLocal, classifyTier, validateEntry }
+module.exports = { loadUpcoming, loadUpcomingFull, loadUpcomingLocal, applyPresaveUrls, classifyTier, validateEntry }

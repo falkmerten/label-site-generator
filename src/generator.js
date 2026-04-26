@@ -1,18 +1,20 @@
 'use strict';
 
+const fs = require('fs/promises');
+const path = require('path');
 const { readCache, writeCache } = require('./cache');
 const { scrapeLabel } = require('./scraper');
 const { loadContent } = require('./content');
 const { mergeData } = require('./merger');
-const { assignSlugs } = require('./slugs');
+const { assignSlugs, toSlug } = require('./slugs');
 const { renderSite } = require('./renderer');
-const { copyAssets } = require('./assets');
+const { copyAssets, downloadFile } = require('./assets');
 const { generateRedirects } = require('./redirects');
 const { fetchAllArtists } = require('./bandsintown');
 
 const DEFAULTS = {
-  labelUrl: process.env.BANDCAMP_LABEL_URL || process.env.BANDCAMP_ARTIST_URL || '',
-  labelName: process.env.LABEL_NAME || 'My Label',
+  labelUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || process.env.BANDCAMP_ARTIST_URL || '',
+  labelName: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site',
   outputDir: './dist',
   contentDir: './content',
   cachePath: './cache.json',
@@ -25,7 +27,7 @@ async function generate(options) {
 
   // Environment validation
   if (!labelUrl) {
-    console.error('[error] No Bandcamp URL configured. Set BANDCAMP_LABEL_URL (for labels with multiple artists) or BANDCAMP_ARTIST_URL (for a single band/artist) in your .env file.');
+    console.error('[error] No Bandcamp URL configured. Set BANDCAMP_URL in your .env file.');
     process.exit(1);
   }
 
@@ -64,10 +66,16 @@ async function generate(options) {
   const content = await loadContent(contentDir);
 
   // Step 4b: Load upcoming releases — announce/preview tier (always runs, no scraping)
-  const { loadUpcomingLocal, loadUpcomingFull } = require('./upcoming');
+  const { loadUpcomingLocal, loadUpcomingFull, applyPresaveUrls } = require('./upcoming');
   const localCount = await loadUpcomingLocal(contentDir, rawData, opts.artistFilter);
   if (localCount > 0) {
     console.log(`Loaded ${localCount} upcoming release(s) (announce/preview).`);
+  }
+
+  // Step 4b2: Apply presaveUrls from upcoming.json to existing albums (always runs)
+  const presaveCount = await applyPresaveUrls(contentDir, rawData);
+  if (presaveCount > 0) {
+    console.log(`Applied ${presaveCount} pre-save URL(s) from upcoming.json.`);
   }
 
   // Step 4c: Load upcoming releases — full tier (only on scrape, requires Bandcamp)
@@ -87,9 +95,30 @@ async function generate(options) {
     mergedData._labelProfileImage = rawData.labelProfileImage
   }
 
+  // Pass siteMode through for auto-logo decision in copyAssets
+  const siteMode = process.env.SITE_MODE || rawData._siteMode || 'artist'
+  mergedData._siteMode = siteMode
+
   // Pass theme colors through for CSS variable overrides in copyAssets
   if (rawData.themeColors && Object.keys(rawData.themeColors).length > 0) {
     mergedData.themeColors = rawData.themeColors
+  }
+
+  // Step 5a: Auto-download Spotify artist photos for artists without local photos
+  for (const artist of rawData.artists || []) {
+    if (!artist._spotifyImageUrl) continue
+    const slug = toSlug(artist.name)
+    if (artist.name.toLowerCase() === 'various artists') continue
+    const photoPath = path.join(contentDir, slug, 'photo.jpg')
+    let hasPhoto = false
+    try { await fs.access(photoPath); hasPhoto = true } catch { /* */ }
+    if (!hasPhoto) {
+      await fs.mkdir(path.join(contentDir, slug), { recursive: true })
+      const ok = await downloadFile(artist._spotifyImageUrl, photoPath)
+      if (ok) {
+        console.log(`  ✓ Downloaded Spotify artist photo for "${artist.name}"`)
+      }
+    }
   }
 
   // Step 5b: Load news articles (Ghost or local)
@@ -160,8 +189,6 @@ async function generate(options) {
   await generateRedirects(contentDir, outputDir);
 
   // Step 11: Print summary
-  const fs = require('fs/promises');
-  const path = require('path');
   const allArtists = (mergedData.artists || []).filter(a => a.name.toLowerCase() !== 'various artists');
   const allAlbums = allArtists.flatMap(a => a.albums || []);
 

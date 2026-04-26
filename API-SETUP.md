@@ -15,7 +15,7 @@ Used to fetch your label's artist roster and album data.
    ```
    BANDCAMP_CLIENT_ID=your_client_id
    BANDCAMP_CLIENT_SECRET=your_client_secret
-   BANDCAMP_LABEL_URL=https://your-label.bandcamp.com/
+   BANDCAMP_URL=https://your-label.bandcamp.com/
    ```
 
 Note: API access is only available to Bandcamp label accounts, not individual artist accounts. Without credentials the generator falls back to HTML scraping.

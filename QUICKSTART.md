@@ -16,20 +16,15 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your label's details:
+Edit `.env` with your Bandcamp URL:
 
 ```env
-# For a LABEL page (multiple artists):
-BANDCAMP_LABEL_URL=https://your-label.bandcamp.com/
-
-# OR for a single ARTIST/BAND page:
-# BANDCAMP_ARTIST_URL=https://your-band.bandcamp.com/
-
-LABEL_NAME=Your Label Name
+BANDCAMP_URL=https://your-label-or-band.bandcamp.com/
+SITE_NAME=Your Label Name
 SITE_URL=https://www.your-label.com/
 ```
 
-**Important:** Use `BANDCAMP_LABEL_URL` only for Bandcamp label accounts (pages with an `/artists` section). For individual band/artist pages, use `BANDCAMP_ARTIST_URL` instead. Using the wrong one will cause a 404 error.
+The generator auto-detects whether your Bandcamp page is a label account or an artist/band account.
 
 ## Generate
 

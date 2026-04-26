@@ -130,7 +130,7 @@
       <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
     {% endif %}
 
-    {% if album.upcoming and album.presaveUrl %}
+    {% if album.presaveUrl %}
       <section class="presave-section">
         <a href="{{ album.presaveUrl }}" target="_blank" rel="noopener noreferrer" class="btn presave-btn"><i class="fa-solid fa-bell"></i> Pre-save this release</a>
       </section>
@@ -259,9 +259,9 @@
       </section>
     {% endif %}
     {% if album.releaseDate %}
-      <p class="album-release-date">{% if album.releaseDate | isFuture %}Pre-order · {{ album.releaseDate | formatDate }}{% else %}Released: {{ album.releaseDate | formatDate }}{% endif %}{% if album.catalogNumber %} · {{ album.catalogNumber }}{% endif %}{% if album.labelName %} · {% set labelParts = album.labelName.split(' / ') %}{% for part in labelParts %}{% if album.labelUrls and album.labelUrls[loop.index0] %}<a href="{{ album.labelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ part }}</a>{% else %}{{ part }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}{% endif %}{% if album.discogsLabel and album.discogsLabel != album.labelName %}{% set discogsParts = album.discogsLabel.split(' / ') %}{% for dpart in discogsParts %}{% if dpart != album.labelName %} / {% if album.discogsLabelUrls and album.discogsLabelUrls[loop.index0] %}<a href="{{ album.discogsLabelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ dpart }}</a>{% else %}{{ dpart }}{% endif %}{% endif %}{% endfor %}{% endif %}</p>
+      <p class="album-release-date">{% if album.releaseDate | isFuture %}Pre-order · {{ album.releaseDate | formatDate }}{% else %}Released: {{ album.releaseDate | formatDate }}{% endif %}{% if album.catalogNumber %} · {{ album.catalogNumber }}{% endif %}{% if album.labelName %} · {% if album.labelUrl %}<a href="{{ album.labelUrl }}" target="_blank" rel="noopener noreferrer">{{ album.labelName }}</a>{% else %}{{ album.labelName }}{% endif %}{% endif %}{% if showOtherLabels and album.discogsLabel and album.discogsLabel != album.labelName %} / {% set dParts = album.discogsLabel.split(' / ') %}{% for dp in dParts %}{% if album.discogsLabelUrls and album.discogsLabelUrls[dp.trim()] %}<a href="{{ album.discogsLabelUrls[dp.trim()] }}" target="_blank" rel="noopener noreferrer">{{ dp }}</a>{% else %}{{ dp }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}{% endif %}</p>
     {% elif album.catalogNumber %}
-      <p class="album-release-date">{{ album.catalogNumber }}{% if album.labelName %} · {% set labelParts = album.labelName.split(' / ') %}{% for part in labelParts %}{% if album.labelUrls and album.labelUrls[loop.index0] %}<a href="{{ album.labelUrls[loop.index0] }}" target="_blank" rel="noopener noreferrer">{{ part }}</a>{% else %}{{ part }}{% endif %}{% if not loop.last %} / {% endif %}{% endfor %}{% endif %}</p>
+      <p class="album-release-date">{{ album.catalogNumber }}{% if album.labelName %} · {% if album.labelUrl %}<a href="{{ album.labelUrl }}" target="_blank" rel="noopener noreferrer">{{ album.labelName }}</a>{% else %}{{ album.labelName }}{% endif %}{% endif %}</p>
     {% endif %}
 
     {% if album.tracks and album.tracks.length and (not album.upcoming or album.tier == 'full') %}

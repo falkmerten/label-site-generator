@@ -108,8 +108,14 @@ function normalizePost (post) {
   // Generate excerpt: custom_excerpt > strip HTML from content
   let excerpt = post.custom_excerpt || post.excerpt || ''
   if (!excerpt && post.html) {
-    // Strip HTML tags to get plain text
-    excerpt = (post.html || '').replace(/<[^>]*>/g, '').trim()
+    // Strip HTML tags iteratively (prevents nested tag bypass like <scr<script>ipt>)
+    excerpt = post.html || ''
+    let prev = ''
+    while (prev !== excerpt) {
+      prev = excerpt
+      excerpt = excerpt.replace(/<[^>]*>/g, '')
+    }
+    excerpt = excerpt.trim()
   }
   // Strip markdown formatting remnants
   excerpt = excerpt

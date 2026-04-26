@@ -162,6 +162,7 @@ async function mergeData (rawData, content) {
               upcoming: album.upcoming || false,
               tier: album.tier || null,
               presaveUrl: album.presaveUrl || null,
+              privateUrl: album.privateUrl || null,
               labelUrls: album.labelUrls || (album.labelUrl
                 ? [album.labelUrl, ...Array(
                     Math.max(0, (album.labelName || '').split(' / ').length - 1)
@@ -185,6 +186,7 @@ async function mergeData (rawData, content) {
           discoveryLinks: artist.discoveryLinks || null,
           eventLinks: artist.eventLinks || null,
           events: deduplicateEvents(artist.events || []),
+          _spotifyImageUrl: artist._spotifyImageUrl || null,
           slug: artistSlug,
           albums
         }
@@ -299,6 +301,7 @@ async function mergeData (rawData, content) {
             upcoming: album.upcoming || false,
             tier: album.tier || null,
             presaveUrl: album.presaveUrl || null,
+            privateUrl: album.privateUrl || null,
             labelUrls: album.labelUrls || (album.labelUrl
               ? [album.labelUrl, ...Array(
                   Math.max(0, (album.labelName || '').split(' / ').length - 1)
@@ -348,6 +351,7 @@ async function mergeData (rawData, content) {
         discoveryLinks: artist.discoveryLinks || null,
         eventLinks: artist.eventLinks || null,
         events: deduplicateEvents(artist.events || []),
+        _spotifyImageUrl: artist._spotifyImageUrl || null,
         slug: artistSlug,
         albums
       }
@@ -470,6 +474,7 @@ async function mergeData (rawData, content) {
   return {
     scrapedAt: rawData.scrapedAt,
     themeColors: rawData.themeColors || {},
+    _siteMode: rawData._siteMode || 'label',
     artists: mergedArtists
   }
 }

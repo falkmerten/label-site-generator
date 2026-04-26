@@ -4,8 +4,8 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 4.9.x   | ✅ Active support (current) |
-| 4.8.x   | ⚠️ Security fixes only |
+| 4.10.x  | ✅ Active support (current) |
+| 4.9.x   | ⚠️ Security fixes only |
 | 3.x     | ❌ No longer supported |
 | 2.x     | ❌ No longer supported |
 | 1.x     | ❌ No longer supported |

@@ -1523,6 +1523,22 @@ async function copyAssets (data, contentDir, outputDir) {
         overrides.push(`  --header-bg: ${themeColors.background};`)
         overrides.push(`  --footer-bg: ${themeColors.background};`)
         overrides.push(`  --brand-dark: ${themeColors.background};`)
+        // Derive surface and border from background for dark themes
+        // Parse hex to check if background is dark (luminance < 128)
+        const hex = themeColors.background.replace('#', '')
+        const r = parseInt(hex.substring(0, 2), 16) || 0
+        const g = parseInt(hex.substring(2, 4), 16) || 0
+        const b = parseInt(hex.substring(4, 6), 16) || 0
+        const luminance = (r * 299 + g * 587 + b * 114) / 1000
+        if (luminance < 128) {
+          // Dark background: surface slightly lighter, border subtle
+          const lift = (c) => Math.min(255, c + 25)
+          const surfaceHex = `#${lift(r).toString(16).padStart(2, '0')}${lift(g).toString(16).padStart(2, '0')}${lift(b).toString(16).padStart(2, '0')}`
+          const borderHex = `#${Math.min(255, r + 40).toString(16).padStart(2, '0')}${Math.min(255, g + 40).toString(16).padStart(2, '0')}${Math.min(255, b + 40).toString(16).padStart(2, '0')}`
+          overrides.push(`  --surface: ${surfaceHex};`)
+          overrides.push(`  --border: ${borderHex};`)
+          overrides.push(`  --text-muted: ${themeColors.text || '#999999'};`)
+        }
       }
       if (themeColors.text) {
         overrides.push(`  --text: ${themeColors.text};`)
@@ -1536,7 +1552,7 @@ async function copyAssets (data, contentDir, outputDir) {
       if (themeColors.button) {
         overrides.push(`  --brand-mid: ${themeColors.button};`)
       }
-      css = `/* Bandcamp theme color overrides */\n:root {\n${overrides.join('\n')}\n}\n\n${DEFAULT_CSS}`
+      css = `${DEFAULT_CSS}\n\n/* Bandcamp theme color overrides */\n:root {\n${overrides.join('\n')}\n}\n`
     }
 
     await fs.writeFile(path.join(outputDir, 'style.css'), css, 'utf8')
@@ -1553,18 +1569,45 @@ async function copyAssets (data, contentDir, outputDir) {
     }
   }
 
+  // 3b. Generate minimal fallback assets if not provided by the user
+  const fallbacks = {
+    'artwork-placeholder.svg': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="#dcdce8" width="1" height="1"/></svg>',
+    'site.webmanifest': JSON.stringify({ name: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site', short_name: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site', display: 'browser', background_color: '#f7f7fa', theme_color: '#0c0032' })
+  }
+  for (const [file, content] of Object.entries(fallbacks)) {
+    const dest = path.join(outputDir, file)
+    try { await fs.access(dest) } catch {
+      await fs.writeFile(dest, content, 'utf8')
+    }
+  }
+
   // 3a. Auto-download Bandcamp profile image as logo if no custom logo exists
-  // Only for labels (BANDCAMP_LABEL_URL set) - bands use artist photos, not logos
-  const isLabelAccount = !!process.env.BANDCAMP_LABEL_URL
-  if (data._labelProfileImage && isLabelAccount) {
+  // Labels get auto-logo: explicit label mode OR multiple artists detected (band account acting as label)
+  const nonVaArtists = (data.artists || []).filter(a => (a.name || '').toLowerCase() !== 'various artists')
+  const isLabel = (data._siteMode || 'label') === 'label' || nonVaArtists.length > 1
+  if (data._labelProfileImage && isLabel) {
+    const assetsLogoPath = path.join('assets', 'logo-round.png')
+    let hasAssetsLogo = false
+    try { await fs.access(assetsLogoPath); hasAssetsLogo = true } catch { /* */ }
+
+    if (!hasAssetsLogo) {
+      // Download to assets/ so it persists across generates
+      await fs.mkdir('assets', { recursive: true })
+      const ok = await downloadFile(data._labelProfileImage, assetsLogoPath)
+      if (ok) {
+        console.log('Downloaded Bandcamp profile image to assets/logo-round.png')
+      }
+    }
+
+    // Copy to dist/ (whether just downloaded or already existed)
     const logoPath = path.join(outputDir, 'logo-round.png')
     let hasLogo = false
-    try { await fs.access(logoPath); hasLogo = true } catch { /* no logo */ }
+    try { await fs.access(logoPath); hasLogo = true } catch { /* */ }
     if (!hasLogo) {
-      const ok = await downloadFile(data._labelProfileImage, logoPath)
-      if (ok) {
-        console.log('Using Bandcamp profile image as site logo (no content/global/logo.png found)')
-      }
+      try {
+        await fs.access(assetsLogoPath)
+        await fs.copyFile(assetsLogoPath, logoPath)
+      } catch { /* */ }
     }
   }
 
@@ -1602,6 +1645,26 @@ async function copyAssets (data, contentDir, outputDir) {
         }
       }
       if (src) await fs.copyFile(src, path.join(artistOutDir, filename))
+    }
+
+    // Artist photo fallback: download from Spotify if no local photo and enrichment provided one
+    if (!artist.photo || artist.photo.startsWith('http')) {
+      const spotifyImgUrl = artist._spotifyImageUrl
+      if (spotifyImgUrl) {
+        const photoPath = path.join(contentDir, artist.slug, 'photo.jpg')
+        let hasLocal = false
+        try { await fs.access(photoPath); hasLocal = true } catch { /* */ }
+        if (!hasLocal) {
+          await fs.mkdir(path.join(contentDir, artist.slug), { recursive: true })
+          const ok = await downloadFile(spotifyImgUrl, photoPath)
+          if (ok) {
+            console.log(`  ✓ Downloaded Spotify artist image for "${artist.name}"`)
+            // Also copy to output
+            await fs.mkdir(artistOutDir, { recursive: true })
+            await fs.copyFile(photoPath, path.join(artistOutDir, 'photo.jpg'))
+          }
+        }
+      }
     }
 
     // Gallery images
@@ -1670,4 +1733,4 @@ async function copyAssets (data, contentDir, outputDir) {
   }
 }
 
-module.exports = { copyAssets }
+module.exports = { copyAssets, downloadFile }

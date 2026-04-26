@@ -8,6 +8,43 @@
 
 **Combined release: Band account support, auto-logo, theme colors, CLI summary**
 
+Enrichment improvements (LSG-125):
+- Spotify-only albums from other labels are now filtered out by default during enrichment
+- `LABEL_ALIASES` env var - comma-separated alternative label names for matching (e.g. "Metropolis,Metropolis Records")
+- Early filter after Spotify album list fetch - saves metadata, ISRC, and gap-fill API calls
+- Artist mode (`SITE_MODE=artist`) skips the filter - full discography always shown
+- Label info now extracted during `fetchArtistAlbums` (no extra API calls)
+
+Auto artist photos from Spotify (LSG-125):
+- Spotify artist images auto-downloaded to `content/{artist}/photo.jpg` when no local photo exists
+- Works in both Soundcharts and legacy enrichment modes
+- Various Artists excluded
+
+Bug fixes:
+- Fixed trailing-slash mismatch causing duplicate compilation scraping on band accounts
+- Fixed auto-logo download failing when `assets/` directory doesn't exist
+- Fixed Spotify artist search matching wrong artist when no exact name match exists (e.g. artist removed from Spotify)
+
+Environment variable cleanup (LSG-123):
+- New `SITE_NAME`, `SITE_EMAIL`, `SITE_ADDRESS`, `SITE_VAT_ID` as primary names (works for both labels and bands)
+- Old `LABEL_*` names still work as fallbacks for backward compatibility
+- `.env.example` reorganized with clear sections and `SITE_*` as primary
+- Simplified README focused on essentials with links to detailed docs
+
+Unified BANDCAMP_URL (LSG-122):
+- Single `BANDCAMP_URL` replaces `BANDCAMP_LABEL_URL` and `BANDCAMP_ARTIST_URL`
+- Auto-detects label vs. artist account (tries /artists page, falls back to /music)
+- Auto-detects labels using artist accounts (multiple artists in album data)
+- Old variables still work as fallbacks for backward compatibility
+
+Clean SITE_MODE separation (LSG-121):
+- `BANDCAMP_LABEL_URL` for labels, `BANDCAMP_ARTIST_URL` for bands - site mode auto-derived from which URL is set
+- No more confusing 404 fallback - artist accounts go directly to `/music`, skipping the `/artists` page entirely
+- `SITE_MODE` env var for manual override (label, artist, epk)
+- Auto-logo only downloads for label mode (uses `_siteMode` instead of heuristic)
+- `getArtistUrls` in bandcamp.js no longer silently swallows 404 - error handling moved to scraper
+- Label mode still falls back gracefully if `/artists` returns 404, with a helpful message
+
 Bandcamp band account support (LSG-115):
 - Auto-detect band vs. label accounts: when `/artists` returns 404, treats URL as single artist/band
 - Albums from band accounts regrouped by artist field - labels using band accounts get separate artist pages

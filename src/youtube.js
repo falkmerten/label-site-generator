@@ -141,7 +141,7 @@ function extractChannelId (url) {
  * @param {number} maxResults
  * @returns {Promise<Array<{url: string, title: string}>>}
  */
-async function searchChannel (apiKey, channelIdOrHandle, query, maxResults = 2) {
+async function searchChannel (apiKey, channelIdOrHandle, query, maxResults = 2, allowedChannelIds = []) {
   if (_quotaExhausted) return []
   const params = new URLSearchParams({
     part: 'snippet',
@@ -163,11 +163,16 @@ async function searchChannel (apiKey, channelIdOrHandle, query, maxResults = 2) 
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const queryWords = normalise(query)
 
+  // Build set of allowed channel IDs for strict filtering
+  const allowed = new Set(allowedChannelIds.filter(Boolean))
+
   return data.items
     .filter(item => {
       if (!item.id || !item.id.videoId) return false
       const snippet = item.snippet || {}
       if ((snippet.channelTitle || '').includes('- Topic')) return false
+      // Strict channel filter: only allow videos from configured channels
+      if (allowed.size > 0 && snippet.channelId && !allowed.has(snippet.channelId)) return false
       // For channel search, just verify the query words appear in the title
       const vidTitle = normalise(snippet.title || '')
       return queryWords.length <= 3 || vidTitle.includes(queryWords)
@@ -175,7 +180,9 @@ async function searchChannel (apiKey, channelIdOrHandle, query, maxResults = 2) 
     .slice(0, maxResults)
     .map(item => ({
       url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-      title: item.snippet.title || ''
+      title: item.snippet.title || '',
+      channelId: item.snippet.channelId || null,
+      channelTitle: item.snippet.channelTitle || null
     }))
 }
 
@@ -305,6 +312,9 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       continue
     }
 
+    // Collect allowed channel IDs for this artist
+    const allowedIds = [labelChannelId, artistChannelId].filter(Boolean)
+
     console.log(`\n[${artist.name}]${artistChannelId ? ' Channel: ' + artistChannelId : ' (label channel only)'}`)
 
     for (const album of artist.albums || []) {
@@ -315,8 +325,40 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       const videosPath = path.join(albumDir, 'videos.json')
 
       if (!overwrite && fs.existsSync(videosPath)) {
-        skipped++
-        continue
+        // Merge mode: load existing videos, only add new ones
+        try {
+          const existing = JSON.parse(fs.readFileSync(videosPath, 'utf8'))
+          const existingUrls = new Set(existing.map(v => v.url))
+          // Search for new videos to merge
+          let newResults = []
+
+          if (labelChannelId) {
+            await delay(DELAY_MS)
+            const labelResults = await searchChannel(apiKey, labelChannelId, `${artist.name} ${album.title}`, maxResults, allowedIds)
+            searched++
+            for (const r of labelResults) {
+              if (!existingUrls.has(r.url)) newResults.push(r)
+            }
+          }
+          if (artistChannelId && newResults.length < maxResults) {
+            await delay(DELAY_MS)
+            const artistResults = await searchChannel(apiKey, artistChannelId, album.title, maxResults, allowedIds)
+            searched++
+            for (const r of artistResults) {
+              if (!existingUrls.has(r.url)) newResults.push(r)
+            }
+          }
+
+          if (newResults.length > 0) {
+            const merged = [...existing, ...newResults]
+            fs.writeFileSync(videosPath, JSON.stringify(merged, null, 2), 'utf8')
+            console.log(`  + ${albumSlug} → ${newResults.length} new video(s) merged (${merged.length} total)`)
+            created++
+          } else {
+            skipped++
+          }
+          continue
+        } catch { /* corrupt file, fall through to overwrite */ }
       }
 
       const seenVideoIds = new Set()
@@ -325,7 +367,7 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       // Search label channel first (preferred)
       if (labelChannelId) {
         await delay(DELAY_MS)
-        const labelResults = await searchChannel(apiKey, labelChannelId, `${artist.name} ${album.title}`, maxResults)
+        const labelResults = await searchChannel(apiKey, labelChannelId, `${artist.name} ${album.title}`, maxResults, allowedIds)
         searched++
         for (const r of labelResults) {
           const vidId = r.url.split('v=')[1]
@@ -339,7 +381,7 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       // Then search artist channel for remaining slots
       if (artistChannelId && allResults.length < maxResults) {
         await delay(DELAY_MS)
-        const artistResults = await searchChannel(apiKey, artistChannelId, album.title, maxResults - allResults.length)
+        const artistResults = await searchChannel(apiKey, artistChannelId, album.title, maxResults - allResults.length, allowedIds)
         searched++
         for (const r of artistResults) {
           const vidId = r.url.split('v=')[1]
@@ -356,7 +398,7 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
           if (_quotaExhausted) break
           if (!track.name || allResults.length >= maxResults) break
           await delay(DELAY_MS)
-          const tResults = await searchChannel(apiKey, artistChannelId, track.name, 1)
+          const tResults = await searchChannel(apiKey, artistChannelId, track.name, 1, allowedIds)
           searched++
           for (const r of tResults) {
             const vidId = r.url.split('v=')[1]

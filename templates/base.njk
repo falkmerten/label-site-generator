@@ -74,18 +74,24 @@
   <!-- Banner + overlapping logo hero -->
   {% block hero %}
   <div class="site-hero">
+    {% if hasBanner %}
     <picture>
       <source srcset="{{ rootPath }}banner-mobile.webp" media="(max-width: 640px)" type="image/webp">
       <source srcset="{{ rootPath }}banner.webp" type="image/webp">
       <source srcset="{{ rootPath }}banner-mobile.jpg" media="(max-width: 640px)">
       <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner" fetchpriority="high">
     </picture>
+    {% else %}
+    <div class="site-hero-banner" style="background: var(--brand-dark);"></div>
+    {% endif %}
+    {% if hasLogo %}
     <a href="{{ rootPath }}">
       <picture>
         <source srcset="{{ rootPath }}logo-round.webp" type="image/webp">
         <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
       </picture>
     </a>
+    {% endif %}
   </div>
   {% endblock %}
 
@@ -126,7 +132,7 @@
     <div class="footer-inner">
       <div class="footer-legal">
         <p>&copy; {{ currentYear }} {{ labelName }}</p>
-        <p class="footer-credit">Built with <a href="https://github.com/falkmerten/label-site-generator" target="_blank" rel="noopener noreferrer">Label Site Generator</a></p>
+        <p class="footer-credit">Built with <a href="https://lsg.aenaos-records.com" target="_blank" rel="noopener noreferrer">Label Site Generator</a></p>
       </div>
       <nav class="footer-nav">
         {% for p in footerNavPages %}

@@ -31,6 +31,14 @@
 
 {% block content %}
 
+  {% if siteTagline %}
+  <section class="hero-tagline">
+    <div class="section-inner">
+      <p class="tagline"><em>{{ siteTagline }}</em></p>
+    </div>
+  </section>
+  {% endif %}
+
   <section id="artists" class="section artists-section">
     <div class="section-inner">
       <h2>Artists</h2>
@@ -110,6 +118,7 @@
     </div>
   </section>
 
+  {% if hasNews or newsHtml or newsletter.actionUrl %}
   <section id="news" class="section news-section">
     <div class="section-inner">
       <h2>News</h2>
@@ -367,14 +376,10 @@
           </script>
           {% endif %}
         </div>
-      {% elif not newsHtml %}
-        <div class="news-placeholder">
-          <p>Join our mailing list for the latest news</p>
-          <a href="{{ rootPath }}contact/" class="btn">Sign Up</a>
-        </div>
       {% endif %}
     </div>
   </section>
+  {% endif %}
 
   {% if hasEvents %}
   <section id="shows" class="section shows-section">

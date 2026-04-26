@@ -30,7 +30,7 @@ async function createCampaignDrafts (articles, contentDir) {
   if (newArticles.length === 0) return 0
 
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/')
-  const labelName = process.env.LABEL_NAME || 'Newsletter'
+  const labelName = process.env.SITE_NAME || process.env.LABEL_NAME || 'Newsletter'
   let created = 0
 
   for (const article of newArticles) {
@@ -93,13 +93,13 @@ async function createSendyCampaign (article, htmlBody, plainText) {
   const actionUrl = process.env.NEWSLETTER_ACTION_URL
   const apiKey = process.env.NEWSLETTER_API_TOKEN || process.env.NEWSLETTER_API_KEY
   const listId = process.env.NEWSLETTER_LIST_ID
-  const fromName = process.env.NEWSLETTER_FROM_NAME || process.env.LABEL_NAME || 'Newsletter'
-  const fromEmail = process.env.NEWSLETTER_FROM_EMAIL || process.env.LABEL_EMAIL || ''
+  const fromName = process.env.NEWSLETTER_FROM_NAME || process.env.SITE_NAME || process.env.LABEL_NAME || 'Newsletter'
+  const fromEmail = process.env.NEWSLETTER_FROM_EMAIL || process.env.SITE_EMAIL || process.env.LABEL_EMAIL || ''
   const replyTo = process.env.NEWSLETTER_REPLY_TO || fromEmail
   const brandId = process.env.NEWSLETTER_BRAND_ID || '1'
 
   if (!actionUrl || !apiKey || !listId || !fromEmail) {
-    throw new Error('Missing required env vars for Sendy campaign (NEWSLETTER_ACTION_URL, NEWSLETTER_API_TOKEN, NEWSLETTER_LIST_ID, NEWSLETTER_FROM_EMAIL or LABEL_EMAIL)')
+    throw new Error('Missing required env vars for Sendy campaign (NEWSLETTER_ACTION_URL, NEWSLETTER_API_TOKEN, NEWSLETTER_LIST_ID, NEWSLETTER_FROM_EMAIL or SITE_EMAIL)')
   }
 
   const data = querystring.stringify({
@@ -127,7 +127,7 @@ async function createListmonkCampaign (article, htmlBody) {
   const apiUser = process.env.NEWSLETTER_API_USER || ''
   const apiToken = process.env.NEWSLETTER_API_TOKEN || ''
   const listId = parseInt(process.env.NEWSLETTER_LIST_ID, 10)
-  const fromEmail = process.env.NEWSLETTER_FROM_EMAIL || process.env.LABEL_EMAIL || ''
+  const fromEmail = process.env.NEWSLETTER_FROM_EMAIL || process.env.SITE_EMAIL || process.env.LABEL_EMAIL || ''
 
   if (!actionUrl || !apiUser || !apiToken || !listId) {
     throw new Error('Missing required env vars for Listmonk campaign (NEWSLETTER_ACTION_URL, NEWSLETTER_API_USER, NEWSLETTER_API_TOKEN, NEWSLETTER_LIST_ID)')
@@ -137,7 +137,7 @@ async function createListmonkCampaign (article, htmlBody) {
     name: `News: ${article.title}`,
     subject: article.title,
     lists: [listId],
-    from_email: fromEmail ? `${process.env.LABEL_NAME || 'Newsletter'} <${fromEmail}>` : undefined,
+    from_email: fromEmail ? `${process.env.SITE_NAME || process.env.LABEL_NAME || 'Newsletter'} <${fromEmail}>` : undefined,
     content_type: 'html',
     type: 'regular',
     body: htmlBody,

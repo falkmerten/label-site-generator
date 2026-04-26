@@ -12,7 +12,7 @@ Yes, a Bandcamp label account is required to use the API for fetching your artis
 Yes. With Soundcharts credentials configured, Spotify is not needed at all. Without either, the generator uses Bandcamp data only plus Discogs for physical releases.
 
 **Does it work for individual artists (not labels)?**
-The generator is designed for label accounts. Individual artist accounts don't have API access. You can still use it by setting `BANDCAMP_LABEL_URL` to your artist page and leaving the API credentials empty — it will fall back to HTML scraping.
+Yes. Set `BANDCAMP_URL` to your artist page - the generator auto-detects that it's an artist/band account and scrapes it directly. API credentials are only available for label accounts, so it will fall back to HTML scraping.
 
 ---
 
@@ -95,6 +95,24 @@ After `fetchArtistAlbums` builds the album list, Bandcamp albums that didn't mat
 
 **What's the difference between Soundcharts mode and legacy mode?**
 When `SOUNDCHARTS_APP_ID` and `SOUNDCHARTS_API_KEY` are set, the enricher uses Soundcharts as the primary source for streaming links, social media, events, and metadata. Missing links are filled by iTunes/Deezer/Tidal as needed. When Soundcharts credentials are absent, the full legacy pipeline (Spotify → iTunes → Deezer → Tidal → MusicFetch) runs instead. No CLI flags needed — the mode is automatic.
+
+**An artist wasn't found on Spotify during enrichment. What now?**
+The enricher searches Spotify by exact artist name. If no exact match is found, the artist is skipped (no false matches). This happens when an artist isn't on Spotify, was removed, or uses a different name there. To fix it, add the correct Spotify URL to `content/artists.json`:
+```json
+{
+  "artist-slug": {
+    "spotifyArtistUrl": "https://open.spotify.com/artist/XXXXX"
+  }
+}
+```
+If the artist genuinely isn't on Spotify, no action is needed - the enricher will use other sources (iTunes, Deezer, Tidal) for streaming links.
+
+**Some Spotify albums belong to a different label. How do I control this?**
+During enrichment, albums from Spotify are matched against your `SITE_NAME`. Albums from other labels are automatically filtered out. If your label publishes under different names (e.g. "Metropolis" and "Metropolis Records"), set `LABEL_ALIASES` in `.env` to include all variations:
+```
+LABEL_ALIASES=Metropolis,Metropolis Records,Metropolis Group
+```
+The matching is case-insensitive and checks if either name contains the other.
 
 ---
 

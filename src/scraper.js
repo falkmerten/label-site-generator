@@ -69,20 +69,41 @@ async function loadExtraArtistUrls (contentDir) {
  */
 async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') {
   let artistUrls
+  let siteMode = 'artist' // default, may be upgraded
 
+  // Step 1: Try API if credentials available
   if (apiCredentials && apiCredentials.clientId && apiCredentials.clientSecret) {
     try {
       artistUrls = await getLabelArtistUrls(apiCredentials.clientId, apiCredentials.clientSecret)
+      if (artistUrls && artistUrls.length > 0) {
+        siteMode = 'label'
+        console.log(`Bandcamp API: found ${artistUrls.length} artist(s) (label account)`)
+      }
     } catch (err) {
       console.warn(`  API roster fetch failed (${err.message}), falling back to scraping...`)
       artistUrls = null
     }
   }
 
+  // Step 2: Try /artists page (label account detection)
   if (!artistUrls) {
-    console.log(`Fetching artist list from ${labelUrl}...`)
-    const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
-    artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
+    console.log(`Detecting Bandcamp account type for ${labelUrl}...`)
+    try {
+      const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
+      artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
+      if (artistUrls.length > 0) {
+        siteMode = 'label'
+        console.log(`  Label account detected (${artistUrls.length} artist(s) on /artists page)`)
+      }
+    } catch (err) {
+      if (err.message && err.message.includes('404')) {
+        // No /artists page - artist/band account
+        console.log('  Artist/band account detected (no /artists page)')
+        artistUrls = [labelUrl.replace(/\/+$/, '')]
+      } else {
+        throw err
+      }
+    }
   }
 
   // Merge in any extra URLs from content/extra-artists.txt and EXTRA_ARTIST_URLS env var
@@ -206,12 +227,17 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     const uniqueArtists = Object.keys(albumsByArtist)
     if (uniqueArtists.length > 1) {
       console.log(`  Regrouping ${singleArtist.albums.length} album(s) into ${uniqueArtists.length} artist(s) (band account with multiple artists)`)
+      // Multiple artists detected on a band account - this is a label, upgrade siteMode
+      if (siteMode === 'artist') {
+        siteMode = 'label'
+        console.log('  Detected label with band account - upgrading to label mode (auto-logo, label template)')
+      }
       artists.length = 0
       for (const [name, albums] of Object.entries(albumsByArtist)) {
         artists.push({
           url: singleArtist.url,
           name,
-          location: singleArtist.location,
+          location: name === singleArtist.name ? singleArtist.location : null,
           description: name === singleArtist.name ? singleArtist.description : '',
           coverImage: name === singleArtist.name ? singleArtist.coverImage : null,
           bandLinks: name === singleArtist.name ? singleArtist.bandLinks : [],
@@ -227,7 +253,9 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   if (labelUrl) {
     const labelClean = cleanUrl(labelUrl)
     // Only scrape if the label URL isn't already in the artist list
-    if (!artistUrls.includes(labelClean)) {
+    // Normalize both sides (strip trailing slash) to avoid false mismatches
+    const labelOrigin = labelClean.replace(/\/+$/, '')
+    if (!artistUrls.some(u => u.replace(/\/+$/, '') === labelOrigin)) {
       try {
         console.log(`\nScraping label page for compilations: ${labelClean}`)
         await delay(DELAY_MS)
@@ -302,6 +330,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     scrapedAt: new Date().toISOString(),
     labelProfileImage,
     themeColors,
+    _siteMode: siteMode,
     artists
   }
 }
