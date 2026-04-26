@@ -1554,7 +1554,9 @@ async function copyAssets (data, contentDir, outputDir) {
   }
 
   // 3a. Auto-download Bandcamp profile image as logo if no custom logo exists
-  if (data._labelProfileImage) {
+  // Only for labels (BANDCAMP_LABEL_URL set) - bands use artist photos, not logos
+  const isLabelAccount = !!process.env.BANDCAMP_LABEL_URL
+  if (data._labelProfileImage && isLabelAccount) {
     const logoPath = path.join(outputDir, 'logo-round.png')
     let hasLogo = false
     try { await fs.access(logoPath); hasLogo = true } catch { /* no logo */ }
