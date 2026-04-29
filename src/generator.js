@@ -96,7 +96,13 @@ async function generate(options) {
   }
 
   // Pass siteMode through for auto-logo decision in copyAssets
-  const siteMode = process.env.SITE_MODE || rawData._siteMode || 'artist'
+  // Auto-upgrade to label mode if multiple non-VA artists exist (e.g. band account with EXTRA_ARTIST_URLS)
+  const nonVaArtists = (mergedData.artists || []).filter(a => (a.name || '').toLowerCase() !== 'various artists')
+  let siteMode = process.env.SITE_MODE || rawData._siteMode || 'artist'
+  if (siteMode === 'artist' && nonVaArtists.length > 1) {
+    siteMode = 'label'
+    console.log(`  Auto-detected label mode (${nonVaArtists.length} artists)`)
+  }
   mergedData._siteMode = siteMode
 
   // Pass theme colors through for CSS variable overrides in copyAssets

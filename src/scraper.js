@@ -117,6 +117,10 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   if (allExtra.length > 0) {
     console.log(`Adding ${allExtra.length} extra artist(s)`)
     artistUrls = [...new Set([...artistUrls, ...allExtra])]
+    // Extra artists means this is a label, not a single band
+    if (siteMode === 'artist') {
+      siteMode = 'label'
+    }
   }
 
   console.log(`Found ${artistUrls.length} artist(s) total.`)
