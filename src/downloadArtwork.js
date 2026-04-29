@@ -99,7 +99,7 @@ async function downloadArtwork (cachePath, contentDir = './content') {
       // Skip if already downloaded
       try {
         await fsp.access(localPath)
-        album.artwork = path.relative(process.cwd(), localPath).replace(/\\/g, '/')
+        album.artwork = localFilename
         skipped++
         continue
       } catch { /* not yet downloaded */ }
@@ -108,7 +108,7 @@ async function downloadArtwork (cachePath, contentDir = './content') {
 
       try {
         await downloadFile(remoteUrl, localPath)
-        album.artwork = path.relative(process.cwd(), localPath).replace(/\\/g, '/')
+        album.artwork = localFilename
         console.log(`  ✓ ${artistSlug}/${albumSlug}/artwork${ext}`)
         downloaded++
       } catch (err) {
