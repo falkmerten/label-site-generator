@@ -91,8 +91,12 @@ async function copyAssets (data, contentDir, outputDir) {
   const brandAssets = ['logo-round.png', 'banner.jpg', 'artwork-placeholder.svg', 'favicon.ico', 'favicon-96x96.png', 'favicon.svg', 'apple-touch-icon.png', 'site.webmanifest', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png']
   for (const file of brandAssets) {
     const src = path.join('assets', file)
+    const dest = path.join(outputDir, file)
     try {
-      await fs.copyFile(src, path.join(outputDir, file))
+      await fs.copyFile(src, dest)
+      // Touch the destination so the image optimizer detects it as newer than cached WebP
+      const now = new Date()
+      await fs.utimes(dest, now, now)
     } catch (err) {
       if (err.code !== 'ENOENT') console.warn(`[assets] Could not copy ${file}:`, err.message)
     }
