@@ -104,20 +104,25 @@ async function generate(options) {
     mergedData.themeColors = rawData.themeColors
   }
 
-  // Step 5a: Auto-download Spotify artist photos for artists without local photos
+  // Step 5a: Auto-download artist photos for artists without local photos
+  // Priority: local file > Spotify image > Bandcamp coverImage
   for (const artist of rawData.artists || []) {
-    if (!artist._spotifyImageUrl) continue
     const slug = toSlug(artist.name)
     if (artist.name.toLowerCase() === 'various artists') continue
     const photoPath = path.join(contentDir, slug, 'photo.jpg')
     let hasPhoto = false
     try { await fs.access(photoPath); hasPhoto = true } catch { /* */ }
-    if (!hasPhoto) {
-      await fs.mkdir(path.join(contentDir, slug), { recursive: true })
-      const ok = await downloadFile(artist._spotifyImageUrl, photoPath)
-      if (ok) {
-        console.log(`  ✓ Downloaded Spotify artist photo for "${artist.name}"`)
-      }
+    if (hasPhoto) continue
+
+    // Try Spotify image first (higher quality)
+    const imageUrl = artist._spotifyImageUrl || artist.coverImage
+    if (!imageUrl || !imageUrl.startsWith('http')) continue
+
+    await fs.mkdir(path.join(contentDir, slug), { recursive: true })
+    const ok = await downloadFile(imageUrl, photoPath)
+    if (ok) {
+      const source = artist._spotifyImageUrl ? 'Spotify' : 'Bandcamp'
+      console.log(`  ✓ Downloaded ${source} artist photo for "${artist.name}"`)
     }
   }
 
