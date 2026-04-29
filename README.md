@@ -2,7 +2,7 @@
 
 Static website generator for independent music labels and bands. Scrapes Bandcamp, enriches with streaming links from 7+ platforms, generates a complete branded website.
 
-[See it live](https://aenaos-records.com) | [Quickstart](QUICKSTART.md) | [Full Documentation](docs/technical/label-site-generator-documentation.md)
+[See it live](https://aenaos-records.com) | [Quickstart](QUICKSTART.md) | [Full Documentation](https://github.com/falkmerten/label-site-generator/wiki)
 
 ---
 
@@ -166,7 +166,7 @@ node generate.js --deploy
 
 Generates the site, syncs `dist/` to S3, and invalidates CloudFront. Requires `AWS_S3_BUCKET` and `AWS_CLOUDFRONT_DISTRIBUTION_ID` in `.env`.
 
-See the [full documentation](docs/technical/label-site-generator-documentation.md) for S3/CloudFront setup details.
+See the [full documentation](https://github.com/falkmerten/label-site-generator/wiki) for S3/CloudFront setup details.
 
 ---
 
