@@ -42,16 +42,6 @@
   <link rel="preload" href="{{ rootPath }}fa/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ rootPath }}fa/css/all.min.css">
 
-  {% if gaMeasurementId %}
-  <script async src="https://www.googletagmanager.com/gtag/js?id={{ gaMeasurementId }}"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('consent', 'default', { 'analytics_storage': 'denied', 'ad_storage': 'denied' });
-    gtag('js', new Date());
-    gtag('config', '{{ gaMeasurementId }}', { 'anonymize_ip': true, 'cookie_flags': 'SameSite=None;Secure' });
-  </script>
-  {% endif %}
 </head>
 <body>
 

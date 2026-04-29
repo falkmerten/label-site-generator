@@ -77,7 +77,6 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   newsArticles = newsArticles || []
   labelName = labelName || process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site';
   const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
-  const gaMeasurementId = process.env.GA_MEASUREMENT_ID || '';
   const physicalStores = (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const homepageLabels = (process.env.HOMEPAGE_LABELS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
@@ -340,7 +339,6 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     showOtherLabels,
     labelName,
     siteUrl,
-    gaMeasurementId,
     physicalStores,
     customStoreDefs,
     extraStores,
