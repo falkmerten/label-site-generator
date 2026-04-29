@@ -177,6 +177,11 @@
                 <span>I consent to receiving email updates from {{ labelName }}. You can unsubscribe at any time.</span>
               </label>
             </div>
+            <!-- Anti-spam: honeypot field (invisible to humans, attractive to bots) -->
+            <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden;">
+              <label for="nl-website">Website</label>
+              <input type="text" name="website" id="nl-website" autocomplete="off" tabindex="-1">
+            </div>
             <div style="display:none">
               <input type="text" name="hp" id="nl-hp">
               <input type="hidden" name="nl-ts" id="nl-ts" value="">
@@ -191,6 +196,9 @@
             function nlAntiSpam() {
               var hp = document.getElementById('nl-hp').value;
               if (hp) return 'bot-honeypot';
+              // Secondary honeypot: "website" field positioned off-screen
+              var hp2 = document.getElementById('nl-website').value;
+              if (hp2) return 'bot-honeypot-2';
               // Timing check: reject if submitted within 3 seconds of page load
               var ts = parseInt(document.getElementById('nl-ts').value, 10);
               if (ts && (Date.now() - ts) < 3000) return 'bot-timing';
