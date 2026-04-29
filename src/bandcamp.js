@@ -326,16 +326,32 @@ async function getProfileImage (pageUrl) {
  * Extracts theme colors from a Bandcamp page's inline CSS.
  * Bandcamp injects custom colors in a style tag targeting #pgBd.
  * @param {string} html - Raw HTML of the Bandcamp page
- * @returns {{ background?: string, text?: string, link?: string, button?: string }}
+ * @returns {{ background?: string, body?: string, text?: string, secondary?: string, link?: string, nav?: string, button?: string }}
  */
 function extractThemeColors (html) {
   const $ = cheerio.load(html)
   const colors = {}
 
+  // Preferred: parse the data-design JSON attribute (has all colors reliably)
+  const designEl = $('[data-design]')
+  if (designEl.length) {
+    try {
+      const design = JSON.parse(designEl.attr('data-design'))
+      if (design.bg_color) colors.background = '#' + design.bg_color
+      if (design.body_color) colors.body = '#' + design.body_color
+      if (design.text_color) colors.text = '#' + design.text_color
+      if (design.secondary_text_color) colors.secondary = '#' + design.secondary_text_color
+      if (design.link_color) colors.link = '#' + design.link_color
+      if (design.hd_ft_color) colors.nav = '#' + design.hd_ft_color
+      return colors
+    } catch { /* fall through to CSS parsing */ }
+  }
+
+  // Fallback: parse inline CSS rules
   $('style').each((_, el) => {
     const css = $(el).html() || ''
     const bgMatch = css.match(/#pgBd\s*\{[^}]*background:\s*(#[0-9a-fA-F]{3,6})/s)
-    if (bgMatch) colors.background = bgMatch[1]
+    if (bgMatch) colors.body = bgMatch[1]
     const textMatch = css.match(/#pgBd\s*\{[^}]*\bcolor:\s*(#[0-9a-fA-F]{3,6})/s)
     if (textMatch) colors.text = textMatch[1]
     const linkMatch = css.match(/a\.custom-color[^{]*\{[^}]*\bcolor:\s*(#[0-9a-fA-F]{3,6})/s)
