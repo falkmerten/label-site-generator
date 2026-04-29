@@ -400,14 +400,16 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   for (const artist of data.artists || []) {
     const isCompilationArtist = artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various'
 
-    // Skip artist index page for compilations, but still create album pages
-    if (!isCompilationArtist) {
-      const artistDir = path.join(outputDir, 'artists', artist.slug);
-      await fs.mkdir(artistDir, { recursive: true });
-      const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
+    // In artist mode, skip individual artist pages (the homepage IS the artist page)
+    if (effectiveMode === 'label') {
+      // Skip artist index page for compilations, but still create album pages
+      if (!isCompilationArtist) {
+        const artistDir = path.join(outputDir, 'artists', artist.slug);
+        await fs.mkdir(artistDir, { recursive: true });
+        const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
 
-      const artistHtml = nunjucks.render('artist.njk', {
-        ...baseCtx,
+        const artistHtml = nunjucks.render('artist.njk', {
+          ...baseCtx,
         artist: {
           ...artist,
           albums: [...(artist.albums || [])].sort((a, b) => {
@@ -425,22 +427,33 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
       if (artistUrl) sitemapUrls.push({ url: artistUrl, priority: '0.8' });
       count++;
     }
+    } // end effectiveMode === 'label'
 
     // Album pages — created for ALL artists including Various Artists
     // Skip announce-tier upcoming albums (no useful content for a standalone page)
     for (const album of artist.albums || []) {
       if (album.tier === 'announce') continue
 
-      const albumDir = path.join(outputDir, 'artists', artist.slug, album.slug);
+      // In artist mode, album pages live at /releases/{album-slug}/
+      // In label mode, album pages live at /artists/{artist-slug}/{album-slug}/
+      let albumDir, albumUrl, albumRootPath
+      if (effectiveMode === 'artist') {
+        albumDir = path.join(outputDir, 'releases', album.slug)
+        albumUrl = siteUrl ? `${siteUrl}releases/${album.slug}/` : null
+        albumRootPath = '../../'
+      } else {
+        albumDir = path.join(outputDir, 'artists', artist.slug, album.slug)
+        albumUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/${album.slug}/` : null
+        albumRootPath = '../../../'
+      }
       await fs.mkdir(albumDir, { recursive: true });
-      const albumUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/${album.slug}/` : null;
 
       const albumHtml = nunjucks.render('album.njk', {
         ...baseCtx,
         album,
         artist,
         isCompilation: isCompilationArtist,
-        rootPath: '../../../',
+        rootPath: albumRootPath,
         canonicalUrl: albumUrl,
       });
       await fs.writeFile(path.join(albumDir, 'index.html'), albumHtml, 'utf8');
