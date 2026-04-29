@@ -96,7 +96,7 @@
         <li><a href="{{ store | extraStoreSearchUrl(artist.name, album.title) }}" target="_blank" rel="noopener noreferrer"><i class="{{ store.icon or 'fa-solid fa-store' }}"></i> {{ store.label }}</a></li>
         {% endif %}
       {% endfor %}
-      {% if album.upc or (artist.name and album.title) %}
+      {% if 'amazon' in physicalStores and (album.upc or (artist.name and album.title)) %}
         <li><a href="https://www.amazon.com/s?k={{ (artist.name + ' ' + album.title) | urlencode }}&i=popular" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-amazon"></i> Search on Amazon</a></li>
       {% endif %}
     </ul>
