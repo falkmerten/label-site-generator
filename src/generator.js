@@ -59,6 +59,10 @@ async function generate(options) {
     }
     await writeCache(cachePath, rawData);
     console.log(`Cache written to ${cachePath}`);
+
+    // Step 3b: Download remote artwork to local content (only on scrape)
+    const { downloadArtwork } = require('./downloadArtwork');
+    await downloadArtwork(cachePath, opts.contentDir);
   }
 
   // Step 4: Load content overrides
