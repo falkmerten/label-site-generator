@@ -175,8 +175,9 @@ describe('Keila template rendering', () => {
   let env
 
   beforeAll(() => {
-    const templatesDir = path.join(__dirname, '..', '..', 'templates')
-    env = nunjucks.configure(templatesDir, { autoescape: true })
+    const labelDir = path.join(__dirname, '..', '..', 'templates', 'label')
+    const sharedDir = path.join(__dirname, '..', '..', 'templates', 'shared')
+    env = nunjucks.configure([labelDir, sharedDir], { autoescape: true })
     env.addFilter('isLocal', (url) => url && !url.startsWith('http'))
     env.addFilter('toWebp', (url) => url ? url.replace(/\.(jpg|jpeg|png)$/i, '.webp') : url)
     env.addFilter('toMobileWebp', (url) => url ? url.replace(/\.(jpg|jpeg|png)$/i, '-mobile.webp') : url)

@@ -1,0 +1,209 @@
+{% extends "base.njk" %}
+
+{% block title %}{{ album.title }} — {{ artist.name }}{% endblock %}
+{% block title2 %}{{ album.title }} — {{ artist.name }}{% endblock %}
+
+{% block metaDescription %}{% if album.description %}{{ album.description | truncate(155) }}{% else %}{{ album.title }} by {{ artist.name }}.{% if album.releaseDate %} Released {{ album.releaseDate | formatDate }}.{% endif %}{% endif %}{% endblock %}
+{% block ogType %}music.album{% endblock %}
+{% block ogDescription %}{% if album.description %}{{ album.description | truncate(155) }}{% else %}{{ album.title }} by {{ artist.name }}.{% if album.releaseDate %} Released {{ album.releaseDate | formatDate }}.{% endif %}{% endif %}{% endblock %}
+{% block twitterTitle %}{{ album.title }} — {{ artist.name }}{% endblock %}
+{% block twitterDescription %}{% if album.description %}{{ album.description | truncate(155) }}{% else %}{{ album.title }} by {{ artist.name }}.{% endif %}{% endblock %}
+
+{% block ogImage %}
+  {% if album.artwork %}
+    {% if album.artwork | isLocal %}
+      {% if siteUrl %}<meta property="og:image" content="{{ siteUrl }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork }}">{% endif %}
+    {% else %}
+      <meta property="og:image" content="{{ album.artwork }}">
+    {% endif %}
+  {% elif siteUrl %}
+    <meta property="og:image" content="{{ siteUrl }}banner.jpg">
+  {% endif %}
+{% endblock %}
+{% block twitterImage %}
+  {% if album.artwork %}
+    {% if album.artwork | isLocal %}
+      {% if siteUrl %}<meta name="twitter:image" content="{{ siteUrl }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork }}">{% endif %}
+    {% else %}
+      <meta name="twitter:image" content="{{ album.artwork }}">
+    {% endif %}
+  {% elif siteUrl %}
+    <meta name="twitter:image" content="{{ siteUrl }}banner.jpg">
+  {% endif %}
+{% endblock %}
+
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MusicAlbum",
+  "name": {{ album.title | dump | safe }},
+  "byArtist": {
+    "@type": "MusicGroup",
+    "name": {{ artist.name | dump | safe }}{% if siteUrl %},
+    "url": {{ siteUrl | dump | safe }}{% endif %}
+  }{% if album.releaseDate %},
+  "datePublished": "{{ album.releaseDate | truncate(10, true, '') }}"{% endif %}{% if album.upc %},
+  "identifier": { "@type": "PropertyValue", "propertyID": "UPC", "value": "{{ album.upc }}" }{% endif %}{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}{% if album.tracks and album.tracks.length %},
+  "track": [
+    {% for track in album.tracks %}
+    {
+      "@type": "MusicRecording",
+      "name": {{ track.name | dump | safe }}{% if track.duration %},
+      "duration": "{{ track.duration }}"{% endif %}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]{% endif %}
+}
+</script>
+{% endblock %}
+
+{% block hero %}
+  {% if album.artwork %}
+    {% if album.artwork | isLocal %}
+      {% set artworkUrl = rootPath + 'artists/' + artist.slug + '/' + album.slug + '/' + album.artwork %}
+    {% else %}
+      {% set artworkUrl = album.artwork %}
+    {% endif %}
+    <div class="site-hero artist-hero" style="--artist-photo: url('{{ artworkUrl }}')">
+      <div class="artist-hero-bg-clip">
+        <div class="artist-hero-bg"></div>
+      </div>
+      <div class="artist-hero-overlay">
+        <p class="artist-hero-location"><a href="{{ rootPath }}releases/" style="color:inherit">{{ artist.name }}</a></p>
+        <h1 class="artist-hero-name">{{ album.title }}</h1>
+      </div>
+      <a href="{{ rootPath }}releases/" class="artist-hero-logo-link">
+        {% if album.artwork | isLocal %}
+        <picture>
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
+          <img src="{{ artworkUrl }}" alt="{{ album.title }}" class="site-hero-logo">
+        </picture>
+        {% else %}
+        <img src="{{ artworkUrl }}" alt="{{ album.title }}" class="site-hero-logo">
+        {% endif %}
+      </a>
+    </div>
+  {% else %}
+    <div class="site-hero">
+      <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner">
+      <a href="{{ rootPath }}">
+        <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
+      </a>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <article class="album-page">
+
+    <div class="album-header">
+      <div class="album-header-text">
+        <p class="album-breadcrumb"><a href="{{ rootPath }}releases/">&larr; Back to Releases</a></p>
+        {% if album.tags and album.tags.length %}
+          <ul class="tags">
+            {% for tag in album.tags %}
+              <li class="tag">{{ tag.name or tag }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if album.albumId and (not album.upcoming or album.tier == 'full') and not album.privateUrl %}
+      <section class="bandcamp-embed">
+        {% if album.itemType === 'track' %}
+          <iframe
+            style="border: 0; width: 100%; height: 42px;"
+            src="https://bandcamp.com/EmbeddedPlayer/track={{ album.albumId }}/size=small/bgcol=0c0032/linkcol=cacadb/transparent=true/"
+            seamless></iframe>
+        {% else %}
+          <iframe
+            style="border: 0; width: 100%; height: 42px;"
+            src="https://bandcamp.com/EmbeddedPlayer/album={{ album.albumId }}/size=small/bgcol=0c0032/linkcol=cacadb/transparent=true/"
+            seamless></iframe>
+        {% endif %}
+      </section>
+    {% elif album.url and (not album.upcoming or album.tier == 'full') and not album.privateUrl %}
+      <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
+    {% endif %}
+
+    {% include "streaming-links.njk" %}
+
+    {% include "physical-release.njk" %}
+
+    {% if album.description %}
+      <section class="album-description prose">
+        <h2>About</h2>
+        <p>{{ album.description | nl2br | safe }}</p>
+      </section>
+    {% endif %}
+    {% if album.releaseDate %}
+      <p class="album-release-date">{% if album.releaseDate | isFuture %}Pre-order · {{ album.releaseDate | formatDate }}{% else %}Released: {{ album.releaseDate | formatDate }}{% endif %}{% if album.catalogNumber %} · {{ album.catalogNumber }}{% endif %}{% if album.labelName %} · {% if album.labelUrl %}<a href="{{ album.labelUrl }}" target="_blank" rel="noopener noreferrer">{{ album.labelName }}</a>{% else %}{{ album.labelName }}{% endif %}{% endif %}</p>
+    {% elif album.catalogNumber %}
+      <p class="album-release-date">{{ album.catalogNumber }}{% if album.labelName %} · {% if album.labelUrl %}<a href="{{ album.labelUrl }}" target="_blank" rel="noopener noreferrer">{{ album.labelName }}</a>{% else %}{{ album.labelName }}{% endif %}{% endif %}</p>
+    {% endif %}
+
+    {% if album.tracks and album.tracks.length and (not album.upcoming or album.tier == 'full') %}
+      <section class="tracklist-section">
+        <h2>Tracklist</h2>
+        <ol class="tracklist">
+          {% for track in album.tracks %}
+            <li>
+              <span class="track-name">{{ track.name }}</span>
+              {% if track.duration %}
+                <span class="track-duration">{{ track.duration }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+    {% endif %}
+
+    {% if album.videos and album.videos.length %}
+      <section class="album-videos">
+        <h2>Videos</h2>
+        <div class="video-grid{% if album.videos.length == 1 %} video-grid-single{% endif %}">
+          {% for video in album.videos %}
+            {% set videoId = video.url | youtubeId %}
+            {% if videoId %}
+            <div class="video-item">
+              <iframe
+                src="https://www.youtube.com/embed/{{ videoId }}"
+                title="{{ video.title }}"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen
+                loading="lazy"></iframe>
+              {% if video.title %}<p class="video-title">{{ video.title }}</p>{% endif %}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    {% if album.notes %}
+      <section class="album-notes prose">
+        <h2>Notes</h2>
+        {{ album.notes | safe }}
+      </section>
+    {% endif %}
+
+    {% if album.credits %}
+      <section class="album-credits">
+        <h2>Credits</h2>
+        <pre class="credits-text">{{ album.credits }}</pre>
+      </section>
+    {% endif %}
+
+    {% if album.reviews %}
+      <section class="album-reviews prose">
+        <h2>Press</h2>
+        {{ album.reviews | safe }}
+      </section>
+    {% endif %}
+
+  </article>
+{% endblock %}

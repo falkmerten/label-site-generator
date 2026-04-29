@@ -1,0 +1,20 @@
+{#
+  Mobile nav toggle script.
+  Expects: the page to have .nav-toggle button and .site-nav element,
+           and .has-dropdown > a elements for dropdown toggles.
+#}
+<script>
+  // Mobile nav toggle
+  document.querySelector('.nav-toggle').addEventListener('click', function() {
+    document.querySelector('.site-nav').classList.toggle('open');
+  });
+  document.querySelectorAll('.has-dropdown > a').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (window.innerWidth <= 960) {
+        e.preventDefault();
+        var dd = el.nextElementSibling;
+        if (dd) dd.style.display = dd.style.display === 'block' ? 'none' : 'block';
+      }
+    });
+  });
+</script>

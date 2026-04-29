@@ -1,0 +1,49 @@
+{#
+  Release card component.
+  Expects: album (with .slug, .artistSlug, .artistName, .title, .artwork, .releaseDate, .tags, .tier, .upcoming)
+           rootPath, siteMode
+  Optional: hideClass (extra CSS class, e.g. 'release-hidden')
+#}
+{% if album.tier == 'announce' %}
+<div class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}{% if hideClass %} {{ hideClass }}{% endif %}">
+{% else %}
+{% if siteMode == 'artist' %}
+<a href="{{ rootPath }}releases/{{ album.slug }}/" class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}{% if hideClass %} {{ hideClass }}{% endif %}">
+{% else %}
+<a href="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/" class="release-card{% if album.releaseDate | isFuture %} release-coming-soon{% endif %}{% if hideClass %} {{ hideClass }}{% endif %}">
+{% endif %}
+{% endif %}
+  <div class="card-top">
+    {% if album.releaseDate | isFuture %}<span class="card-badge">Coming Soon</span>
+    {% elif album.upcoming %}<span class="card-badge">Pre-save</span>
+    {% endif %}
+  </div>
+  <div class="card-artwork">
+  {% if album.artwork | isLocal %}
+    <picture>
+      <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+      <source srcset="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork | toWebp }}" type="image/webp">
+      <img src="{{ rootPath }}artists/{{ album.artistSlug }}/{{ album.slug }}/{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+    </picture>
+  {% elif album.artwork %}
+    <img src="{{ album.artwork }}" alt="{{ album.title }}" loading="lazy">
+  {% else %}
+    <div class="card-artwork-placeholder">
+      <i class="fa-solid fa-record-vinyl"></i>
+      <div><small>{{ album.artistName }}</small><strong>{{ album.title }}</strong></div>
+    </div>
+  {% endif %}
+  </div>
+  <div class="card-body">
+    <span class="release-artist">{{ album.artistName }}</span>
+    <span class="release-title">{{ album.title }}</span>
+    {% if album.releaseDate %}<span class="release-year">{{ album.releaseDate | formatDate }}</span>{% endif %}
+    {% if album.tags and album.tags.length %}
+      <span class="card-tags">{% for tag in album.tags | slice(0, 3) %}{{ tag.name or tag }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+    {% endif %}
+  </div>
+{% if album.tier == 'announce' %}
+</div>
+{% else %}
+</a>
+{% endif %}

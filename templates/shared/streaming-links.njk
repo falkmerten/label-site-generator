@@ -1,0 +1,24 @@
+{#
+  Streaming links section.
+  Expects: album (with .url, .presaveUrl, .streamingLinks, .upcoming, .tier)
+  Renders the "Listen On" section with Bandcamp, Spotify, Apple Music, etc.
+#}
+{% if (album.streamingLinks or album.url or album.presaveUrl) and (not album.upcoming or album.tier == 'full' or album.presaveUrl) %}
+  <section class="streaming-links">
+    <h2>Listen On</h2>
+    <ul class="streaming-list">
+      {% if album.url %}<li><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Bandcamp</a></li>{% endif %}
+      {% if album.presaveUrl %}<li><a href="{{ album.presaveUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-bell"></i> Pre-save</a></li>{% endif %}
+      {% if album.streamingLinks %}
+        {% if album.streamingLinks.spotify %}<li><a href="{{ album.streamingLinks.spotify }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-spotify"></i> Spotify</a></li>{% endif %}
+        {% if album.streamingLinks.appleMusic %}<li><a href="{{ album.streamingLinks.appleMusic }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-apple"></i> Apple Music</a></li>{% endif %}
+        {% if album.streamingLinks.deezer %}<li><a href="{{ album.streamingLinks.deezer }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-deezer"></i> Deezer</a></li>{% endif %}
+        {% if album.streamingLinks.amazonMusic %}<li><a href="{{ album.streamingLinks.amazonMusic }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-amazon"></i> Amazon Music</a></li>{% endif %}
+        {% if album.streamingLinks.youtubeMusic %}<li><a href="{{ album.streamingLinks.youtubeMusic }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-youtube"></i> YouTube Music</a></li>{% endif %}
+        {% if album.streamingLinks.tidal %}<li><a href="{{ album.streamingLinks.tidal }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-water"></i> Tidal</a></li>{% endif %}
+        {% if album.streamingLinks.beatport %}<li><a href="{{ album.streamingLinks.beatport }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-headphones"></i> Beatport</a></li>{% endif %}
+        {% if album.streamingLinks.soundcloud %}<li><a href="{{ album.streamingLinks.soundcloud }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-soundcloud"></i> SoundCloud</a></li>{% endif %}
+      {% endif %}
+    </ul>
+  </section>
+{% endif %}

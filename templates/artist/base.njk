@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ labelName }}{% endblock %}</title>
+
+  {% if canonicalUrl %}<link rel="canonical" href="{{ canonicalUrl }}">{% endif %}
+  <meta name="description" content="{% block metaDescription %}{{ labelName }} - official website.{% endblock %}">
+
+  <meta property="og:type" content="{% block ogType %}website{% endblock %}">
+  <meta property="og:site_name" content="{{ labelName }}">
+  <meta property="og:title" content="{% block ogTitle %}{% block title2 %}{{ labelName }}{% endblock %}{% endblock %}">
+  <meta property="og:description" content="{% block ogDescription %}{{ labelName }} - official website.{% endblock %}">
+  {% if canonicalUrl %}<meta property="og:url" content="{{ canonicalUrl }}">{% endif %}
+  {% block ogImage %}
+    {% if siteUrl %}<meta property="og:image" content="{{ siteUrl }}banner.jpg">{% endif %}
+  {% endblock %}
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitterTitle %}{{ labelName }}{% endblock %}">
+  <meta name="twitter:description" content="{% block twitterDescription %}{{ labelName }} - official website.{% endblock %}">
+  {% block twitterImage %}
+    {% if siteUrl %}<meta name="twitter:image" content="{{ siteUrl }}banner.jpg">{% endif %}
+  {% endblock %}
+
+  {% block jsonLd %}{% endblock %}
+
+  <link rel="stylesheet" href="{{ rootPath }}style.css">
+
+  <link rel="icon" type="image/png" sizes="96x96" href="{{ rootPath }}favicon-96x96.png">
+  <link rel="icon" type="image/svg+xml" href="{{ rootPath }}favicon.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ rootPath }}apple-touch-icon.png">
+  <link rel="icon" href="{{ rootPath }}favicon.ico" sizes="any">
+  <link rel="manifest" href="{{ rootPath }}site.webmanifest">
+
+  {% if hasNews and siteUrl %}
+  <link rel="alternate" type="application/rss+xml" title="{{ labelName }} - News" href="{{ siteUrl }}feed.xml">
+  {% endif %}
+
+  <link rel="preload" href="{{ rootPath }}fa/webfonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ rootPath }}fa/webfonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ rootPath }}fa/css/all.min.css">
+
+  {% if gaMeasurementId %}
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ gaMeasurementId }}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', { 'analytics_storage': 'denied', 'ad_storage': 'denied' });
+    gtag('js', new Date());
+    gtag('config', '{{ gaMeasurementId }}', { 'anonymize_ip': true, 'cookie_flags': 'SameSite=None;Secure' });
+  </script>
+  {% endif %}
+</head>
+<body>
+
+  {# ── Hero with gradient background ── #}
+  {% block hero %}
+  <div class="site-hero">
+    {% if hasBanner %}
+    <picture>
+      <source srcset="{{ rootPath }}banner-mobile.webp" media="(max-width: 640px)" type="image/webp">
+      <source srcset="{{ rootPath }}banner.webp" type="image/webp">
+      <source srcset="{{ rootPath }}banner-mobile.jpg" media="(max-width: 640px)">
+      <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner" fetchpriority="high">
+    </picture>
+    {% else %}
+    <div class="site-hero-banner"></div>
+    {% endif %}
+    {% if hasLogo %}
+    <a href="{{ rootPath }}" class="site-hero-logo-link">
+      <picture>
+        <source srcset="{{ rootPath }}logo-round.webp" type="image/webp">
+        <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
+      </picture>
+    </a>
+    {% endif %}
+  </div>
+  {% endblock %}
+
+  {# ── Glassmorphism pill nav ── #}
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="{{ rootPath }}" class="nav-brand">
+        {% if hasLogo %}
+        <img src="{{ rootPath }}logo-round.png" alt="" class="nav-brand-logo">
+        {% endif %}
+        <span class="nav-brand-text">{{ labelName }}</span>
+      </a>
+      <nav class="site-nav">
+        <a href="{{ rootPath }}releases/" class="nav-item">Releases</a>
+        {% if hasNews %}
+          <a href="{{ rootPath }}news/" class="nav-item">News</a>
+        {% endif %}
+        {% if hasEvents %}
+          <a href="{{ rootPath }}#shows" class="nav-item">Shows</a>
+        {% endif %}
+        {% for p in mainNavPages %}
+          <a href="{{ rootPath }}{{ p.slug }}/" class="nav-item">{{ p.title }}</a>
+        {% endfor %}
+      </nav>
+      <button class="nav-toggle" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button>
+    </div>
+  </header>
+
+  <div class="hero-spacer"></div>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-legal">
+        <p>&copy; {{ currentYear }} {{ labelName }}</p>
+        <p class="footer-credit">Built with <a href="https://lsg.aenaos-records.com" target="_blank" rel="noopener noreferrer">Label Site Generator</a></p>
+      </div>
+      <nav class="footer-nav">
+        {% for p in footerNavPages %}
+          <a href="{{ rootPath }}{{ p.slug }}/">{{ p.title }}</a>
+        {% endfor %}
+      </nav>
+      <nav class="footer-social">
+        {% if social.bandcamp %}<a href="{{ social.bandcamp }}" target="_blank" rel="noopener noreferrer" aria-label="Bandcamp"><i class="fa-brands fa-bandcamp"></i></a>{% endif %}
+        {% if social.spotify %}<a href="{{ social.spotify }}" target="_blank" rel="noopener noreferrer" aria-label="Spotify"><i class="fa-brands fa-spotify"></i></a>{% endif %}
+        {% if social.soundcloud %}<a href="{{ social.soundcloud }}" target="_blank" rel="noopener noreferrer" aria-label="SoundCloud"><i class="fa-brands fa-soundcloud"></i></a>{% endif %}
+        {% if social.youtube %}<a href="{{ social.youtube }}" target="_blank" rel="noopener noreferrer" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>{% endif %}
+        {% if social.instagram %}<a href="{{ social.instagram }}" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>{% endif %}
+        {% if social.facebook %}<a href="{{ social.facebook }}" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><i class="fa-brands fa-facebook"></i></a>{% endif %}
+        {% if social.tiktok %}<a href="{{ social.tiktok }}" target="_blank" rel="noopener noreferrer" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>{% endif %}
+        {% if social.twitter %}<a href="{{ social.twitter }}" target="_blank" rel="noopener noreferrer" aria-label="X / Twitter"><i class="fa-brands fa-x-twitter"></i></a>{% endif %}
+      </nav>
+    </div>
+  </footer>
+
+  <button class="scroll-top" id="scroll-top" aria-label="Scroll to top"><i class="fa-solid fa-chevron-up"></i></button>
+
+  <script>
+    // Scroll to top button
+    var scrollBtn = document.getElementById('scroll-top');
+    scrollBtn.addEventListener('click', function() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Nav brand + scroll-top: show when hero logo scrolls out of view
+    var navBrand = document.querySelector('.nav-brand');
+    var heroLogo = document.querySelector('.site-hero-logo-link') || document.querySelector('.artist-hero-logo-link');
+    if (navBrand && heroLogo) {
+      var observer = new IntersectionObserver(function(entries) {
+        var hidden = !entries[0].isIntersecting;
+        navBrand.classList.toggle('visible', hidden);
+        scrollBtn.classList.toggle('visible', hidden);
+      }, { threshold: 0 });
+      observer.observe(heroLogo);
+    } else if (navBrand) {
+      navBrand.classList.add('visible');
+      window.addEventListener('scroll', function() {
+        scrollBtn.classList.toggle('visible', window.scrollY > 200);
+      });
+    }
+  </script>
+  {% include "nav-mobile.njk" %}
+</body>
+</html>

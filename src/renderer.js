@@ -102,8 +102,17 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     const raw = await fs.readFile(path.join(process.env.CONTENT_DIR || './content', 'stores.json'), 'utf8')
     extraStores = JSON.parse(raw)
   } catch { /* no stores.json */ }
-  const templatesDir = path.join(__dirname, '..', 'templates');
-  const env = nunjucks.configure(templatesDir, { autoescape: true });
+
+  // Determine site mode (label or artist) for template resolution
+  const siteMode = process.env.SITE_MODE || data._siteMode || 'label';
+  const validModes = ['label', 'artist'];
+  if (!validModes.includes(siteMode)) {
+    console.warn(`[renderer] Unknown SITE_MODE "${siteMode}", falling back to "label"`);
+  }
+  const effectiveMode = validModes.includes(siteMode) ? siteMode : 'label';
+  const modeDir = path.join(__dirname, '..', 'templates', effectiveMode);
+  const sharedDir = path.join(__dirname, '..', 'templates', 'shared');
+  const env = nunjucks.configure([modeDir, sharedDir], { autoescape: true });
 
   // Custom filter: check if a URL is a local file (not http/https)
   env.addFilter('isLocal', (url) => url && !url.startsWith('http'));

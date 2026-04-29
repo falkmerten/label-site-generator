@@ -1,0 +1,214 @@
+{% extends "base.njk" %}
+
+{% set artist = artists[0] %}
+
+{% block title %}{{ artist.name }} — Official Website{% endblock %}
+{% block title2 %}{{ artist.name }} — Official Website{% endblock %}
+{% block metaDescription %}{{ artist.name }} — official website. Discography, news and more.{% endblock %}
+{% block ogDescription %}{{ artist.name }} — official website. Discography, news and more.{% endblock %}
+{% block twitterTitle %}{{ artist.name }}{% endblock %}
+{% block twitterDescription %}{{ artist.name }} — official website. Discography, news and more.{% endblock %}
+
+{% block ogImage %}
+  {% if artist.photo %}
+    {% if artist.photo | isLocal %}
+      {% if siteUrl %}<meta property="og:image" content="{{ siteUrl }}artists/{{ artist.slug }}/{{ artist.photo }}">{% endif %}
+    {% else %}
+      <meta property="og:image" content="{{ artist.photo }}">
+    {% endif %}
+  {% elif siteUrl %}
+    <meta property="og:image" content="{{ siteUrl }}banner.jpg">
+  {% endif %}
+{% endblock %}
+
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "MusicGroup",
+  "name": {{ artist.name | dump | safe }}{% if artist.location %},
+  "location": {{ artist.location | dump | safe }}{% endif %}{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}{% if artist.bio %},
+  "description": {{ artist.bio | truncate(200) | dump | safe }}{% endif %}
+}
+</script>
+{% endblock %}
+
+{% block hero %}
+  {% if artist.photo %}
+    {% if artist.photo | isLocal %}
+      {% set photoUrl = rootPath + 'artists/' + artist.slug + '/' + artist.photo %}
+    {% else %}
+      {% set photoUrl = artist.photo %}
+    {% endif %}
+    <div class="site-hero artist-hero" style="--artist-photo: url('{{ photoUrl }}')">
+      <div class="artist-hero-bg-clip">
+        <div class="artist-hero-bg"></div>
+      </div>
+      <div class="artist-hero-overlay">
+        {% if artist.location %}
+          <p class="artist-hero-location">{{ artist.location }}</p>
+        {% endif %}
+        <h1 class="artist-hero-name">{{ artist.name }}</h1>
+        {% if artist.bio %}
+          <p class="artist-hero-bio">{{ artist.bio | truncate(200) }}</p>
+        {% endif %}
+      </div>
+      <a href="{{ rootPath }}" class="artist-hero-logo-link">
+        {% if artist.photo | isLocal %}
+        <picture>
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
+          <img src="{{ photoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
+        </picture>
+        {% else %}
+        <img src="{{ photoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
+        {% endif %}
+      </a>
+    </div>
+  {% else %}
+    <div class="site-hero">
+      {% if hasBanner %}
+      <picture>
+        <source srcset="{{ rootPath }}banner-mobile.webp" media="(max-width: 640px)" type="image/webp">
+        <source srcset="{{ rootPath }}banner.webp" type="image/webp">
+        <source srcset="{{ rootPath }}banner-mobile.jpg" media="(max-width: 640px)">
+        <img src="{{ rootPath }}banner.jpg" alt="{{ artist.name }}" class="site-hero-banner" fetchpriority="high">
+      </picture>
+      {% else %}
+      <div class="site-hero-banner"></div>
+      {% endif %}
+      {% if hasLogo %}
+      <a href="{{ rootPath }}" class="site-hero-logo-link">
+        <picture>
+          <source srcset="{{ rootPath }}logo-round.webp" type="image/webp">
+          <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
+        </picture>
+      </a>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+
+  {# ── Featured / Latest Release ── #}
+  {% if allAlbums and allAlbums.length %}
+  <section id="latest" class="section releases-section">
+    <div class="section-inner">
+      <h2>Latest Release</h2>
+      <div class="release-grid">
+        {% set album = allAlbums[0] %}
+        {% include "release-card.njk" %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Discography ── #}
+  {% if allAlbums and allAlbums.length > 1 %}
+  <section id="releases" class="section releases-section">
+    <div class="section-inner">
+      <h2>Discography</h2>
+      <div class="release-grid">
+        {% for album in allAlbums %}
+          {% include "release-card.njk" %}
+        {% endfor %}
+      </div>
+      {% if allAlbums.length > 12 %}
+        <div class="view-all">
+          <a href="{{ rootPath }}releases/">View all {{ allAlbums.length }} releases</a>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Shows ── #}
+  {% if hasEvents and allEvents and allEvents.length %}
+  <section id="shows" class="section shows-section">
+    <div class="section-inner">
+      <h2>Shows</h2>
+      <div class="events-list">
+        {% for event in allEvents %}
+          {% include "event-row.njk" %}
+        {% endfor %}
+      </div>
+      <p class="events-attribution">Event data by <a href="https://www.bandsintown.com/" target="_blank" rel="noopener noreferrer">Bandsintown</a> &amp; <a href="https://www.songkick.com/" target="_blank" rel="noopener noreferrer">Songkick</a></p>
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── News ── #}
+  {% if hasNews and newsArticles and newsArticles.length %}
+  <section id="news" class="section news-section">
+    <div class="section-inner">
+      <h2>News</h2>
+      <div class="news-list">
+        {% for article in newsArticles %}
+          <article class="news-item">
+            {% if article.imageUrl %}
+              <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-image">
+                {% if article.imageUrl | isLocal %}
+                <picture>
+                  <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+                  <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toWebp }}" type="image/webp">
+                  <img src="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+                </picture>
+                {% else %}
+                <img src="{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+                {% endif %}
+              </a>
+            {% endif %}
+            <div class="news-item-body">
+              <h3 class="news-item-title"><a href="{{ rootPath }}news/{{ article.slug }}/">{{ article.title }}</a></h3>
+              <time class="news-item-date" datetime="{{ article.date }}">{{ article.date | formatDate }}</time>
+              <p class="news-item-excerpt">{{ article.excerpt }}</p>
+              <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-more">Read more &rarr;</a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+      {% if totalNews > 10 %}
+        <div class="view-all">
+          <a href="{{ rootPath }}news/">View all news</a>
+        </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Newsletter ── #}
+  {% if newsletter and newsletter.actionUrl %}
+  <section id="newsletter" class="section news-section">
+    <div class="section-inner">
+      {% include "newsletter-form.njk" %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── About ── #}
+  {% if artist.bio or aboutHtml %}
+  <section id="about" class="section about-section">
+    <div class="section-inner">
+      <h2>About</h2>
+      {% if aboutHtml %}
+        <div class="prose">{{ aboutHtml | safe }}</div>
+      {% elif artist.bio %}
+        <div class="prose"><p>{{ artist.bio | nl2br | safe }}</p></div>
+      {% endif %}
+      <div class="social-links">
+        {% if social.bandcamp %}<a href="{{ social.bandcamp }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Bandcamp</a>{% endif %}
+        {% if social.spotify %}<a href="{{ social.spotify }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-spotify"></i> Spotify</a>{% endif %}
+        {% if social.soundcloud %}<a href="{{ social.soundcloud }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-soundcloud"></i> SoundCloud</a>{% endif %}
+        {% if social.youtube %}<a href="{{ social.youtube }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-youtube"></i> YouTube</a>{% endif %}
+        {% if social.instagram %}<a href="{{ social.instagram }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-instagram"></i> Instagram</a>{% endif %}
+        {% if social.facebook %}<a href="{{ social.facebook }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-facebook"></i> Facebook</a>{% endif %}
+        {% if social.tiktok %}<a href="{{ social.tiktok }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-tiktok"></i> TikTok</a>{% endif %}
+        {% if social.twitter %}<a href="{{ social.twitter }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-x-twitter"></i> X / Twitter</a>{% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+{% endblock %}

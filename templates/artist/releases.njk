@@ -1,0 +1,45 @@
+{% extends "base.njk" %}
+
+{% block title %}Discography — {{ labelName }}{% endblock %}
+{% block title2 %}Discography — {{ labelName }}{% endblock %}
+{% block metaDescription %}Full discography — browse all releases.{% endblock %}
+{% block ogDescription %}Full discography — browse all releases.{% endblock %}
+{% block twitterTitle %}Discography — {{ labelName }}{% endblock %}
+{% block twitterDescription %}Full discography — browse all releases.{% endblock %}
+
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Discography",
+  "description": "Full discography"{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+  <div class="releases-page">
+    <div class="releases-page-inner">
+      <h1>Discography</h1>
+      {% if allAlbums and allAlbums.length %}
+        <div class="release-grid" id="releases-grid">
+          {% for album in allAlbums %}
+            {% set hideClass = 'release-hidden' if loop.index > 36 else '' %}
+            {% include "release-card.njk" %}
+          {% endfor %}
+        </div>
+        {% if allAlbums.length > 36 %}
+        <div class="view-all" id="load-more-wrap">
+          <button class="btn" id="load-more-btn" onclick="document.querySelectorAll('.release-hidden').forEach(function(el){el.classList.remove('release-hidden')});this.parentElement.style.display='none'">
+            Show all {{ allAlbums.length }} releases
+          </button>
+        </div>
+        {% endif %}
+      {% else %}
+        <p>No releases currently available.</p>
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

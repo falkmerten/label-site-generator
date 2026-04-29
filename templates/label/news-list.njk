@@ -1,0 +1,61 @@
+{% extends "base.njk" %}
+
+{% block title %}News — {{ labelName }}{% endblock %}
+{% block metaDescription %}Latest news and updates from {{ labelName }}.{% endblock %}
+{% block ogDescription %}Latest news and updates from {{ labelName }}.{% endblock %}
+
+{% block jsonLd %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "News",
+  "description": "Latest news and updates from {{ labelName }}"{% if canonicalUrl %},
+  "url": {{ canonicalUrl | dump | safe }}{% endif %}
+}
+</script>
+{% endblock %}
+
+{% block content %}
+  <section class="section news-page-section">
+    <div class="section-inner">
+      <h1>News</h1>
+      <div class="news-list">
+        {% for article in articles %}
+          <article class="news-item">
+            {% if article.imageUrl %}
+              <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-image">
+                {% if article.imageUrl | isLocal %}
+                <picture>
+                  <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+                  <source srcset="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl | toWebp }}" type="image/webp">
+                  <img src="{{ rootPath }}news/{{ article.slug }}/{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+                </picture>
+                {% else %}
+                <img src="{{ article.imageUrl }}" alt="{{ article.title }}" loading="lazy">
+                {% endif %}
+              </a>
+            {% endif %}
+            <div class="news-item-body">
+              <h3 class="news-item-title"><a href="{{ rootPath }}news/{{ article.slug }}/">{{ article.title }}</a></h3>
+              <time class="news-item-date" datetime="{{ article.date }}">{{ article.date | formatDate }}</time>
+              <p class="news-item-excerpt">{{ article.excerpt }}</p>
+              <a href="{{ rootPath }}news/{{ article.slug }}/" class="news-item-more">Read more &rarr;</a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+      {% if pagination.total > 1 %}
+        <nav class="pagination" aria-label="News pages">
+          {% if pagination.prev %}
+            <a href="{% if pagination.prev == 1 %}{{ rootPath }}news/{% else %}{{ rootPath }}news/page/{{ pagination.prev }}/{% endif %}" class="pagination-prev">&larr; Newer</a>
+          {% endif %}
+          <span class="pagination-info">Page {{ pagination.current }} of {{ pagination.total }}</span>
+          {% if pagination.next %}
+            <a href="{{ rootPath }}news/page/{{ pagination.next }}/" class="pagination-next">Older &rarr;</a>
+          {% endif %}
+        </nav>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

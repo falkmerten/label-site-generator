@@ -24,8 +24,9 @@ const { optimizeImages } = require('../../src/imageOptimizer')
 // ---------------------------------------------------------------------------
 // Nunjucks setup — mirrors src/renderer.js filters
 // ---------------------------------------------------------------------------
-const templatesDir = path.join(__dirname, '..', '..', 'templates')
-const env = nunjucks.configure(templatesDir, { autoescape: true })
+const labelDir = path.join(__dirname, '..', '..', 'templates', 'label')
+const sharedDir = path.join(__dirname, '..', '..', 'templates', 'shared')
+const env = nunjucks.configure([labelDir, sharedDir], { autoescape: true })
 
 env.addFilter('isLocal', (url) => url && !url.startsWith('http'))
 env.addFilter('toWebp', (url) => url ? url.replace(/\.(jpg|jpeg|png)$/i, '.webp') : url)

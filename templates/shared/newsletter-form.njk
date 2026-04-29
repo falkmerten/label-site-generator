@@ -1,0 +1,236 @@
+{#
+  Newsletter signup form.
+  Expects: newsletter (with .actionUrl, .provider, .listId, .apiKey, .formId, .doubleOptIn)
+           labelEmail (for error messages)
+           labelName
+#}
+{% if newsletter.actionUrl %}
+  <div class="newsletter-form" id="newsletter-wrapper">
+    <h3>Quiet updates from the {{ labelName }} catalogue</h3>
+    <p class="newsletter-subtitle">New releases, selected news and occasional shows.</p>
+    <form id="newsletter-form" class="newsletter">
+      <div class="newsletter-fields">
+        <div class="newsletter-field">
+          <label for="nl-name">Name</label>
+          <input type="text" name="name" id="nl-name" placeholder="Your name">
+        </div>
+        <div class="newsletter-field">
+          <label for="nl-email">Email</label>
+          <input type="email" name="email" id="nl-email" placeholder="Your email" required>
+        </div>
+        <button type="submit" class="btn newsletter-btn">Subscribe</button>
+      </div>
+      <div class="newsletter-consent">
+        <label>
+          <input type="checkbox" name="gdpr" id="nl-gdpr" required>
+          <span>I consent to receiving email updates from {{ labelName }}. I can unsubscribe at any time.</span>
+        </label>
+      </div>
+      <!-- Anti-spam: honeypot field (invisible to humans, attractive to bots) -->
+      <div aria-hidden="true" style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden;">
+        <label for="nl-website">Website</label>
+        <input type="text" name="website" id="nl-website" autocomplete="off" tabindex="-1">
+      </div>
+      <div style="display:none">
+        <input type="text" name="hp" id="nl-hp">
+        <input type="hidden" name="nl-ts" id="nl-ts" value="">
+      </div>
+    </form>
+    <div id="newsletter-msg" class="newsletter-msg" style="display:none"></div>
+    <script>
+      // Anti-spam: record page load time for timing check
+      document.getElementById('nl-ts').value = Date.now().toString();
+
+      // Anti-spam validation — returns error message or null if clean
+      function nlAntiSpam() {
+        var hp = document.getElementById('nl-hp').value;
+        if (hp) return 'bot-honeypot';
+        // Secondary honeypot: "website" field positioned off-screen
+        var hp2 = document.getElementById('nl-website').value;
+        if (hp2) return 'bot-honeypot-2';
+        // Timing check: reject if submitted within 3 seconds of page load
+        var ts = parseInt(document.getElementById('nl-ts').value, 10);
+        if (ts && (Date.now() - ts) < 3000) return 'bot-timing';
+        // Email pattern check: reject excessive dots in local part (spam pattern)
+        var email = document.getElementById('nl-email').value;
+        var local = email.split('@')[0] || '';
+        if ((local.match(/\./g) || []).length >= 4) return 'bot-email-pattern';
+        return null;
+      }
+    </script>
+    {% if newsletter.provider == 'sendy' %}
+    <script>
+      document.getElementById('newsletter-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var msg = document.getElementById('newsletter-msg');
+        var spamCheck = nlAntiSpam();
+        if (spamCheck) {
+          document.getElementById('newsletter-form').style.display = 'none';
+          msg.style.display = 'block';
+          {% if newsletter.doubleOptIn %}
+          msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+          {% else %}
+          msg.textContent = 'Successfully subscribed!';
+          {% endif %}
+          msg.className = 'newsletter-msg newsletter-success';
+          return;
+        }
+        var data = new FormData();
+        data.append('email', document.getElementById('nl-email').value);
+        data.append('name', document.getElementById('nl-name').value);
+        data.append('list', '{{ newsletter.listId }}');
+        data.append('api_key', '{{ newsletter.apiKey }}');
+        data.append('gdpr', document.getElementById('nl-gdpr').checked ? 'true' : '');
+        data.append('hp', document.getElementById('nl-hp').value);
+        data.append('subform', 'yes');
+        data.append('boolean', 'true');
+        {% if not newsletter.doubleOptIn %}
+        data.append('silent', 'true');
+        {% endif %}
+        fetch('{{ newsletter.actionUrl }}/subscribe', { method: 'POST', body: new URLSearchParams(data) })
+          .then(function(response) { return response.text(); })
+          .then(function(text) {
+            var result = text.trim();
+            if (result === '1' || result === 'true') {
+              document.getElementById('newsletter-form').style.display = 'none';
+              msg.style.display = 'block';
+              {% if newsletter.doubleOptIn %}
+              msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+              {% else %}
+              msg.textContent = 'Successfully subscribed!';
+              {% endif %}
+              msg.className = 'newsletter-msg newsletter-success';
+            } else if (result === 'Already subscribed.') {
+              msg.style.display = 'block';
+              msg.textContent = 'You are already subscribed to this list.';
+              msg.className = 'newsletter-msg newsletter-error';
+            } else if (result === 'Bounced email address.') {
+              msg.style.display = 'block';
+              msg.textContent = 'This email address has bounced previously. Please contact us at {{ labelEmail }} if you\'d like to re-subscribe.';
+              msg.className = 'newsletter-msg newsletter-error';
+            } else if (result === 'Email is suppressed.') {
+              msg.style.display = 'block';
+              msg.textContent = 'This email address has been suppressed. Please contact us at {{ labelEmail }} if you\'d like to re-subscribe.';
+              msg.className = 'newsletter-msg newsletter-error';
+            } else {
+              msg.style.display = 'block';
+              msg.textContent = result || 'Something went wrong. Please try again.';
+              msg.className = 'newsletter-msg newsletter-error';
+            }
+          })
+          .catch(function() {
+            msg.style.display = 'block';
+            msg.textContent = 'Something went wrong. Please try again.';
+            msg.className = 'newsletter-msg newsletter-error';
+          });
+      });
+    </script>
+    {% elif newsletter.provider == 'listmonk' %}
+    <script>
+      document.getElementById('newsletter-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var msg = document.getElementById('newsletter-msg');
+        var spamCheck = nlAntiSpam();
+        if (spamCheck) {
+          document.getElementById('newsletter-form').style.display = 'none';
+          msg.style.display = 'block';
+          {% if newsletter.doubleOptIn %}
+          msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+          {% else %}
+          msg.textContent = 'Successfully subscribed!';
+          {% endif %}
+          msg.className = 'newsletter-msg newsletter-success';
+          return;
+        }
+        var body = JSON.stringify({
+          email: document.getElementById('nl-email').value,
+          name: document.getElementById('nl-name').value,
+          list_uuids: ['{{ newsletter.listId }}']
+        });
+        fetch('{{ newsletter.actionUrl }}/api/public/subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: body
+        })
+          .then(function(response) {
+            if (response.ok) {
+              document.getElementById('newsletter-form').style.display = 'none';
+              msg.style.display = 'block';
+              {% if newsletter.doubleOptIn %}
+              msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+              {% else %}
+              msg.textContent = 'Successfully subscribed!';
+              {% endif %}
+              msg.className = 'newsletter-msg newsletter-success';
+            } else if (response.status === 409) {
+              msg.style.display = 'block';
+              msg.textContent = 'You are already subscribed to this list.';
+              msg.className = 'newsletter-msg newsletter-error';
+            } else {
+              response.json().then(function(data) {
+                msg.style.display = 'block';
+                msg.textContent = data.message || 'Something went wrong. Please try again.';
+                msg.className = 'newsletter-msg newsletter-error';
+              }).catch(function() {
+                msg.style.display = 'block';
+                msg.textContent = 'Something went wrong. Please try again.';
+                msg.className = 'newsletter-msg newsletter-error';
+              });
+            }
+          })
+          .catch(function() {
+            msg.style.display = 'block';
+            msg.textContent = 'Something went wrong. Please try again.';
+            msg.className = 'newsletter-msg newsletter-error';
+          });
+      });
+    </script>
+    {% elif newsletter.provider == 'keila' %}
+    <script>
+      document.getElementById('newsletter-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var msg = document.getElementById('newsletter-msg');
+        var spamCheck = nlAntiSpam();
+        if (spamCheck) {
+          document.getElementById('newsletter-form').style.display = 'none';
+          msg.style.display = 'block';
+          msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+          msg.className = 'newsletter-msg newsletter-success';
+          return;
+        }
+        var params = new URLSearchParams();
+        params.append('contact[email]', document.getElementById('nl-email').value);
+        var nlName = document.getElementById('nl-name').value.trim();
+        if (nlName) {
+          var parts = nlName.split(/\s+/);
+          params.append('contact[first_name]', parts[0]);
+          if (parts.length > 1) params.append('contact[last_name]', parts.slice(1).join(' '));
+        }
+        params.append('h[url]', '');
+        fetch('{{ newsletter.actionUrl }}/forms/{{ newsletter.formId }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString()
+        })
+          .then(function(response) {
+            if (response.ok) {
+              document.getElementById('newsletter-form').style.display = 'none';
+              msg.style.display = 'block';
+              msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+              msg.className = 'newsletter-msg newsletter-success';
+            } else {
+              msg.style.display = 'block';
+              msg.textContent = 'Something went wrong. Please try again.';
+              msg.className = 'newsletter-msg newsletter-error';
+            }
+          })
+          .catch(function() {
+            msg.style.display = 'block';
+            msg.textContent = 'Something went wrong. Please try again.';
+            msg.className = 'newsletter-msg newsletter-error';
+          });
+      });
+    </script>
+    {% endif %}
+  </div>
+{% endif %}

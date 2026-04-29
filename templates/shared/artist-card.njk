@@ -1,0 +1,25 @@
+{#
+  Artist card component for the homepage artist grid.
+  Expects: artist (with .slug, .name, .photo, .location, .topTags)
+           rootPath
+#}
+<a href="{{ rootPath }}artists/{{ artist.slug }}/" class="artist-card">
+  {% if artist.photo | isLocal %}
+    <picture>
+      <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+      <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
+      <img src="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo }}" alt="{{ artist.name }}" loading="lazy">
+    </picture>
+  {% elif artist.photo %}
+    <img src="{{ artist.photo }}" alt="{{ artist.name }}" loading="lazy">
+  {% else %}
+    <div class="artwork-placeholder"></div>
+  {% endif %}
+  <div class="card-body">
+    <span class="artist-name">{{ artist.name }}</span>
+    {% if artist.location %}<span class="artist-location">{{ artist.location }}</span>{% endif %}
+    {% if artist.topTags and artist.topTags.length %}
+      <span class="card-tags">{% for tag in artist.topTags %}{{ tag }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+    {% endif %}
+  </div>
+</a>

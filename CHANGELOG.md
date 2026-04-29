@@ -4,6 +4,34 @@
 
 ---
 
+### v4.11.0 — 2026-04-29
+
+**Template Theme System (LSG-137)**
+
+- Built-in theme system with three CSS themes: `standard` (light), `dark`, `bandcamp` (auto-colors from Bandcamp page)
+- Site mode selection via `SITE_MODE` env var: `label` (multi-artist roster) or `artist` (single band website)
+- Templates restructured into mode-specific directories: `templates/label/`, `templates/artist/`, `templates/shared/`
+- New `src/themeResolver.js` module for theme CSS resolution and color override generation
+- `DEFAULT_CSS` constant removed from `src/assets.js` — replaced by theme files in `templates/themes/`
+- Shared template partials extracted for reuse across modes (release-card, artist-card, event-row, streaming-links, physical-release, newsletter-form, meta-tags, nav-mobile)
+- Artist mode: homepage shows bio hero + discography + shows, album pages at `/releases/{slug}/`
+- Label mode: unchanged behavior, full backward compatibility
+- Custom CSS override (`content/global/style.css`) still takes absolute precedence over theme system
+- New env vars: `SITE_THEME`, `SITE_MODE`, `THEME_COLOR_BACKGROUND`, `THEME_COLOR_TEXT`, `THEME_COLOR_LINK`
+
+**Newsletter Spam Protection (LSG-139)**
+
+- Added secondary honeypot field with off-screen positioning against modern spam bots
+- Triple anti-spam: display:none honeypot + off-screen honeypot + timing check
+
+**Bandsintown Signup Form Theming**
+
+- Signup form colors now derive from active theme via template context variables
+- Configurable per-artist via `bandsintown.json` email_signup overrides
+- Button border radius configurable (default: 8px)
+
+---
+
 ### v4.10.0 - 2026-04-27
 
 **Combined release: Band account support, auto-logo, theme colors, CLI summary**

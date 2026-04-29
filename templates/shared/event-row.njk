@@ -1,0 +1,38 @@
+{#
+  Single event row component.
+  Expects: event (with .date, .name, .type, .venueName, .cityName, .countryName, .eventUrl)
+           rootPath
+  Optional: event.artistSlug, event.artistName (for label homepage with artist link)
+            event.source, event.offers (for RSVP/notify buttons on artist page)
+#}
+<div class="event-row">
+  <span class="event-date">{% if event.date %}{{ event.date | formatDate }}{% endif %}</span>
+  <span class="event-details">
+    {% if event.artistSlug %}
+      <a href="{{ rootPath }}artists/{{ event.artistSlug }}/" class="event-artist-link">{{ event.artistName }}</a>
+      <span class="event-separator">-</span>
+    {% endif %}
+    {% if event.name %}<span class="event-name{% if event.artistSlug %}-light{% endif %}">{{ event.name }}</span>{% endif %}
+    {% if event.type == 'festival' %}<span class="event-badge festival-badge">Festival</span>{% endif %}
+    {% if event.venueName and event.venueName != 'Unknown Venue' %}<span class="event-venue{% if not event.name and event.type != 'festival' %} event-venue-first{% endif %}">{{ event.venueName }}</span>{% elif event.venueName == 'Unknown Venue' %}<span class="event-venue{% if not event.name and event.type != 'festival' %} event-venue-first{% endif %}">Venue TBA</span>{% endif %}
+    {% if event.cityName or event.countryName %}
+      <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
+    {% endif %}
+    {% if event.eventUrl %}
+      <a href="{{ event.eventUrl }}" target="_blank" rel="noopener noreferrer" class="event-tickets"><i class="fa-solid fa-ticket"></i> Tickets</a>
+    {% endif %}
+    {% if event.source == 'bandsintown' and event.eventUrl %}
+      {% set hasAvailableOffer = false %}
+      {% for offer in event.offers %}
+        {% if offer.status == 'available' %}
+          {% set hasAvailableOffer = true %}
+        {% endif %}
+      {% endfor %}
+      {% if hasAvailableOffer %}
+        <a href="{{ event.eventUrl }}&trigger=rsvp_going" target="_blank" rel="noopener noreferrer" class="event-rsvp"><i class="fa-solid fa-calendar-check"></i> RSVP</a>
+      {% else %}
+        <a href="{{ event.eventUrl }}&trigger=notify_me" target="_blank" rel="noopener noreferrer" class="event-notify"><i class="fa-solid fa-bell"></i> Notify Me</a>
+      {% endif %}
+    {% endif %}
+  </span>
+</div>
