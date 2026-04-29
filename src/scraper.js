@@ -69,7 +69,7 @@ async function loadExtraArtistUrls (contentDir) {
  */
 async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') {
   let artistUrls
-  let siteMode = 'artist' // default, may be upgraded
+  let siteMode = process.env.SITE_MODE || 'label'
 
   // Step 1: Try API if credentials available
   if (apiCredentials && apiCredentials.clientId && apiCredentials.clientSecret) {
@@ -117,10 +117,6 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   if (allExtra.length > 0) {
     console.log(`Adding ${allExtra.length} extra artist(s)`)
     artistUrls = [...new Set([...artistUrls, ...allExtra])]
-    // Extra artists means this is a label, not a single band
-    if (siteMode === 'artist') {
-      siteMode = 'label'
-    }
   }
 
   console.log(`Found ${artistUrls.length} artist(s) total.`)
@@ -215,10 +211,12 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   }
 
   // ── Regroup albums by artist field (for band accounts acting as labels) ───
-  // When a single Bandcamp URL was scraped (band account, no /artists page),
+  // When the primary Bandcamp URL is a band account (not a label account with /artists page),
   // albums may belong to different artists. Regroup them by the album's artist field.
-  if (artists.length === 1 && artists[0].albums.length > 0) {
-    const singleArtist = artists[0]
+  // This applies to the FIRST artist only (extra artists from extra-artists.txt are separate accounts).
+  const primaryArtist = artists[0]
+  if (primaryArtist && primaryArtist.albums.length > 0) {
+    const singleArtist = primaryArtist
     const albumsByArtist = {}
     for (const album of singleArtist.albums) {
       const artistName = (album.artist || singleArtist.name || 'Unknown').trim()
@@ -231,11 +229,8 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     const uniqueArtists = Object.keys(albumsByArtist)
     if (uniqueArtists.length > 1) {
       console.log(`  Regrouping ${singleArtist.albums.length} album(s) into ${uniqueArtists.length} artist(s) (band account with multiple artists)`)
-      // Multiple artists detected on a band account - this is a label, upgrade siteMode
-      if (siteMode === 'artist') {
-        siteMode = 'label'
-        console.log('  Detected label with band account - upgrading to label mode (auto-logo, label template)')
-      }
+      // Replace the primary artist with the regrouped artists, keep extra artists
+      const extraArtists = artists.slice(1)
       artists.length = 0
       for (const [name, albums] of Object.entries(albumsByArtist)) {
         artists.push({
@@ -250,6 +245,8 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
         })
         console.log(`    ${name}: ${albums.length} album(s)`)
       }
+      // Re-add extra artists after the regrouped ones
+      artists.push(...extraArtists)
     }
   }
 
