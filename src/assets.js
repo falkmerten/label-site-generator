@@ -54,8 +54,19 @@ function downloadFile (url, destPath, maxRedirects = 5) {
 async function copyAssets (data, contentDir, outputDir) {
   await fs.mkdir(outputDir, { recursive: true })
 
-  // 1. Copy content/global/ to outputDir/
+  // 0. Check for template-bundled style.css (SITE_TEMPLATE takes priority)
   let hasStyleCss = false
+  const siteTemplate = process.env.SITE_TEMPLATE || ''
+  if (siteTemplate) {
+    const templateCssPath = path.join(__dirname, '..', 'templates', siteTemplate, 'style.css')
+    try {
+      await fs.access(templateCssPath)
+      await fs.copyFile(templateCssPath, path.join(outputDir, 'style.css'))
+      hasStyleCss = true
+    } catch { /* no template CSS, continue to content/global check */ }
+  }
+
+  // 1. Copy content/global/ to outputDir/
   const globalDir = path.join(contentDir, 'global')
 
   try {
