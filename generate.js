@@ -14,6 +14,8 @@ const { syncElasticStage } = require('./src/elasticstage');
 const { syncYouTube, resolveYouTubeHandles } = require('./src/youtube');
 const { readCache, writeCache, backupCache } = require('./src/cache');
 const { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary, formatAnalysisReport } = require('./src/importCsv');
+const { parseArgs: parseArgsV5 } = require('./src/cli');
+const { migrate } = require('./src/migrator');
 
 function printUsage() {
   console.log(`Usage: node generate.js [options]
@@ -238,7 +240,16 @@ async function deploy(outputDir) {
 
 const options = parseArgs(process.argv);
 
+// Also parse v5 CLI options for --migrate support
+const v5Options = parseArgsV5(process.argv);
+
 async function run() {
+  // v5 --migrate command
+  if (v5Options.command === 'migrate') {
+    await migrate(v5Options.contentDir, { force: v5Options.force })
+    return
+  }
+
   if (options.rollback) {
     const fsNode = require('fs/promises');
     const pathNode = require('path');

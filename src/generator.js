@@ -31,6 +31,19 @@ async function generate(options) {
   // Load unified config (config.json > legacy files > null for first run)
   const config = await loadConfig(contentDir);
 
+  // Startup validation: log success when config is valid
+  if (config) {
+    // Validate extra artists have bandcampUrl
+    if (config.artists) {
+      for (const [slug, artist] of Object.entries(config.artists)) {
+        if (artist.source === 'extra' && !artist.bandcampUrl) {
+          console.warn(`[warn] Extra artist "${slug}" is missing bandcampUrl`)
+        }
+      }
+    }
+    console.log('Configuration valid')
+  }
+
   // Site identity from config (with env var fallback for backward compat)
   const labelName = (config && config.site && config.site.name) ||
     process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site';
