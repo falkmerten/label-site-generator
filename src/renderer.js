@@ -109,9 +109,21 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     console.warn(`[renderer] Unknown SITE_MODE "${siteMode}", falling back to "label"`);
   }
   const effectiveMode = validModes.includes(siteMode) ? siteMode : 'label';
+
+  // Custom template: SITE_TEMPLATE overrides the mode-based template directory
+  // Falls back to mode-based templates for any missing files
+  const customTemplate = process.env.SITE_TEMPLATE || '';
   const modeDir = path.join(__dirname, '..', 'templates', effectiveMode);
   const sharedDir = path.join(__dirname, '..', 'templates', 'shared');
-  const env = nunjucks.configure([modeDir, sharedDir], { autoescape: true });
+
+  let searchPaths;
+  if (customTemplate) {
+    const customDir = path.join(__dirname, '..', 'templates', customTemplate);
+    searchPaths = [customDir, modeDir, sharedDir];
+  } else {
+    searchPaths = [modeDir, sharedDir];
+  }
+  const env = nunjucks.configure(searchPaths, { autoescape: true });
 
   // Custom filter: check if a URL is a local file (not http/https)
   env.addFilter('isLocal', (url) => url && !url.startsWith('http'));
