@@ -155,8 +155,12 @@ async function generate(options) {
     mergedData._labelProfileImage = rawData.labelProfileImage
   }
 
-  // Pass siteMode through for template resolution
-  const siteMode = process.env.SITE_MODE || 'label'
+  // Pass siteMode through for template resolution — SITE_MODE is mandatory
+  const siteMode = process.env.SITE_MODE
+  if (!siteMode || !['label', 'artist'].includes(siteMode)) {
+    console.error('[error] SITE_MODE is required. Set SITE_MODE=label or SITE_MODE=artist in your .env file.')
+    process.exit(1)
+  }
   mergedData._siteMode = siteMode
 
   // Pass theme colors through for CSS variable overrides in copyAssets
