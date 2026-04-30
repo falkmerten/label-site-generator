@@ -71,7 +71,7 @@ async function generate(options) {
   }
 
   if (!process.env.BANDCAMP_CLIENT_ID || !process.env.BANDCAMP_CLIENT_SECRET) {
-    console.warn('[warn] BANDCAMP_CLIENT_ID/SECRET not set - falling back to HTML scraping (slower, less reliable)');
+    console.warn('[warn] BANDCAMP_CLIENT_ID/SECRET not set - falling back to HTML scraping (may miss hidden artists)');
   }
   if (!process.env.SITE_URL) {
     console.warn('[warn] SITE_URL not set - canonical URLs, sitemap, and OG tags will be incomplete');
@@ -123,6 +123,89 @@ async function generate(options) {
 
   // Step 4: Load content overrides
   console.log('Loading content overrides...');
+
+  // Step 3c: Auto-detect Bandcamp Digital Catalog CSV and backfill UPC/ISRC
+  const catalogCsvFiles = []
+  try {
+    const contentEntries = await fs.readdir(contentDir)
+    for (const f of contentEntries) {
+      if (f.endsWith('_digital.csv')) catalogCsvFiles.push(f)
+    }
+  } catch { /* content dir may not exist yet */ }
+  // Also check assets/ directory
+  try {
+    const assetEntries = await fs.readdir('assets')
+    for (const f of assetEntries) {
+      if (f.endsWith('_digital.csv')) catalogCsvFiles.push(path.join('..', 'assets', f))
+    }
+  } catch { /* */ }
+
+  if (catalogCsvFiles.length > 0) {
+    // Use the most recent file (sorted by name = sorted by date prefix)
+    const csvFile = catalogCsvFiles.sort().pop()
+    const csvPath = catalogCsvFiles[0].startsWith('..') ? path.join('assets', path.basename(csvFile)) : path.join(contentDir, csvFile)
+    try {
+      const csvText = await fs.readFile(csvPath, 'utf8')
+      const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean)
+      if (lines.length > 1) {
+        const headers = lines[0].split(',')
+        const idIdx = headers.indexOf('id')
+        const upcIdx = headers.indexOf('upc')
+        const isrcIdx = headers.indexOf('isrc')
+        const catIdx = headers.indexOf('catalog_number')
+        const typeIdx = headers.indexOf('type')
+
+        if (idIdx >= 0) {
+          let filled = 0
+          const csvById = new Map()
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',')
+            if (cols[typeIdx] === 'album' && cols[idIdx]) {
+              csvById.set(cols[idIdx], {
+                upc: upcIdx >= 0 ? cols[upcIdx] : null,
+                isrc: isrcIdx >= 0 ? cols[isrcIdx] : null,
+                catalogNumber: catIdx >= 0 ? cols[catIdx] : null
+              })
+            }
+          }
+
+          // Match by Bandcamp album ID
+          for (const artist of rawData.artists || []) {
+            for (const album of artist.albums || []) {
+              const bcId = album.raw && album.raw.current && String(album.raw.current.id)
+              if (!bcId) continue
+              const csvEntry = csvById.get(bcId)
+              if (csvEntry) {
+                if (csvEntry.upc && !album.upc) { album.upc = csvEntry.upc; filled++ }
+                if (csvEntry.catalogNumber && !album.catalogNumber) album.catalogNumber = csvEntry.catalogNumber
+              }
+            }
+          }
+
+          // Also backfill ISRCs from track rows
+          const isrcById = new Map()
+          for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(',')
+            if (cols[typeIdx] === 'album_track' && cols[idIdx] && cols[isrcIdx]) {
+              isrcById.set(cols[idIdx], cols[isrcIdx])
+            }
+          }
+
+          if (filled > 0) {
+            console.log(`Catalog CSV: Filled ${filled} UPC(s) from ${path.basename(csvPath)}`)
+            await writeCache(cachePath, rawData)
+          } else {
+            console.log(`Catalog CSV: ${path.basename(csvPath)} loaded (no new UPCs to fill)`)
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[warn] Could not parse catalog CSV: ${err.message}`)
+    }
+  } else if (!rawData._catalogCsvChecked) {
+    console.log('Tip: Export your Bandcamp Digital Catalog Report to content/ for reliable UPC/ISRC matching.')
+    rawData._catalogCsvChecked = true
+  }
   const content = await loadContent(contentDir);
 
   // Step 4b: Load upcoming releases — announce/preview tier (always runs, no scraping)
@@ -250,6 +333,18 @@ async function generate(options) {
         )
       }
     }
+
+    // Check for artists in config.json that are not in the cache (manually added)
+    const cachedSlugs = new Set(mergedData.artists.map(a => a.slug))
+    const missingFromCache = Object.entries(config.artists)
+      .filter(([slug, a]) => a.enabled !== false && a.exclude !== true && !cachedSlugs.has(slug) && slug !== 'various-artists')
+    if (missingFromCache.length > 0) {
+      console.warn(`[warn] ${missingFromCache.length} artist(s) in config.json not found in cache:`)
+      for (const [slug, a] of missingFromCache) {
+        const hint = a.bandcampUrl ? '→ run --update to scrape' : '→ add bandcampUrl to config.json'
+        console.warn(`  · ${a.name || slug} (${hint})`)
+      }
+    }
   }
 
   // Step 6b: Fetch Bandsintown data (build-time, not cached)
@@ -301,7 +396,10 @@ async function generate(options) {
     try { await fs.access(path.join('assets', 'logo-round.png')); hasCustomLogo = true; } catch { /* */ }
   }
 
-  const hasNewsletter = !!(process.env.NEWSLETTER_PROVIDER || process.env.NEWSLETTER_ACTION_URL);
+  const hasNewsletter = !!(
+    (config && config.newsletter && config.newsletter.provider) ||
+    process.env.NEWSLETTER_PROVIDER || process.env.NEWSLETTER_ACTION_URL
+  );
   const hasEnrichment = !!(process.env.SOUNDCHARTS_APP_ID || process.env.SPOTIFY_CLIENT_ID);
   const hasDeploy = !!process.env.AWS_S3_BUCKET;
 
@@ -333,16 +431,22 @@ async function generate(options) {
   }
 
   // Config warnings
-  if (!hasNewsletter) console.log('Newsletter: Not configured (set NEWSLETTER_PROVIDER in .env)');
-  if (!hasEnrichment) console.log('Enrichment: Not configured (set SOUNDCHARTS_APP_ID or SPOTIFY_CLIENT_ID in .env)');
+  const currentTheme = (config && config.site && config.site.theme) || process.env.SITE_THEME || 'standard'
+  console.log(`Theme: ${currentTheme} (change site.theme in config.json — available: standard, dark, bandcamp)`)
+  if (!hasNewsletter) console.log('Newsletter: Not configured (set newsletter.provider in config.json)');
+  if (!hasEnrichment) console.log('Enrichment: Not configured (set SPOTIFY_CLIENT_ID in .env)');
   if (!hasDeploy) console.log('Deploy: Not configured (set AWS_S3_BUCKET in .env)');
 
   console.log(`Generated ${pageCount} pages to ${outputDir}`);
 
   // Suggest next steps
+  const hasSoundcharts = !!(process.env.SOUNDCHARTS_APP_ID && process.env.SOUNDCHARTS_API_KEY);
   if (!hasEnrichment) {
-    console.log('\nTip: Run with --update to add streaming links (requires Spotify or Soundcharts API credentials).');
-    console.log('     Soundcharts is recommended (fewer API calls, more platforms). See wiki for setup.');
+    console.log('\nTip: Run with --enrich to add streaming links (requires Spotify API credentials).');
+    console.log('     For full metadata (UPC, labels, all platforms), configure Soundcharts — see API-SETUP.md.');
+  } else if (!hasSoundcharts) {
+    console.log('\nTip: For full metadata (UPC, labels, all platforms), configure Soundcharts API.');
+    console.log('     Soundcharts is recommended over Spotify-only enrichment. See API-SETUP.md.');
   }
 
   // Report execution time

@@ -99,7 +99,7 @@ async function copyAssets (data, contentDir, outputDir) {
   }
 
   // 3. Copy brand assets (logo, banner, placeholder, favicons) from ./assets/
-  const brandAssets = ['logo-round.png', 'banner.jpg', 'artwork-placeholder.svg', 'favicon.ico', 'favicon-96x96.png', 'favicon.svg', 'apple-touch-icon.png', 'site.webmanifest', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png']
+  const brandAssets = ['logo-round.png', 'banner.jpg', 'artwork-placeholder.svg', 'artist-placeholder.svg', 'favicon.ico', 'favicon-96x96.png', 'favicon.svg', 'apple-touch-icon.png', 'site.webmanifest', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png']
   for (const file of brandAssets) {
     const src = path.join('assets', file)
     const dest = path.join(outputDir, file)

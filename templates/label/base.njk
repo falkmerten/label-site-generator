@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="content-language" content="en">
   <title>{% block title %}{{ labelName }}{% endblock %}</title>
 
   {# Canonical URL #}
@@ -18,7 +19,8 @@
   <meta property="og:description" content="{% block ogDescription %}{{ labelName }} — independent music label.{% endblock %}">
   {% if canonicalUrl %}<meta property="og:url" content="{{ canonicalUrl }}">{% endif %}
   {% block ogImage %}
-    {% if siteUrl %}<meta property="og:image" content="{{ siteUrl }}banner.jpg">{% endif %}
+    {% if siteUrl and hasBanner %}<meta property="og:image" content="{{ siteUrl }}banner.jpg">
+    {% elif siteUrl %}<meta property="og:image" content="{{ siteUrl }}logo-round.png">{% endif %}
   {% endblock %}
 
   {# Twitter Card #}
@@ -26,7 +28,8 @@
   <meta name="twitter:title" content="{% block twitterTitle %}{{ labelName }}{% endblock %}">
   <meta name="twitter:description" content="{% block twitterDescription %}{{ labelName }} — independent music label.{% endblock %}">
   {% block twitterImage %}
-    {% if siteUrl %}<meta name="twitter:image" content="{{ siteUrl }}banner.jpg">{% endif %}
+    {% if siteUrl and hasBanner %}<meta name="twitter:image" content="{{ siteUrl }}banner.jpg">
+    {% elif siteUrl %}<meta name="twitter:image" content="{{ siteUrl }}logo-round.png">{% endif %}
   {% endblock %}
 
   {# JSON-LD structured data #}
@@ -56,7 +59,7 @@
 
   <!-- Banner + overlapping logo hero -->
   {% block hero %}
-  <div class="site-hero">
+  <div class="site-hero{% if not hasBanner %} artist-hero{% endif %}" {% if not hasBanner %}style="--artist-photo: url('{{ rootPath }}logo-round.png')"{% endif %}>
     {% if hasBanner %}
     <picture>
       <source srcset="{{ rootPath }}banner-mobile.webp" media="(max-width: 640px)" type="image/webp">
@@ -65,7 +68,9 @@
       <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner" fetchpriority="high">
     </picture>
     {% else %}
-    <div class="site-hero-banner" style="background: var(--brand-dark);"></div>
+    <div class="artist-hero-bg-clip">
+      <div class="artist-hero-bg"></div>
+    </div>
     {% endif %}
     {% if hasLogo %}
     <a href="{{ rootPath }}">
@@ -104,7 +109,7 @@
     </div>
   </header>
 
-  <!-- Spacer so content clears the overlapping logo -->
+  <!-- Spacer so content clears the overlapping logo (hidden when no-photo hero is used) -->
   <div class="hero-spacer"></div>
 
   <main>

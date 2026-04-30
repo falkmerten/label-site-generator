@@ -71,37 +71,77 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   let artistUrls
   let siteMode = process.env.SITE_MODE || 'label'
 
-  // Step 1: Try API if credentials available
-  if (apiCredentials && apiCredentials.clientId && apiCredentials.clientSecret) {
-    try {
-      artistUrls = await getLabelArtistUrls(apiCredentials.clientId, apiCredentials.clientSecret)
-      if (artistUrls && artistUrls.length > 0) {
-        siteMode = 'label'
-        console.log(`Bandcamp API: found ${artistUrls.length} artist(s) (label account)`)
-      }
-    } catch (err) {
-      console.warn(`  API roster fetch failed (${err.message}), falling back to scraping...`)
-      artistUrls = null
+  // ── Config-aware mode: if config.json exists, use it as source of truth ───
+  let configDriven = false
+  try {
+    const configPath = path.join(contentDir, 'config.json')
+    const configText = await fs.readFile(configPath, 'utf8')
+    const config = JSON.parse(configText)
+
+    if (config.site && config.site.mode) {
+      siteMode = config.site.mode
     }
+
+    // Build artist URL list from config.json (artists with bandcampUrl)
+    if (config.artists) {
+      const configUrls = []
+      for (const [slug, artist] of Object.entries(config.artists)) {
+        if (artist.enabled === false || artist.exclude === true) continue
+        if (artist.bandcampUrl) {
+          configUrls.push(cleanUrl(artist.bandcampUrl))
+        }
+      }
+
+      if (configUrls.length > 0 || siteMode === 'label') {
+        configDriven = true
+        // Start with the label URL (for regrouped artists without own page)
+        artistUrls = [labelUrl.replace(/\/+$/, '')]
+        // Add all config artists with their own URLs
+        for (const url of configUrls) {
+          if (!artistUrls.some(u => u.replace(/\/+$/, '') === url.replace(/\/+$/, ''))) {
+            artistUrls.push(url)
+          }
+        }
+        console.log(`Config-driven scrape (${siteMode} mode, ${artistUrls.length} source(s))`)
+      }
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.warn(`[scraper] Could not read config.json:`, err.message)
   }
 
-  // Step 2: Try /artists page (label account detection)
-  if (!artistUrls) {
-    console.log(`Detecting Bandcamp account type for ${labelUrl}...`)
-    try {
-      const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
-      artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
-      if (artistUrls.length > 0) {
-        siteMode = 'label'
-        console.log(`  Label account detected (${artistUrls.length} artist(s) on /artists page)`)
+  // ── Legacy mode: no config.json, detect account type ──────────────────────
+  if (!configDriven) {
+    // Step 1: Try API if credentials available
+    if (apiCredentials && apiCredentials.clientId && apiCredentials.clientSecret) {
+      try {
+        artistUrls = await getLabelArtistUrls(apiCredentials.clientId, apiCredentials.clientSecret)
+        if (artistUrls && artistUrls.length > 0) {
+          siteMode = 'label'
+          console.log(`Bandcamp API: found ${artistUrls.length} artist(s) (label account)`)
+        }
+      } catch (err) {
+        console.warn(`  API roster fetch failed (${err.message}), falling back to scraping...`)
+        artistUrls = null
       }
-    } catch (err) {
-      if (err.message && err.message.includes('404')) {
-        // No /artists page - artist/band account
-        console.log('  Artist/band account detected (no /artists page)')
-        artistUrls = [labelUrl.replace(/\/+$/, '')]
-      } else {
-        throw err
+    }
+
+    // Step 2: Try /artists page (label account detection)
+    if (!artistUrls) {
+      console.log(`Detecting Bandcamp account type for ${labelUrl}...`)
+      try {
+        const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
+        artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
+        if (artistUrls.length > 0) {
+          siteMode = 'label'
+          console.log(`  Label account detected (${artistUrls.length} artist(s) on /artists page)`)
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('404')) {
+          console.log('  Artist/band account detected (no /artists page)')
+          artistUrls = [labelUrl.replace(/\/+$/, '')]
+        } else {
+          throw err
+        }
       }
     }
   }
@@ -115,7 +155,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     .map(cleanUrl)
   const allExtra = [...new Set([...extraUrls, ...envExtra])]
   if (allExtra.length > 0) {
-    console.log(`Adding ${allExtra.length} extra artist(s)`)
+    console.log(`Adding ${allExtra.length} extra artist(s) from extra-artists.txt`)
     artistUrls = [...new Set([...artistUrls, ...allExtra])]
   }
 
@@ -177,6 +217,8 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
       }
 
       if (albumInfo) {
+        // Extract UPC from Bandcamp data if available (no API call needed)
+        const rawUpc = albumInfo.raw && albumInfo.raw.current && albumInfo.raw.current.upc
         albums.push({
           url: albumUrl,
           title: albumInfo.title,
@@ -184,7 +226,8 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
           imageUrl: albumInfo.imageUrl,
           tracks: albumInfo.tracks,
           tags: albumInfo.tags,
-          raw: albumInfo.raw
+          raw: albumInfo.raw,
+          upc: rawUpc || null
         })
       }
     }
@@ -231,29 +274,41 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   const primaryArtist = artists[0]
   if (primaryArtist && primaryArtist.albums.length > 0) {
     const singleArtist = primaryArtist
-    const albumsByArtist = {}
+    // Group albums by normalized artist name (handles "Amáutica" vs "AMAUTICA" as same artist)
+    const normalizeKey = s => s.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    const albumsByKey = {}       // normalized key → albums[]
+    const bestNameByKey = {}     // normalized key → best display name (prefer accents + mixed case)
     for (const album of singleArtist.albums) {
       const artistName = (album.artist || singleArtist.name || 'Unknown').trim()
-      if (!albumsByArtist[artistName]) {
-        albumsByArtist[artistName] = []
+      const key = normalizeKey(artistName)
+      if (!albumsByKey[key]) {
+        albumsByKey[key] = []
+        bestNameByKey[key] = artistName
       }
-      albumsByArtist[artistName].push(album)
+      albumsByKey[key].push(album)
+      // Prefer name with accents/mixed case over ALL CAPS
+      if (artistName !== artistName.toUpperCase() && bestNameByKey[key] === bestNameByKey[key].toUpperCase()) {
+        bestNameByKey[key] = artistName
+      }
     }
 
-    const uniqueArtists = Object.keys(albumsByArtist)
-    if (uniqueArtists.length > 1) {
-      console.log(`  Regrouping ${singleArtist.albums.length} album(s) into ${uniqueArtists.length} artist(s) (band account with multiple artists)`)
+    const uniqueKeys = Object.keys(albumsByKey)
+    if (uniqueKeys.length > 1) {
+      console.log(`  Regrouping ${singleArtist.albums.length} album(s) into ${uniqueKeys.length} artist(s) (band account with multiple artists)`)
       // Replace the primary artist with the regrouped artists, keep extra artists
       const extraArtists = artists.slice(1)
       artists.length = 0
-      for (const [name, albums] of Object.entries(albumsByArtist)) {
+      for (const key of uniqueKeys) {
+        const name = bestNameByKey[key]
+        const albums = albumsByKey[key]
+        const isSameAsPrimary = normalizeKey(singleArtist.name) === key
         artists.push({
           url: singleArtist.url,
           name,
-          location: name === singleArtist.name ? singleArtist.location : null,
-          description: name === singleArtist.name ? singleArtist.description : '',
-          coverImage: name === singleArtist.name ? singleArtist.coverImage : null,
-          bandLinks: name === singleArtist.name ? singleArtist.bandLinks : [],
+          location: isSameAsPrimary ? singleArtist.location : null,
+          description: isSameAsPrimary ? singleArtist.description : '',
+          coverImage: isSameAsPrimary ? singleArtist.coverImage : null,
+          bandLinks: isSameAsPrimary ? singleArtist.bandLinks : [],
           streamingLinks: undefined,
           albums
         })
@@ -265,12 +320,26 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   }
 
   // ── Deduplicate artists by name (regrouped + extra may overlap) ───────────
+  // Use Unicode-normalized key so "Amáutica" and "AMAUTICA" match
   const artistsByName = new Map()
   for (const artist of artists) {
     const key = artist.name.toLowerCase().trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     if (artistsByName.has(key)) {
       // Merge: keep the one with more data, combine albums
       const existing = artistsByName.get(key)
+      // Prefer the name from the artist profile (has accents, proper casing)
+      // Heuristic: name with diacritics wins; mixed case wins over ALL CAPS
+      const existingNorm = existing.name.normalize('NFD')
+      const incomingNorm = artist.name.normalize('NFD')
+      const existingHasDiacritics = /[\u0300-\u036f]/.test(existingNorm)
+      const incomingHasDiacritics = /[\u0300-\u036f]/.test(incomingNorm)
+      if (incomingHasDiacritics && !existingHasDiacritics) {
+        existing.name = artist.name
+      } else if (!existingHasDiacritics && !incomingHasDiacritics &&
+                 artist.name !== artist.name.toUpperCase() && existing.name === existing.name.toUpperCase()) {
+        existing.name = artist.name
+      }
       // Prefer the extra artist's URL (it's their own Bandcamp page)
       if (artist.url && artist.url !== existing.url && !artist.url.includes(labelUrl)) {
         existing.url = artist.url
@@ -282,10 +351,13 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
       if (artist.bandLinks && artist.bandLinks.length > 0 && (!existing.bandLinks || existing.bandLinks.length === 0)) {
         existing.bandLinks = artist.bandLinks
       }
-      // Merge albums (deduplicate by title)
-      const existingTitles = new Set((existing.albums || []).map(a => a.title.toLowerCase().trim()))
+      // Merge albums (deduplicate by title, Unicode-normalized)
+      const existingTitles = new Set((existing.albums || []).map(a =>
+        a.title.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      ))
       for (const album of artist.albums || []) {
-        if (!existingTitles.has(album.title.toLowerCase().trim())) {
+        const normalizedTitle = album.title.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        if (!existingTitles.has(normalizedTitle)) {
           existing.albums.push(album)
         }
       }
@@ -331,6 +403,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
 
               if (isCompilation) {
                 console.log(`  → Compilation: "${albumInfo.title}" (${albumUrl})`)
+                const compUpc = albumInfo.raw && albumInfo.raw.current && albumInfo.raw.current.upc
                 compilationAlbums.push({
                   url: albumUrl,
                   title: albumInfo.title,
@@ -338,7 +411,8 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
                   imageUrl: albumInfo.imageUrl,
                   tracks: albumInfo.tracks,
                   tags: albumInfo.tags,
-                  raw: albumInfo.raw
+                  raw: albumInfo.raw,
+                  upc: compUpc || null
                 })
               } else {
                 // Not a compilation — it's a regular album by a specific artist

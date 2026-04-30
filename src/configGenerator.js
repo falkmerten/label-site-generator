@@ -49,7 +49,12 @@ async function generateConfig (rawData, env, contentDir = './content') {
     const slug = toSlug(name)
     if (!slug) continue
 
-    const bandcampUrl = artist.url || artist.bandcampUrl || null
+    // Only set bandcampUrl if the artist has their own Bandcamp page
+    // (not the label URL which is shared by all regrouped artists)
+    const artistUrl = artist.url || artist.bandcampUrl || null
+    const labelOrigin = (env.BANDCAMP_URL || '').replace(/\/+$/, '')
+    const isOwnPage = artistUrl && labelOrigin && !artistUrl.replace(/\/+$/, '').includes(labelOrigin.replace('https://', ''))
+      ? artistUrl : null
 
     artists[slug] = {
       name,
@@ -57,11 +62,11 @@ async function generateConfig (rawData, env, contentDir = './content') {
       source: 'bandcamp',
       exclude: false,
       excludeAlbums: [],
-      bandcampUrl: bandcampUrl,
+      bandcampUrl: isOwnPage,
       links: {
         spotify: null,
         soundcharts: null,
-        bandcamp: bandcampUrl,
+        bandcamp: isOwnPage,
         youtube: null,
         instagram: null,
         facebook: null,
@@ -90,15 +95,19 @@ async function generateConfig (rawData, env, contentDir = './content') {
   // Determine site mode
   const siteMode = rawData._siteMode || 'label'
 
+  // Determine theme: SITE_THEME env > 'standard'
+  const siteTheme = env.SITE_THEME || 'standard'
+
   const config = {
     site: {
       name: siteName,
       url: siteUrl,
       mode: siteMode,
-      theme: 'standard',
-      template: null,
+      theme: siteTheme,
+      template: env.SITE_TEMPLATE || null,
       source: 'bandcamp',
-      sourceUrl: env.BANDCAMP_URL || ''
+      sourceUrl: env.BANDCAMP_URL || '',
+      discogsUrl: null
     },
     artists,
     compilations: compilationSlugs,

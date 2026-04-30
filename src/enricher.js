@@ -5,7 +5,7 @@ const path = require('path')
 const https = require('https')
 const http = require('http')
 const { readCache, writeCache } = require('./cache')
-const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify, fetchAlbumTrackIsrcs, getArtistImageUrl } = require('./spotify')
+const { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAccessToken, fetchArtistAlbums, fetchArtistAlbumLinks, enrichSpotifyOnlyAlbums, searchAlbum: searchAlbumSpotify, fetchAlbumTrackIsrcs, getArtistImageUrl } = require('./spotify')
 const { enrichAlbumsWithItunes } = require('./itunes')
 const { enrichAlbumsWithDeezer } = require('./deezer')
 const { enrichAlbumsWithTidal, enrichArtistWithTidal } = require('./tidal')
@@ -599,6 +599,70 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
  * @param {Array} bandcampAlbums - current artist.albums from cache
  * @returns {Array} new album list
  */
+
+/**
+ * Lightweight link-only matching: assigns Spotify URLs to existing Bandcamp albums.
+ * Does NOT add new albums, does NOT fetch UPC/metadata, does NOT modify album list structure.
+ * Used for first-run enrichment where we only need streaming links.
+ *
+ * Title matching uses Unicode normalization, strips brackets/suffixes, and handles
+ * common variations (feat., remix, single, EP suffixes).
+ *
+ * @param {Array} spotifyAlbumLinks - from fetchArtistAlbumLinks [{title, spotifyUrl, albumType, releaseDate}]
+ * @param {Array} bandcampAlbums - current artist.albums from cache
+ * @returns {{matched: number, unmatched: string[]}} stats
+ */
+function matchSpotifyLinksToAlbums (spotifyAlbumLinks, bandcampAlbums) {
+  // Robust normalisation: Unicode NFD + strip diacritics + strip zero-width + lowercase + strip non-alnum
+  const normalise = s => (s || '')
+    .replace(/[\u200b\u200c\u200d\ufeff]/g, '') // zero-width chars
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // diacritics
+    .toLowerCase()
+    .replace(/\s*\[\d{2,4}\]\s*/g, ' ') // strip [23], [2023] year suffixes
+    .replace(/\s*\(single\s*(version)?\)\s*/gi, '') // strip (Single Version)
+    .replace(/\s*[-–—]\s*single\s*$/i, '') // strip "- Single" suffix
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, '')
+
+  // Build lookup from Spotify albums
+  const spotifyByNorm = new Map()
+  for (const sa of spotifyAlbumLinks) {
+    const key = normalise(sa.title)
+    if (!spotifyByNorm.has(key)) spotifyByNorm.set(key, sa)
+  }
+
+  let matched = 0
+  const unmatched = []
+
+  for (const album of bandcampAlbums) {
+    // Skip if already has Spotify link
+    if (album.streamingLinks && album.streamingLinks.spotify) {
+      matched++
+      continue
+    }
+
+    const bcNorm = normalise(album.title)
+    const sa = spotifyByNorm.get(bcNorm)
+
+    if (sa) {
+      album.streamingLinks = album.streamingLinks || {}
+      album.streamingLinks.spotify = sa.spotifyUrl
+      if (sa.releaseDate && !album.releaseDate) {
+        album.releaseDate = sa.releaseDate
+      }
+      matched++
+      console.log(`    ✓ Link: "${album.title}" → ${sa.spotifyUrl}`)
+      // Remove from map so it's not matched again (handles duplicates)
+      spotifyByNorm.delete(bcNorm)
+    } else {
+      unmatched.push(album.title)
+    }
+  }
+
+  return { matched, unmatched }
+}
+
 function buildAlbumListFromSpotify (spotifyAlbums, bandcampAlbums, artistName) {
   const normalise = s => s.toLowerCase().replace(/[^a-z0-9]/g, '')
   const { toSlug } = require('./slugs')
@@ -1346,144 +1410,110 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         console.log('  → Soundcharts disabled mid-run, using legacy enrichment path')
       }
 
-      // ── Step 1: Spotify ─────────────────────────────────────────────────────
+      // ── Step 1: Spotify (lightweight — links only, no metadata) ──────────────
       if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled && !isCompilationArtist) {
         try {
 
-        // 1a. Artist-level Spotify URL
-        if (!(artist.streamingLinks && artist.streamingLinks.spotify)) {
-          if (config.spotifyArtistUrl) {
+        // 1a. Resolve artist Spotify URL (from config or search)
+        let artistSpotifyUrl = config.spotifyArtistUrl ||
+          (artist.streamingLinks && artist.streamingLinks.spotify)
+
+        if (!artistSpotifyUrl) {
+          const { searchArtist } = require('./spotify')
+          await delay(600)
+          const foundUrl = await searchArtist(spotifyToken, artist.name)
+          if (foundUrl) {
             artist.streamingLinks = artist.streamingLinks || {}
-            artist.streamingLinks.spotify = config.spotifyArtistUrl
-            console.log(`  ✓ Spotify artist (config): ${config.spotifyArtistUrl}`)
+            artist.streamingLinks.spotify = foundUrl
+            artistSpotifyUrl = foundUrl
+            console.log(`  ✓ Spotify artist: ${foundUrl}`)
           } else {
-            await enrichArtistWithSpotify(artist, spotifyClientId, spotifyClientSecret)
+            console.log(`  ✗ No Spotify artist found for "${artist.name}"`)
           }
         }
 
-        // 1b. Album Spotify URLs + UPCs via artist page
-        const artistSpotifyUrl = config.spotifyArtistUrl ||
-          (artist.streamingLinks && artist.streamingLinks.spotify)
-
-        // ── v5 write-back: save discovered Spotify URL to config.json ──────
+        // v5 write-back: save discovered Spotify URL to config.json
         if (v5Config && v5ArtistConfig && artistSpotifyUrl && !configSpotifyUrl) {
           if (!v5ArtistConfig.links) v5ArtistConfig.links = {}
           if (!v5ArtistConfig.links.spotify) {
             v5ArtistConfig.links.spotify = artistSpotifyUrl
             configDirty = true
-            console.log(`  ✓ Saved Spotify URL to config.json for "${artist.name}"`)
+            console.log(`  ✓ Saved Spotify URL to config.json`)
           }
         }
 
-        // 1b-pre. Fetch artist image from Spotify if no local photo exists
-        if (artistSpotifyUrl && spotifyToken && !artist._spotifyImageUrl) {
+        // 1b. Fetch artist image from Spotify if no local photo
+        if (artistSpotifyUrl && !artist._spotifyImageUrl) {
           try {
-            const imgUrl = await withRateLimit('spotify', () => getArtistImageUrl(spotifyToken, artistSpotifyUrl), artist.name)
-            if (imgUrl) {
-              artist._spotifyImageUrl = imgUrl
-            }
+            await delay(600)
+            const imgUrl = await getArtistImageUrl(spotifyToken, artistSpotifyUrl)
+            if (imgUrl) artist._spotifyImageUrl = imgUrl
           } catch { /* non-fatal */ }
         }
 
+        // 1c. Fetch album links (lightweight — only titles + URLs, no UPC/label)
         if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
-          try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
-          console.log(`  → Spotify artist page fetch (rebuilding album list)...`)
-          const spotifyAlbums = await withRateLimit('spotify', () => fetchArtistAlbums(spotifyToken, artistSpotifyUrl), artist.name)
-          if (spotifyAlbums && spotifyAlbums.length > 0) {
-            artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
-          }
+          console.log(`  → Fetching Spotify album links...`)
+          const spotifyAlbumLinks = await fetchArtistAlbumLinks(spotifyToken, artistSpotifyUrl)
 
-          // Early label filter: remove Spotify-only albums from other labels
-          // before expensive metadata/ISRC/gap-fill calls (saves API calls)
-          if (!includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
-            const { kept, removed } = filterSpotifyOnlyByLabel(artist.albums || [], ownLabelNames)
-            if (removed > 0) {
-              artist.albums = kept
-              console.log(`  → Filtered ${removed} Spotify-only album(s) from other labels (early)`)
+          if (spotifyAlbumLinks && spotifyAlbumLinks.length > 0) {
+            // Match Spotify links to existing Bandcamp albums (no new albums added)
+            const { matched, unmatched } = matchSpotifyLinksToAlbums(spotifyAlbumLinks, artist.albums || [])
+            console.log(`  ✓ Matched ${matched} album(s), ${unmatched.length} without Spotify match`)
+            if (unmatched.length > 0 && unmatched.length <= 5) {
+              for (const t of unmatched) console.log(`    · No match: "${t}"`)
             }
+          } else {
+            console.log(`  ✗ No albums found on Spotify artist page`)
           }
-
-          // Fallback: searchAlbum for Bandcamp albums that didn't match any Spotify album
-          const unmatchedBcLegacy = (artist.albums || []).filter(a =>
-            a.url && (!a.streamingLinks || !a.streamingLinks.spotify) && albumBelongsToArtist(a, artist.name)
-          )
-          if (unmatchedBcLegacy.length > 0) {
-            console.log(`  → Spotify search fallback for ${unmatchedBcLegacy.length} unmatched album(s)...`)
-            let found = 0
-            for (const album of unmatchedBcLegacy) {
-              try {
-                const result = await withRateLimit('spotify', () => searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type)), album.title)
-                if (result) {
-                  album.streamingLinks = album.streamingLinks || {}
-                  album.streamingLinks.spotify = result.spotifyUrl
-                  if (result.upc && !album.upc) album.upc = result.upc
-                  found++
-                  console.log(`    ✓ Search match: "${album.title}" → ${result.spotifyUrl}`)
-                }
-              } catch (err) {
-                if (err.statusCode === 429) {
-                  fallbackState.spotifyDisabled = true
-                  console.warn(`  ⚠ Spotify rate limited during search fallback. Disabling.`)
-                  break
-                }
-                console.warn(`    ⚠ Search failed for "${album.title}": ${err.message}`)
-              }
-            }
-            if (found > 0) console.log(`  ✓ Found ${found} album(s) via search fallback`)
-          }
-        }
-
-        // 1c. Fetch full metadata from Spotify for Spotify-only albums
-        if (spotifyToken) {
-          const spotifyOnly = (artist.albums || []).filter(al => !al.url && al.streamingLinks && al.streamingLinks.spotify)
-          if (spotifyOnly.length > 0) {
-            console.log(`  → Spotify metadata for ${spotifyOnly.length} Spotify-only album(s)...`)
-            await enrichSpotifyOnlyAlbums(spotifyOnly, spotifyToken)
-          }
-        }
-
-        // 1d. Fetch artwork from Spotify for Bandcamp albums missing artwork
-        if (spotifyToken) {
-          const missingArtwork = (artist.albums || []).filter(al => al.url && !al.artwork && al.streamingLinks && al.streamingLinks.spotify)
-          if (missingArtwork.length > 0) {
-            console.log(`  → Fetching artwork from Spotify for ${missingArtwork.length} Bandcamp album(s)...`)
-            await enrichSpotifyOnlyAlbums(missingArtwork, spotifyToken)
-          }
-        }
-
-        // 1e. Fall back to name search only for artists NOT in config
-        if (!config.spotifyArtistUrl) {
-          const stillMissingSpotify = (artist.albums || []).filter(
-            al => !(al.streamingLinks && al.streamingLinks.spotify)
-          )
-          if (stillMissingSpotify.length > 0) {
-            console.log(`  → Spotify name search for ${stillMissingSpotify.length} album(s)...`)
-            await enrichAlbumsWithSpotify(stillMissingSpotify, artist.name, spotifyClientId, spotifyClientSecret)
-          }
-        }
-
-        // 1f. Backfill ISRCs from Spotify track data
-        if (spotifyToken) {
-          await backfillIsrcs(artist, spotifyToken)
         }
 
         } catch (spotifyErr) {
-          // Detect Spotify 429 rate limit
           if (spotifyErr.statusCode === 429 || spotifyErr.status === 429 || (spotifyErr.message && spotifyErr.message.includes('429'))) {
-            const retryAfter = spotifyErr.retryAfter || spotifyErr.headers && spotifyErr.headers['retry-after']
-            fallbackState.spotifyDisabled = true
-            fallbackState.spotifyRetryAfter = retryAfter || null
-            const retryMsg = retryAfter ? ` (retry after ${retryAfter}s)` : ''
-            console.warn(`  ⚠ [fallback] Spotify rate limited (429)${retryMsg}. Disabling Spotify for remaining artists.`)
-            if (options.artistFilter) {
-              console.error('\n[enricher] Aborting — Spotify rate limited and running in single-artist mode. Try again later.')
-              await writeCache(cachePath, data)
-              return
-            }
-            console.warn('  ⚠ [fallback] Continuing with iTunes/Deezer/Tidal/Discogs.')
+            const retryAfter = spotifyErr.retryAfter || (spotifyErr.headers && spotifyErr.headers['retry-after'])
+            const waitSec = retryAfter ? Math.max(parseInt(retryAfter, 10) || 60, 60) : 60
+            console.warn(`  ⚠ Spotify rate limited (429). Global pause ${waitSec}s...`)
+            console.warn(`  ⚠ Tip: Configure Soundcharts for reliable enrichment without rate limits. See API-SETUP.md.`)
+            await delay(waitSec * 1000)
           } else {
             console.warn(`  ⚠ [spotify] Error: ${spotifyErr.message}`)
           }
+        }
+      }
+
+      // ── UPC from Spotify (only with --force, Spotify UPC is source of truth) ──
+      // Normal enrich: UPC comes from Bandcamp scrape or CSV (0 API calls).
+      // Force mode: Fetch authoritative UPC from Spotify (1 call per album, risk of 429).
+      if (options.refresh && hasSpotify && spotifyToken && !isCompilationArtist) {
+        const albumsWithSpotifyLink = (artist.albums || []).filter(al =>
+          al.streamingLinks && al.streamingLinks.spotify && !al.upcoming
+        )
+        const albumsNeedingUpc = albumsWithSpotifyLink.filter(al => !al.upc)
+        if (albumsNeedingUpc.length > 0) {
+          console.log(`  → Fetching UPC from Spotify for ${albumsNeedingUpc.length} album(s) (--force)...`)
+          const { getAlbumUpcBySpotifyUrl } = require('./spotify')
+          let upcFetched = 0
+          let rateLimited = false
+          for (const album of albumsNeedingUpc) {
+            try {
+              await delay(1000)
+              const result = await getAlbumUpcBySpotifyUrl(spotifyToken, album.streamingLinks.spotify)
+              if (result && result.upc) {
+                album.upc = result.upc
+                if (result.label && !album.labelName) album.labelName = result.label
+                upcFetched++
+              }
+            } catch (err) {
+              if (err.statusCode === 429) {
+                rateLimited = true
+                console.warn(`\n  ⚠ Spotify rate limited (429) during UPC fetch.`)
+                console.warn(`  ${upcFetched} of ${albumsNeedingUpc.length} UPCs fetched before limit.`)
+                console.warn(`  Run --enrich --force again later to continue, or configure Soundcharts for reliable UPC.`)
+                break
+              }
+            }
+          }
+          if (upcFetched > 0 && !rateLimited) console.log(`  ✓ Fetched ${upcFetched} UPC(s) from Spotify`)
         }
       }
 

@@ -256,13 +256,38 @@ main { min-height: 60vh; }
 }
 
 .release-card img, .artist-card img,
-.artwork-placeholder {
+.artwork-placeholder, .artist-placeholder {
   width: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   display: block;
   background: var(--line);
 }
+
+.artist-placeholder-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+  border-radius: 0.5rem;
+}
+
+.card-artwork-placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, var(--panel-strong) 0%, var(--line) 100%);
+  border-radius: 0.5rem;
+  text-align: center;
+  padding: 1rem;
+}
+.card-artwork-placeholder svg { color: var(--secondary); opacity: 0.3; }
+.card-artwork-placeholder div { color: var(--secondary); font-size: 0.8rem; line-height: 1.3; }
+.card-artwork-placeholder strong { display: block; color: var(--text); font-size: 0.85rem; }
 
 .card-body {
   padding: 1rem;
@@ -679,7 +704,7 @@ main { min-height: 60vh; }
 .artist-hero-bg-clip {
   overflow: hidden;
   width: 100%;
-  height: 420px;
+  height: 260px;
 }
 
 .artist-hero-bg {
@@ -724,7 +749,7 @@ main { min-height: 60vh; }
 }
 
 @media (max-width: 640px) {
-  .artist-hero-bg-clip { height: 260px; }
+  .artist-hero-bg-clip { height: 160px; }
   .artist-hero-name { font-size: 1.75rem; }
   .artist-hero-overlay { padding: 1.5rem 1rem 4rem; }
   .artist-hero-logo-link { bottom: -60px; left: 5%; }

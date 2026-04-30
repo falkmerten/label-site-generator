@@ -1,40 +1,54 @@
 # Quickstart
 
-Get your label website running in 5 minutes.
+Get your label or band website running in 5 minutes.
 
 ## Prerequisites
 
 - Node.js 18+
 - A Bandcamp label or artist page
 
-## Setup
+## 1. Install
 
 ```bash
 git clone https://github.com/falkmerten/label-site-generator.git
 cd label-site-generator
 npm install
-cp .env.example .env
 ```
 
-Edit `.env` with your Bandcamp URL:
+## 2. Configure
+
+Create a `.env` file with two lines:
 
 ```env
-BANDCAMP_URL=https://your-label-or-band.bandcamp.com/
-SITE_NAME=Your Label Name
-SITE_URL=https://www.your-label.com/
+BANDCAMP_URL=https://your-label.bandcamp.com/
+SITE_MODE=label
 ```
 
-The generator auto-detects whether your Bandcamp page is a label account or an artist/band account.
+Use `SITE_MODE=artist` if you're a single band (no label account).
 
-## Generate
+### Optional: Choose a theme
+
+```env
+SITE_THEME=dark
+```
+
+Available: `standard` (default, light), `dark`, `bandcamp` (auto-colors from your page).
+
+## 3. Generate
 
 ```bash
 node generate.js
 ```
 
-This scrapes your Bandcamp page, builds the site, and outputs to `dist/`.
+First run takes 1-2 minutes (scraping Bandcamp). The generator:
+1. Scrapes all artists and albums from your Bandcamp page
+2. Downloads album artwork
+3. Creates `content/config.json` (your site configuration)
+4. Builds the website to `dist/`
 
-## View locally
+Subsequent runs take 2-3 seconds (offline, from cache).
+
+## 4. View locally
 
 ```bash
 npx serve dist
@@ -42,35 +56,28 @@ npx serve dist
 
 Open `http://localhost:3000` in your browser.
 
-## Optional: Enrich with streaming links
+## 5. Add streaming links (optional)
 
-The enrichment pipeline adds Spotify, Apple Music, Deezer, Tidal, and other streaming links to all albums. It works with any combination of configured APIs - Soundcharts is recommended but not required.
+Get Spotify API credentials from [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and add to `.env`:
 
-Configure one or more enrichment sources in `.env` (see [API-SETUP.md](API-SETUP.md) for details):
+```env
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+```
 
-- **Soundcharts** (recommended) - all streaming links, social media, events in one API
-- **Spotify** - album matching, UPC extraction, label names
-- **Discogs** - physical formats, sell links, label names
-- **Tidal, iTunes, Deezer** - gap-fill for missing streaming links
-
-Then run:
+Then:
 
 ```bash
 node generate.js --enrich
 ```
 
-## Optional: Ghost CMS for news
+This adds Spotify, Apple Music, and Deezer links to all albums. Takes ~30 seconds for a typical label.
 
-Set up a headless Ghost instance (see [API-SETUP.md](API-SETUP.md#ghost-cms-optional---headless-news)):
+**For full metadata** (UPC, labels, all platforms), configure Soundcharts instead. See [API-SETUP.md](API-SETUP.md).
 
-```env
-GHOST_URL=https://news.your-label.com
-GHOST_CONTENT_API_KEY=your_content_api_key
-```
+## 6. Deploy (optional)
 
-Ghost posts replace local news files automatically. If Ghost is unavailable, the generator falls back to local `content/news/` markdown files.
-
-## Optional: Deploy to AWS
+Add AWS credentials to `.env`:
 
 ```env
 AWS_S3_BUCKET=your-bucket-name
@@ -82,12 +89,56 @@ AWS_CLOUDFRONT_DISTRIBUTION_ID=EXXXXXXXXX
 node generate.js --deploy
 ```
 
-This generates the site, syncs to S3, and invalidates CloudFront.
+## Day-to-day usage
+
+| Task | Command |
+|------|---------|
+| Rebuild site (local changes) | `node generate.js` |
+| New release on Bandcamp | `node generate.js --scrape` |
+| Update streaming links | `node generate.js --enrich` |
+| Full update + deploy | `node generate.js --scrape --enrich --deploy` |
+| Update one artist only | `node generate.js --scrape --artist "Name"` |
+
+## Adding content
+
+| Content | Location |
+|---------|----------|
+| Artist bio | `content/{artist-slug}/bio.md` |
+| Artist photo | `content/{artist-slug}/photo.jpg` |
+| News articles | `content/news/2026/MM-DD-slug.md` |
+| Static pages | `content/pages/imprint.md` |
+| Album artwork override | `content/{artist-slug}/{album-slug}/artwork.jpg` |
+
+## Adding a new artist
+
+Edit `content/config.json` and add an entry with a `bandcampUrl`:
+
+```json
+"new-artist": {
+  "name": "New Artist",
+  "enabled": true,
+  "source": "bandcamp",
+  "exclude": false,
+  "excludeAlbums": [],
+  "bandcampUrl": "https://newartist.bandcamp.com/",
+  "links": { "spotify": null }
+}
+```
+
+Then run `node generate.js --scrape` to fetch their albums.
+
+## Migrating from v4
+
+If you have an existing v4 setup (artists.json, extra-artists.txt, etc.):
+
+```bash
+node generate.js --migrate
+```
+
+This converts all legacy files into a single `content/config.json`.
 
 ## Next steps
 
-- Add artist bios: `content/{artist-slug}/bio.md`
-- Add artist photos: `content/{artist-slug}/photo.jpg`
-- Add news articles: `content/news/2026/MM-DD-slug.md`
-- Set up newsletter: see [API-SETUP.md](API-SETUP.md)
-- Full configuration reference: see [README.md](README.md)
+- [README.md](README.md) — Full configuration reference
+- [API-SETUP.md](API-SETUP.md) — Enrichment API credentials
+- [Wiki](https://github.com/falkmerten/label-site-generator/wiki) — Full documentation

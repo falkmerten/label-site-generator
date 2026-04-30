@@ -1,6 +1,6 @@
 # Label Site Generator
 
-Static website generator for independent music labels and bands. Scrapes Bandcamp, enriches with streaming links from 7+ platforms, generates a complete branded website.
+Static website generator for independent music labels and bands. Scrapes Bandcamp, enriches with streaming links, generates a complete branded website.
 
 [See it live](https://aenaos-records.com) | [Quickstart](QUICKSTART.md) | [Full Documentation](https://github.com/falkmerten/label-site-generator/wiki)
 
@@ -8,15 +8,16 @@ Static website generator for independent music labels and bands. Scrapes Bandcam
 
 ## Features
 
+- **One-command setup**: Set `BANDCAMP_URL`, run `node generate.js`, get a website
 - **Two site modes**: `label` (multi-artist roster) or `artist` (single band website)
-- **Built-in theme system**: `standard` (light), `dark`, `bandcamp` (auto-colors from your page)
-- Automatic Bandcamp scraping (label and artist/band accounts)
-- Streaming link enrichment from Soundcharts, Spotify, Apple Music, Deezer, Tidal, MusicFetch, YouTube
+- **Built-in themes**: `standard` (light), `dark`, `bandcamp` (auto-colors from your page)
+- **Single config file**: All content configuration in `content/config.json` (auto-generated on first run)
+- Streaming link enrichment (Spotify, Apple Music, Deezer, Tidal)
+- Full metadata enrichment via Soundcharts (recommended for labels with 50+ releases)
 - Physical release data from Discogs (Vinyl, CD, Cassette, sell links)
-- Tour dates from Soundcharts, Bandsintown, and local files
+- Tour dates from Bandsintown
 - Newsletter integration (Sendy, Listmonk, Keila) with auto-campaign drafts
 - Ghost CMS for news (headless mode with local file fallback)
-- Upcoming releases with three-tier system (announce, preview, full)
 - SEO optimized (JSON-LD, Open Graph, sitemap, RSS feed)
 - One-command deploy to AWS S3 + CloudFront
 
@@ -28,64 +29,135 @@ Static website generator for independent music labels and bands. Scrapes Bandcam
 git clone https://github.com/falkmerten/label-site-generator.git
 cd label-site-generator
 npm install
-cp .env.example .env    # edit with your Bandcamp URL
-node generate.js        # scrape + build -> dist/
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for setup details and optional enrichment.
+Create `.env` with one line:
+
+```env
+BANDCAMP_URL=https://your-label.bandcamp.com/
+SITE_MODE=label
+```
+
+Run:
+
+```bash
+node generate.js
+```
+
+That's it. The generator scrapes your Bandcamp page, creates `content/config.json`, and builds a complete website to `dist/`.
+
+See [QUICKSTART.md](QUICKSTART.md) for the full walkthrough.
 
 ---
 
 ## Configuration
 
-Essential settings in `.env` (see [.env.example](.env.example) for the full reference):
+### `.env` — Secrets only
 
-| Variable | Description |
-|---|---|
-| `BANDCAMP_URL` | Your Bandcamp page URL (label or artist/band — auto-detected) |
-| `SITE_NAME` | Display name for header, titles, footer |
-| `SITE_URL` | Full site URL with trailing slash (for canonical URLs, sitemap, OG tags) |
-| `SITE_THEME` | Theme: `standard`, `dark`, or `bandcamp` (default: `standard`) |
-| `SITE_MODE` | Mode: `label` or `artist` (default: `label`) |
+The `.env` file contains only API credentials and URLs that cannot be committed:
 
-### Enrichment APIs
+| Variable | Required | Description |
+|---|---|---|
+| `BANDCAMP_URL` | Yes | Your Bandcamp page URL |
+| `SITE_MODE` | Yes | `label` or `artist` |
+| `SITE_THEME` | No | `standard`, `dark`, or `bandcamp` (default: `standard`) |
+| `SPOTIFY_CLIENT_ID` / `SECRET` | No | For streaming link enrichment |
+| `SOUNDCHARTS_APP_ID` / `API_KEY` | No | For full metadata enrichment (recommended) |
+| `DISCOGS_TOKEN` | No | For physical release data |
+| `AWS_S3_BUCKET` | No | For deployment |
 
-| Variable | Service |
-|---|---|
-| `SOUNDCHARTS_APP_ID` / `SOUNDCHARTS_API_KEY` | Soundcharts (recommended — all-in-one enrichment) |
-| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | Spotify (album matching, UPC extraction) |
-| `DISCOGS_TOKEN` | Discogs (physical formats, sell links) |
-| `TIDAL_CLIENT_ID` / `TIDAL_CLIENT_SECRET` | Tidal streaming links |
+### `content/config.json` — Content configuration
 
-See the [API Setup wiki page](https://github.com/falkmerten/label-site-generator/wiki/API-Setup) for credential setup instructions.
+Auto-generated on first run. Edit to configure your site:
+
+```json
+{
+  "site": {
+    "name": "Your Label",
+    "url": "https://www.your-label.com/",
+    "mode": "label",
+    "theme": "standard",
+    "source": "bandcamp",
+    "sourceUrl": "https://your-label.bandcamp.com/"
+  },
+  "artists": {
+    "artist-slug": {
+      "name": "Artist Name",
+      "enabled": true,
+      "bandcampUrl": null,
+      "links": { "spotify": null, "soundcharts": null }
+    }
+  },
+  "compilations": ["various-artists"],
+  "newsletter": { "provider": null, "actionUrl": null }
+}
+```
+
+**Adding a new artist**: Add an entry to `artists` with a `bandcampUrl`, then run `node generate.js --scrape`.
+
+**Removing an artist**: Set `"enabled": false` or `"exclude": true`.
+
+**Excluding albums**: Add album slugs to `"excludeAlbums": ["album-slug"]`.
 
 ---
 
 ## CLI
 
 ```bash
-node generate.js                    # generate from cache
-node generate.js --scrape           # re-scrape Bandcamp
-node generate.js --enrich           # fetch streaming links (incremental)
-node generate.js --scrape --enrich --artist "Name"  # re-scrape + enrich one artist
-node generate.js --deploy           # generate + sync to S3 + CloudFront invalidation
-node generate.js --cleanup          # data quality audit (dry-run)
+node generate.js                    # Generate from cache (offline, fast, ~2s)
+node generate.js --scrape           # Re-scrape from Bandcamp
+node generate.js --enrich           # Add streaming links (Spotify)
+node generate.js --scrape --enrich  # Full update
+node generate.js --deploy           # Generate + deploy to S3
+node generate.js --migrate          # Convert v4 config to v5 format
 ```
 
-Additional flags: `--force`, `--sync-youtube`, `--import-subscribers`, `--sales-report`, `--init-artists`, `--init-content`. Run `node generate.js --help` for the full list.
+### Filters
+
+```bash
+node generate.js --scrape --artist "Name"   # Re-scrape one artist
+node generate.js --enrich --artist "Name"   # Enrich one artist
+node generate.js --enrich --force           # Re-enrich already-enriched albums
+```
+
+Run `node generate.js --help` for the full list.
 
 ---
 
-## Documentation
+## Enrichment
 
-Full documentation is in the [Wiki](https://github.com/falkmerten/label-site-generator/wiki):
+### Spotify (streaming links)
 
-- [Configuration](https://github.com/falkmerten/label-site-generator/wiki/Configuration) — All env vars
-- [API Setup](https://github.com/falkmerten/label-site-generator/wiki/API-Setup) — Credential setup for all services
-- [Templates and Modules](https://github.com/falkmerten/label-site-generator/wiki/Templates-and-Modules) — Template structure, theme system
-- [Template Blueprint](https://github.com/falkmerten/label-site-generator/wiki/Template-Blueprint) — Custom theme creation guide
-- [FAQ](https://github.com/falkmerten/label-site-generator/wiki/FAQ) — Common questions and troubleshooting
-- [Security](https://github.com/falkmerten/label-site-generator/wiki/Security) — Security policy
+The default enrichment adds Spotify, Apple Music, and Deezer links to your albums. Requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`.
+
+```bash
+node generate.js --enrich
+```
+
+This makes ~3-5 API calls per artist (lightweight, no rate limit issues).
+
+### Soundcharts (full metadata — recommended)
+
+For labels with 50+ releases, Soundcharts provides UPC, ISRCs, labels, all streaming platforms, and social media links in a single API. Fewer calls, more data.
+
+```env
+SOUNDCHARTS_APP_ID=your_app_id
+SOUNDCHARTS_API_KEY=your_api_key
+```
+
+See [API-SETUP.md](API-SETUP.md) for credential setup.
+
+---
+
+## Themes
+
+Set `SITE_THEME` in `.env` or `site.theme` in `config.json`:
+
+- **`standard`** — Clean light theme
+- **`dark`** — Dark background, light text
+- **`bandcamp`** — Auto-extracts colors from your Bandcamp page
+
+Custom themes: Create `templates/themes/custom.css` and set `site.theme: "custom"`.
 
 ---
 
@@ -96,6 +168,26 @@ node generate.js --deploy
 ```
 
 Generates the site, syncs `dist/` to S3, and invalidates CloudFront. Requires `AWS_S3_BUCKET` and `AWS_CLOUDFRONT_DISTRIBUTION_ID` in `.env`.
+
+---
+
+## Source Modules
+
+| Module | Purpose |
+|--------|---------|
+| `generate.js` | CLI entry point |
+| `src/generator.js` | Pipeline orchestrator |
+| `src/scraper.js` | Bandcamp scraper (config-aware) |
+| `src/enricher.js` | Enrichment pipeline (Spotify/Soundcharts/Discogs) |
+| `src/configLoader.js` | Config loading with legacy fallback |
+| `src/configGenerator.js` | Auto-generates config.json from scrape |
+| `src/configValidator.js` | JSON Schema validation |
+| `src/rateLimiter.js` | Per-service rate limiting with backoff |
+| `src/migrator.js` | v4 → v5 config migration |
+| `src/themeResolver.js` | Theme CSS resolution |
+| `src/renderer.js` | Nunjucks template rendering |
+| `src/merger.js` | Cache + content override merging |
+| `src/assets.js` | Asset copying + image optimization |
 
 ---
 

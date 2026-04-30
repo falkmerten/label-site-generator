@@ -17,7 +17,7 @@
       <meta property="og:image" content="{{ artist.photo }}">
     {% endif %}
   {% elif siteUrl %}
-    <meta property="og:image" content="{{ siteUrl }}banner.jpg">
+    <meta property="og:image" content="{{ siteUrl }}artist-placeholder.svg">
   {% endif %}
 {% endblock %}
 {% block twitterImage %}
@@ -28,7 +28,7 @@
       <meta name="twitter:image" content="{{ artist.photo }}">
     {% endif %}
   {% elif siteUrl %}
-    <meta name="twitter:image" content="{{ siteUrl }}banner.jpg">
+    <meta name="twitter:image" content="{{ siteUrl }}artist-placeholder.svg">
   {% endif %}
 {% endblock %}
 
@@ -62,47 +62,30 @@
     {% else %}
       {% set artistPhotoUrl = artist.photo %}
     {% endif %}
-    <div class="site-hero artist-hero" style="--artist-photo: url('{{ artistPhotoUrl }}')">
-      <div class="artist-hero-bg-clip">
-        <div class="artist-hero-bg"></div>
-      </div>
-      <div class="artist-hero-overlay">
-        <h1 class="artist-hero-name">{{ artist.name }}</h1>
-        {% if artist.location %}<p class="artist-hero-location">{{ artist.location }}</p>{% endif %}
-      </div>
-      <a href="{{ rootPath }}" class="artist-hero-logo-link">
-        {% if artist.photo | isLocal %}
-        <picture>
-          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
-          <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
-          <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
-        </picture>
-        {% else %}
-        <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
-        {% endif %}
-      </a>
-    </div>
   {% else %}
-    <div class="site-hero">
-      <img src="{{ rootPath }}banner.jpg" alt="{{ labelName }}" class="site-hero-banner">
-      <a href="{{ rootPath }}">
-        <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
-      </a>
-    </div>
+    {% set artistPhotoUrl = rootPath + 'artist-placeholder.svg' %}
   {% endif %}
+  <div class="site-hero artist-hero" style="--artist-photo: url('{{ artistPhotoUrl }}')">
+    <div class="artist-hero-bg-clip">
+      <div class="artist-hero-bg"></div>
+    </div>
+    <div class="artist-hero-overlay">
+      <h1 class="artist-hero-name">{{ artist.name }}</h1>
+      {% if artist.location %}<p class="artist-hero-location">{{ artist.location }}</p>{% endif %}
+    </div>
+    {% if hasLogo %}
+    <a href="{{ rootPath }}" class="artist-hero-logo-link">
+      <picture>
+        <source srcset="{{ rootPath }}logo-round.webp" type="image/webp">
+        <img src="{{ rootPath }}logo-round.png" alt="{{ labelName }} Logo" class="site-hero-logo">
+      </picture>
+    </a>
+    {% endif %}
+  </div>
 {% endblock %}
 
 {% block content %}
   <article class="artist-page">
-
-    {% if not artist.photo %}
-      <div class="artist-header">
-        <div class="artist-header-text">
-          <h1>{{ artist.name }}</h1>
-          {% if artist.location %}<p class="artist-location">{{ artist.location }}</p>{% endif %}
-        </div>
-      </div>
-    {% endif %}
 
     {% if artist.biography %}
       <section class="artist-bio prose">

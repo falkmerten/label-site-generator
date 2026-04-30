@@ -384,7 +384,8 @@ async function run() {
     await enrichCache(options.cachePath, options.contentDir, {
       tidalOnly: options.tidalOnly,
       artistFilter: options.artistFilter || null,
-      refresh: options.force || false
+      refresh: options.force || false,
+      serviceFilter: v5Options.serviceFilter || null
     });
   } else if (options.enrich) {
     const backupPath = await backupCache(options.cachePath);
@@ -393,7 +394,8 @@ async function run() {
     await enrichCache(options.cachePath, options.contentDir, {
       tidalOnly: options.tidalOnly,
       artistFilter: options.artistFilter || null,
-      refresh: options.force || false
+      refresh: options.force || false,
+      serviceFilter: v5Options.serviceFilter || null
     });
   }
   if (options.downloadArtwork) {

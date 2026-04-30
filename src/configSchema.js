@@ -41,6 +41,9 @@ const CONFIG_SCHEMA = {
         },
         sourceUrl: {
           type: 'string'
+        },
+        discogsUrl: {
+          type: ['string', 'null']
         }
       }
     },

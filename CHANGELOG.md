@@ -4,6 +4,29 @@
 
 ---
 
+### v5.0.0 — 2026-04-30
+
+**Onboarding Redesign — Single Config File Architecture (LSG-143)**
+
+Breaking change: All content configuration moves from scattered `.env` vars and multiple JSON files into a single `content/config.json`. Migration path provided via `--migrate`.
+
+- **One-command onboarding**: Set `BANDCAMP_URL` + `SITE_MODE`, run `node generate.js`, get a working website
+- **`content/config.json`**: Auto-generated on first run, replaces `artists.json`, `extra-artists.txt`, `youtube.json`, `compilations.json`
+- **Config-driven scraping**: Artists with `bandcampUrl` in config.json are scraped automatically
+- **Lightweight Spotify enrichment**: Only fetches album links (~3-5 calls per artist), no UPC/ISRC/metadata
+- **Rate limit protection**: 600ms between Spotify calls, exponential backoff on 429, wait-and-retry instead of disable
+- **Unicode-normalized deduplication**: Handles accented characters (e.g. Amáutica vs AMAUTICA)
+- **Artist placeholder SVG**: Band silhouette for artists without photos (cards + hero banner)
+- **Consistent hero banners**: Same height across all pages, logo as fallback when no banner image
+- **Soundcharts recommendation**: Shown in summary when SC not configured
+- **`--migrate` command**: Converts v4 configuration to v5 format
+- **Theme selection at onboarding**: `SITE_THEME` read from env, written to config.json
+- **Custom theme fallback**: Falls back to standard with clear message when custom.css missing
+
+New modules: `src/configSchema.js`, `src/configValidator.js`, `src/configLoader.js`, `src/configGenerator.js`, `src/rateLimiter.js`, `src/cli.js`, `src/migrator.js`
+
+---
+
 ### v4.11.0 — 2026-04-29
 
 **Template Theme System (LSG-137)**

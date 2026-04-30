@@ -3,7 +3,7 @@
 const https = require('https')
 const querystring = require('querystring')
 
-const DELAY_MS = 200 // Spotify rate limit is generous, but be polite
+const DELAY_MS = 600 // Spotify rate limit protection — 600ms between calls
 
 let _tokenCache = null // { token, expiresAt }
 
@@ -419,13 +419,13 @@ async function fetchArtistAlbums (token, artistUrl) {
     }
     if (!data.next) break
     offset += data.items.length
-    await delay(DELAY_MS)
+    await delay(1000) // Higher delay between pagination calls
   }
 
   // Fetch UPCs and full metadata per album (batch endpoint restricted in dev mode)
   const results = []
   for (const item of allItems) {
-    await delay(DELAY_MS)
+    await delay(1000) // 1s between UPC fetches to avoid rate limit
     const { upc, label } = await getAlbumUpc(token, item.id)
     results.push({
       title: item.name,
@@ -594,4 +594,81 @@ async function fetchAlbumTrackIsrcs (token, spotifyAlbumUrl) {
   return tracks
 }
 
-module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult, fetchAlbumTrackIsrcs, getArtistImageUrl }
+/**
+ * Lightweight version of fetchArtistAlbums — fetches ONLY album titles and Spotify URLs.
+ * No UPC fetch, no label fetch, no ISRC backfill. Minimal API calls.
+ * Used for first-run enrichment where we only need streaming links.
+ *
+ * @param {string} token - Spotify access token
+ * @param {string} artistUrl - Spotify artist URL (e.g. https://open.spotify.com/artist/xxx)
+ * @returns {Promise<Array<{title: string, spotifyUrl: string, albumType: string, releaseDate: string|null}>>}
+ */
+async function fetchArtistAlbumLinks (token, artistUrl) {
+  const match = artistUrl.match(/artist\/([A-Za-z0-9]+)/)
+  if (!match) return []
+  const artistId = match[1]
+
+  const allItems = []
+  const seenIds = new Set()
+  let offset = 0
+  const MAX_RETRIES = 3
+
+  while (true) {
+    let data = null
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      await delay(DELAY_MS)
+      const result = await new Promise((resolve) => {
+        const options = {
+          hostname: 'api.spotify.com',
+          path: `/v1/artists/${artistId}/albums?include_groups=album,single&offset=${offset}&limit=10`,
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+        https.get(options, (res) => {
+          let raw = ''
+          res.on('data', chunk => { raw += chunk })
+          res.on('end', () => resolve({ statusCode: res.statusCode, headers: res.headers, raw }))
+        }).on('error', (err) => resolve({ statusCode: 0, headers: {}, raw: err.message }))
+      })
+
+      if (result.statusCode === 429) {
+        const retryAfter = parseInt(result.headers['retry-after'] || '2', 10)
+        if (retryAfter > 60) {
+          const err = new Error(`Spotify rate limited (retry-after: ${retryAfter}s)`)
+          err.statusCode = 429
+          err.retryAfter = retryAfter
+          throw err
+        }
+        const backoff = Math.min(retryAfter * Math.pow(2, attempt), 30)
+        console.warn(`  [rate-limit] Spotify pagination: waiting ${backoff}s (attempt ${attempt + 1}/${MAX_RETRIES})`)
+        await delay(backoff * 1000)
+        continue
+      }
+
+      if (result.statusCode === 200) {
+        try { data = JSON.parse(result.raw) } catch { data = null }
+      }
+      break
+    }
+
+    if (!data || !data.items || data.items.length === 0) break
+    for (const item of data.items) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id)
+        allItems.push(item)
+      }
+    }
+    if (!data.next) break
+    offset += data.items.length
+  }
+
+  // Return only what we need: title + URL (no UPC fetch!)
+  return allItems.map(item => ({
+    title: item.name,
+    spotifyUrl: item.external_urls.spotify,
+    albumType: item.album_type,
+    releaseDate: item.release_date || null
+  }))
+}
+
+module.exports = { enrichAlbumsWithSpotify, enrichArtistWithSpotify, getAlbumUpcBySpotifyUrl, getAccessToken, fetchArtistAlbums, fetchArtistAlbumLinks, searchArtist, enrichSpotifyOnlyAlbums, getAlbumUpc, searchAlbum, scoreSearchResult, fetchAlbumTrackIsrcs, getArtistImageUrl }

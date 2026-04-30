@@ -155,7 +155,11 @@ function resolveTheme (themeName, themeColors, envOverrides, themesDir) {
     css = fs.readFileSync(themePath, 'utf8')
   } catch (err) {
     // File not found or unrecognized theme name — fall back to standard.css
-    warnings.push(`[themeResolver] Theme "${themeName}" not found (${err.message}). Falling back to standard theme.`)
+    if (themeName === 'custom') {
+      warnings.push(`[themeResolver] site.theme is "custom" but no custom.css found in ${themesDir}. Using standard theme. Create templates/themes/custom.css or set a SITE_TEMPLATE directory with style.css.`)
+    } else {
+      warnings.push(`[themeResolver] Theme "${themeName}" not found (${err.message}). Falling back to standard theme.`)
+    }
     const standardPath = path.join(themesDir, 'standard.css')
     try {
       css = fs.readFileSync(standardPath, 'utf8')

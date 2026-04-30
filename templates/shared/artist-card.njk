@@ -13,7 +13,7 @@
   {% elif artist.photo %}
     <img src="{{ artist.photo }}" alt="{{ artist.name }}" loading="lazy">
   {% else %}
-    <div class="artwork-placeholder"></div>
+    <img src="{{ rootPath }}artist-placeholder.svg" alt="{{ artist.name }}" class="artist-placeholder-img" loading="lazy">
   {% endif %}
   <div class="card-body">
     <span class="artist-name">{{ artist.name }}</span>

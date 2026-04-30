@@ -17,6 +17,8 @@ content/
 
 # Brand assets — label-specific images (logo, banner, etc.)
 assets/
+!assets/artist-placeholder.svg
+!assets/artwork-placeholder.svg
 
 # Import files — CSV exports from Bandcamp, distributors, etc.
 import/

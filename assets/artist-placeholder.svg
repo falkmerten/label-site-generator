@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0f0f1a"/>
+    </linearGradient>
+    <radialGradient id="spotlight" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#2a2a4a" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <linearGradient id="floor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="transparent"/>
+      <stop offset="60%" stop-color="#0a0a14" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="400" fill="url(#bg)"/>
+  <rect width="400" height="400" fill="url(#spotlight)"/>
+
+  <!-- Stage floor reflection -->
+  <ellipse cx="200" cy="380" rx="180" ry="30" fill="#1a1a2e" opacity="0.5"/>
+
+  <!-- Band silhouettes - 4 members -->
+
+  <!-- Drummer (back center, smaller) -->
+  <g opacity="0.5">
+    <ellipse cx="200" cy="260" rx="22" ry="6" fill="#0a0a14"/>
+    <rect x="185" y="220" width="30" height="40" rx="4" fill="#111122"/>
+    <circle cx="200" cy="208" r="12" fill="#111122"/>
+    <!-- Hi-hat -->
+    <line x1="175" y1="225" x2="175" y2="205" stroke="#222233" stroke-width="2"/>
+    <ellipse cx="175" cy="204" rx="8" ry="2" fill="#222233"/>
+  </g>
+
+  <!-- Guitarist left -->
+  <g opacity="0.7">
+    <ellipse cx="110" cy="370" rx="20" ry="5" fill="#0a0a14"/>
+    <path d="M95 280 Q100 310 98 370 L122 370 Q120 310 125 280 Z" fill="#12121f"/>
+    <rect x="95" y="240" width="30" height="45" rx="5" fill="#151528"/>
+    <circle cx="110" cy="225" r="14" fill="#151528"/>
+    <!-- Guitar neck -->
+    <line x1="125" y1="270" x2="145" y2="200" stroke="#1a1a30" stroke-width="3" stroke-linecap="round"/>
+    <rect x="118" y="265" width="14" height="35" rx="3" fill="#1a1a30"/>
+  </g>
+
+  <!-- Singer center -->
+  <g opacity="0.85">
+    <ellipse cx="200" cy="375" rx="22" ry="5" fill="#0a0a14"/>
+    <path d="M182 285 Q185 330 183 375 L217 375 Q215 330 218 285 Z" fill="#16162a"/>
+    <rect x="182" y="240" width="36" height="50" rx="6" fill="#1a1a35"/>
+    <circle cx="200" cy="222" r="16" fill="#1a1a35"/>
+    <!-- Mic stand -->
+    <line x1="200" y1="255" x2="200" y2="375" stroke="#222240" stroke-width="2"/>
+    <circle cx="200" cy="252" r="5" fill="#222240"/>
+    <!-- Arm reaching to mic -->
+    <path d="M210 260 Q215 255 208 250" stroke="#1a1a35" stroke-width="5" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Bassist right -->
+  <g opacity="0.65">
+    <ellipse cx="290" cy="372" rx="20" ry="5" fill="#0a0a14"/>
+    <path d="M275 282 Q278 320 276 372 L304 372 Q302 320 305 282 Z" fill="#131325"/>
+    <rect x="275" y="242" width="30" height="44" rx="5" fill="#161630"/>
+    <circle cx="290" cy="227" r="14" fill="#161630"/>
+    <!-- Bass neck (longer) -->
+    <line x1="275" y1="272" x2="255" y2="190" stroke="#1a1a30" stroke-width="3.5" stroke-linecap="round"/>
+    <rect x="278" y="267" width="12" height="38" rx="3" fill="#1a1a30"/>
+  </g>
+
+  <!-- Stage light beams -->
+  <polygon points="150,0 170,0 200,400 130,400" fill="white" opacity="0.015"/>
+  <polygon points="230,0 250,0 280,400 180,400" fill="white" opacity="0.01"/>
+
+  <!-- Floor gradient overlay -->
+  <rect x="0" y="300" width="400" height="100" fill="url(#floor)"/>
+</svg>
