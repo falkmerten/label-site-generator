@@ -14,6 +14,8 @@ const { enrichAlbumsWithDiscogs, lookupLabelUrl, hasActiveListings } = require('
 const { toSlug } = require('./slugs')
 const { extractAlbumId, albumBelongsToArtist } = require('./merger')
 const bandcamp = require('./bandcamp')
+const { withRateLimit } = require('./rateLimiter')
+const { loadConfig, writeConfig } = require('./configLoader')
 
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -360,7 +362,7 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
       if (quotaState.quotaExhausted) {
         console.log('  [soundcharts] Quota exhausted — skipping artist resolution')
       } else {
-        const scArtist = await getArtistBySpotifyId(spotifyId, appId, apiKey)
+        const scArtist = await withRateLimit('soundcharts', () => getArtistBySpotifyId(spotifyId, appId, apiKey), artist.name)
         const isFirst = quotaState.callCount === 0
         quotaState.callCount++
         if (checkQuota(isFirst, quotaState)) { /* quota exhausted, continue with gap-fill */ }
@@ -383,7 +385,7 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
     if (quotaState.quotaExhausted) {
       console.log('  [soundcharts] Quota exhausted — skipping artist identifiers')
     } else {
-      const links = await getArtistIdentifiers(artist.soundchartsUuid, appId, apiKey)
+      const links = await withRateLimit('soundcharts', () => getArtistIdentifiers(artist.soundchartsUuid, appId, apiKey), artist.name)
       quotaState.callCount++
       if (checkQuota(false, quotaState)) { /* quota exhausted */ }
       if (links) {
@@ -486,7 +488,7 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
       console.log('  [soundcharts] Quota exhausted — skipping events fetch')
     } else {
       const today = new Date().toISOString().slice(0, 10)
-      const events = await getArtistEvents(artist.soundchartsUuid, appId, apiKey, today)
+      const events = await withRateLimit('soundcharts', () => getArtistEvents(artist.soundchartsUuid, appId, apiKey, today), artist.name)
       quotaState.callCount++
       if (checkQuota(false, quotaState)) { /* quota exhausted */ }
       artist.events = events
@@ -534,7 +536,7 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
       let scAlbum = null
 
       if (spotifyAlbumId) {
-        scAlbum = await getAlbumBySpotifyId(spotifyAlbumId, appId, apiKey)
+        scAlbum = await withRateLimit('soundcharts', () => getAlbumBySpotifyId(spotifyAlbumId, appId, apiKey), album.title)
         quotaState.callCount++
         if (checkQuota(false, quotaState)) { /* quota exhausted */ }
       }
@@ -542,7 +544,7 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
       // Fallback to UPC if no Spotify URL or Spotify lookup failed
       if (!scAlbum && album.upc) {
         if (!quotaState.quotaExhausted) {
-          scAlbum = await getAlbumByUpc(album.upc, appId, apiKey)
+          scAlbum = await withRateLimit('soundcharts', () => getAlbumByUpc(album.upc, appId, apiKey), album.title)
           quotaState.callCount++
           if (checkQuota(false, quotaState)) { /* quota exhausted */ }
         }
@@ -565,7 +567,7 @@ async function soundchartsEnrichArtist (artist, config, appId, apiKey, quotaStat
     // ── Album Identifiers ─────────────────────────────────────────────────
     if (album.soundchartsUuid && !hasAllAlbumLinks(album)) {
       if (!quotaState.quotaExhausted) {
-        const links = await getAlbumIdentifiers(album.soundchartsUuid, appId, apiKey)
+        const links = await withRateLimit('soundcharts', () => getAlbumIdentifiers(album.soundchartsUuid, appId, apiKey), album.title)
         quotaState.callCount++
         if (checkQuota(false, quotaState)) { /* quota exhausted */ }
         if (links) {
@@ -776,6 +778,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
   const artistConfig = await loadArtistConfig(contentDir)
 
+  // ── v5 config loading (config-driven links + write-back) ──────────────────
+  const v5Config = await loadConfig(contentDir).catch(() => null)
+  let configDirty = false // track whether config needs write-back at end
+
   // Log active mode — pre-check SC quota with a single lightweight call (no retries)
   let scAvailable = hasSoundcharts && !options.tidalOnly
   if (scAvailable) {
@@ -876,6 +882,17 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   const labelUrlCache = {} // shared across artists — avoids duplicate Discogs label lookups
   const sellListingCache = {} // shared across artists — releaseId → boolean (has active listings)
 
+  // ── Batch limit on first enrichment (v5) ──────────────────────────────────
+  const allAlbumsFlat = artists.reduce((acc, a) => acc.concat(a.albums || []), [])
+  const totalAlbums = allAlbumsFlat.length
+  const unenrichedCount = allAlbumsFlat.filter(a => !a.streamingLinks || Object.keys(a.streamingLinks).length === 0).length
+  const isFirstRun = totalAlbums > 0 && unenrichedCount > totalAlbums * 0.8
+  const batchLimit = isFirstRun ? 50 : Infinity
+  let batchProcessed = 0
+  if (isFirstRun) {
+    console.log(`  → First enrichment detected (${unenrichedCount}/${totalAlbums} unenriched). Batch limit: ${batchLimit} albums.`)
+  }
+
   /**
    * Backfills ISRCs from Spotify into cache tracks that are missing them.
    * Matches by track position (trackNumber) or normalized title.
@@ -899,8 +916,8 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     let totalFilled = 0
     for (const album of albums) {
       try {
-        const spotifyTracks = await fetchAlbumTrackIsrcs(token, album.streamingLinks.spotify)
-        if (spotifyTracks.length === 0) continue
+        const spotifyTracks = await withRateLimit('spotify', () => fetchAlbumTrackIsrcs(token, album.streamingLinks.spotify), album.title)
+        if (!spotifyTracks || spotifyTracks.length === 0) continue
         let filled = 0
         const usedSpotifyIndices = new Set()
         for (const [cacheIdx, cacheTrack] of (album.tracks || []).entries()) {
@@ -948,6 +965,15 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     const slug = toSlug(artist.name)
     const config = artistConfig[slug] || {}
 
+    // ── v5 config-driven links: read Spotify URL from config.json ──────────
+    const v5ArtistConfig = v5Config && v5Config.artists && v5Config.artists[slug]
+    const configSpotifyUrl = v5ArtistConfig && v5ArtistConfig.links && v5ArtistConfig.links.spotify
+
+    if (configSpotifyUrl && !config.spotifyArtistUrl) {
+      // Use config.json Spotify URL — no search needed
+      config.spotifyArtistUrl = configSpotifyUrl
+      console.log(`  Using Spotify URL from config for "${artist.name}"`)
+    }
     // Skip enrichment for Various Artists / compilations — only gap-fill and Discogs
     const isCompilationArtist = artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various'
     if (isCompilationArtist) {
@@ -1008,10 +1034,20 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         const artistSpotifyUrl = config.spotifyArtistUrl ||
           (artist.streamingLinks && artist.streamingLinks.spotify)
 
+        // ── v5 write-back: save discovered Spotify URL to config.json ──────
+        if (v5Config && v5ArtistConfig && artistSpotifyUrl && !configSpotifyUrl) {
+          if (!v5ArtistConfig.links) v5ArtistConfig.links = {}
+          if (!v5ArtistConfig.links.spotify) {
+            v5ArtistConfig.links.spotify = artistSpotifyUrl
+            configDirty = true
+            console.log(`  ✓ Saved Spotify URL to config.json for "${artist.name}"`)
+          }
+        }
+
         // Fetch artist image from Spotify if not already stored
         if (artistSpotifyUrl && spotifyToken && !artist._spotifyImageUrl) {
           try {
-            const imgUrl = await getArtistImageUrl(spotifyToken, artistSpotifyUrl)
+            const imgUrl = await withRateLimit('spotify', () => getArtistImageUrl(spotifyToken, artistSpotifyUrl), artist.name)
             if (imgUrl) {
               artist._spotifyImageUrl = imgUrl
             }
@@ -1022,8 +1058,8 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
           try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
           console.log('  → Spotify album list (source of truth)...')
           try {
-            const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
-            if (spotifyAlbums.length > 0) {
+            const spotifyAlbums = await withRateLimit('spotify', () => fetchArtistAlbums(spotifyToken, artistSpotifyUrl), artist.name)
+            if (spotifyAlbums && spotifyAlbums.length > 0) {
               artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
             }
 
@@ -1046,8 +1082,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
               let found = 0
               for (const album of unmatchedBc) {
                 try {
-                  await delay(400)
-                  const result = await searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type))
+                  const result = await withRateLimit('spotify', () => searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type)), album.title)
                   if (result) {
                     album.streamingLinks = album.streamingLinks || {}
                     album.streamingLinks.spotify = result.spotifyUrl
@@ -1184,8 +1219,17 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
       if (needsGapFill.length > 0) {
         console.log(`  → Gap-fill: ${needsGapFill.length} album(s) via iTunes/Deezer/Tidal/MusicFetch...`)
+        let scGapProcessed = 0
+        const scGapTotal = needsGapFill.length
 
         await pMap(needsGapFill, 3, async (album) => {
+          scGapProcessed++
+          console.log(`  Enriching ${scGapProcessed}/${scGapTotal} — ${album.title}...`)
+
+          // Check batch limit
+          batchProcessed++
+          if (batchProcessed > batchLimit) return
+
           const tasks = []
 
           if (!(album.streamingLinks && album.streamingLinks.appleMusic) && !(album.enrichmentChecked && album.enrichmentChecked.appleMusic)) {
@@ -1321,10 +1365,20 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         const artistSpotifyUrl = config.spotifyArtistUrl ||
           (artist.streamingLinks && artist.streamingLinks.spotify)
 
+        // ── v5 write-back: save discovered Spotify URL to config.json ──────
+        if (v5Config && v5ArtistConfig && artistSpotifyUrl && !configSpotifyUrl) {
+          if (!v5ArtistConfig.links) v5ArtistConfig.links = {}
+          if (!v5ArtistConfig.links.spotify) {
+            v5ArtistConfig.links.spotify = artistSpotifyUrl
+            configDirty = true
+            console.log(`  ✓ Saved Spotify URL to config.json for "${artist.name}"`)
+          }
+        }
+
         // 1b-pre. Fetch artist image from Spotify if no local photo exists
         if (artistSpotifyUrl && spotifyToken && !artist._spotifyImageUrl) {
           try {
-            const imgUrl = await getArtistImageUrl(spotifyToken, artistSpotifyUrl)
+            const imgUrl = await withRateLimit('spotify', () => getArtistImageUrl(spotifyToken, artistSpotifyUrl), artist.name)
             if (imgUrl) {
               artist._spotifyImageUrl = imgUrl
             }
@@ -1334,8 +1388,8 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         if (artistSpotifyUrl && artistSpotifyUrl.includes('/artist/')) {
           try { spotifyToken = await getAccessToken(spotifyClientId, spotifyClientSecret) } catch { /* keep existing */ }
           console.log(`  → Spotify artist page fetch (rebuilding album list)...`)
-          const spotifyAlbums = await fetchArtistAlbums(spotifyToken, artistSpotifyUrl)
-          if (spotifyAlbums.length > 0) {
+          const spotifyAlbums = await withRateLimit('spotify', () => fetchArtistAlbums(spotifyToken, artistSpotifyUrl), artist.name)
+          if (spotifyAlbums && spotifyAlbums.length > 0) {
             artist.albums = buildAlbumListFromSpotify(spotifyAlbums, artist.albums, artist.name)
           }
 
@@ -1358,8 +1412,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
             let found = 0
             for (const album of unmatchedBcLegacy) {
               try {
-                await delay(400)
-                const result = await searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type))
+                const result = await withRateLimit('spotify', () => searchAlbumSpotify(spotifyToken, artist.name, album.title, album.itemType || (album.raw && album.raw.item_type)), album.title)
                 if (result) {
                   album.streamingLinks = album.streamingLinks || {}
                   album.streamingLinks.spotify = result.spotifyUrl
@@ -1460,8 +1513,17 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
       if (needsEnrichment.length > 0) {
         console.log(`  → Enriching ${needsEnrichment.length} album(s) via iTunes/Deezer/Tidal/MusicFetch concurrently...`)
+        let legacyProcessed = 0
+        const legacyTotal = needsEnrichment.length
 
         await pMap(needsEnrichment, 3, async (album) => {
+          legacyProcessed++
+          console.log(`  Enriching ${legacyProcessed}/${legacyTotal} — ${album.title}...`)
+
+          // Check batch limit
+          batchProcessed++
+          if (batchProcessed > batchLimit) return
+
           const tasks = []
 
           if (!(album.streamingLinks && album.streamingLinks.appleMusic) && !(album.enrichmentChecked && album.enrichmentChecked.appleMusic)) {
@@ -1622,7 +1684,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         if (needsDiscogs.length > 0) parts.push(`${needsDiscogs.length} album(s)`)
         if (needsSellLinks.length > 0) parts.push(`${needsSellLinks.length} sell-link update(s)`)
         console.log(`  → Discogs for ${parts.join(' + ')}...`)
-        await enrichAlbumsWithDiscogs(discogsAlbums, artist.name, discogsToken)
+        await withRateLimit('discogs', () => enrichAlbumsWithDiscogs(discogsAlbums, artist.name, discogsToken), artist.name)
       }
 
       // ── Verify sell URLs have active listings ─────────────────────────────
@@ -1786,6 +1848,21 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     } else {
       console.log('[gap-fill] No gap-fill calls needed')
     }
+  }
+
+  // ── Write discovered links back to config.json (once at end) ──────────────
+  if (configDirty && v5Config) {
+    try {
+      await writeConfig(v5Config, contentDir)
+      console.log('  ✓ config.json updated with discovered links')
+    } catch (err) {
+      console.warn(`  ⚠ Could not write config.json: ${err.message}`)
+    }
+  }
+
+  // ── Batch limit message ─────────────────────────────────────────────────────
+  if (batchProcessed >= batchLimit) {
+    console.log(`\n  Batch limit reached (${batchLimit} albums). Run again to continue.`)
   }
 
   await writeCache(cachePath, data)

@@ -250,6 +250,39 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     }
   }
 
+  // ── Deduplicate artists by name (regrouped + extra may overlap) ───────────
+  const artistsByName = new Map()
+  for (const artist of artists) {
+    const key = artist.name.toLowerCase().trim()
+    if (artistsByName.has(key)) {
+      // Merge: keep the one with more data, combine albums
+      const existing = artistsByName.get(key)
+      // Prefer the extra artist's URL (it's their own Bandcamp page)
+      if (artist.url && artist.url !== existing.url && !artist.url.includes(labelUrl)) {
+        existing.url = artist.url
+      }
+      // Prefer non-null fields from the extra artist
+      if (!existing.coverImage && artist.coverImage) existing.coverImage = artist.coverImage
+      if (!existing.location && artist.location) existing.location = artist.location
+      if (!existing.description && artist.description) existing.description = artist.description
+      if (artist.bandLinks && artist.bandLinks.length > 0 && (!existing.bandLinks || existing.bandLinks.length === 0)) {
+        existing.bandLinks = artist.bandLinks
+      }
+      // Merge albums (deduplicate by title)
+      const existingTitles = new Set((existing.albums || []).map(a => a.title.toLowerCase().trim()))
+      for (const album of artist.albums || []) {
+        if (!existingTitles.has(album.title.toLowerCase().trim())) {
+          existing.albums.push(album)
+        }
+      }
+      console.log(`  Merged duplicate artist "${artist.name}" (${artist.albums.length} album(s) from ${artist.url || 'regrouping'})`)
+    } else {
+      artistsByName.set(key, artist)
+    }
+  }
+  artists.length = 0
+  artists.push(...artistsByName.values())
+
   // ── Scrape label page for compilations (Various Artists) ──────────────────
   if (labelUrl) {
     const labelClean = cleanUrl(labelUrl)
