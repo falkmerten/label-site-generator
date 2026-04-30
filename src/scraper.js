@@ -125,14 +125,28 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
 
   for (const [i, artistUrl] of artistUrls.entries()) {
     let artistInfo
-    try {
-      console.log(`[${i + 1}/${artistUrls.length}] Scraping artist: ${artistUrl}`)
-      await delay(DELAY_MS)
-      artistInfo = await bandcamp.getArtistInfo(artistUrl)
-    } catch (err) {
-      console.error(`  Error fetching artist info for ${artistUrl}:`, err.message || err)
-      continue
+    console.log(`[${i + 1}/${artistUrls.length}] Scraping artist: ${artistUrl}`)
+
+    // Retry logic for transient network errors (DNS, timeouts)
+    let retries = 3
+    while (retries > 0) {
+      try {
+        await delay(DELAY_MS)
+        artistInfo = await bandcamp.getArtistInfo(artistUrl)
+        break // success
+      } catch (err) {
+        const isTransient = err.code === 'EAI_AGAIN' || err.code === 'ENOTFOUND' || err.code === 'ETIMEDOUT' || err.code === 'ECONNRESET'
+        retries--
+        if (isTransient && retries > 0) {
+          console.warn(`  ⚠ Network error (${err.code}), retrying in 3s... (${retries} retries left)`)
+          await delay(3000)
+        } else {
+          console.error(`  Error fetching artist info for ${artistUrl}:`, err.message || err)
+          break
+        }
+      }
     }
+    if (!artistInfo) continue
 
     // Use getAlbumUrls (which fetches /music) to get the complete album list
     let fullAlbumUrls = []
