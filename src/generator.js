@@ -28,7 +28,7 @@ async function generate(options) {
   const { outputDir, contentDir, cachePath, refresh } = opts;
 
   // Load unified config (config.json > legacy files > null for first run)
-  const config = await loadConfig(contentDir);
+  let config = await loadConfig(contentDir);
 
   // Startup validation: log success when config is valid
   if (config) {
@@ -74,6 +74,40 @@ async function generate(options) {
   if (!refresh) {
     rawData = await readCache(cachePath);
     if (rawData) console.log(`Using cached data from ${cachePath}`);
+  }
+
+  // Recovery: cache exists but no config.json (aborted first run) → generate config
+  if (rawData && !config) {
+    console.log('Cache found but no config.json — generating configuration...')
+
+    // Theme prompt
+    let chosenTheme = process.env.SITE_THEME || null
+    if (!chosenTheme && !opts._nonInteractive) {
+      const readline = require('readline')
+      console.log('')
+      console.log('  Choose a theme:')
+      console.log('    1. standard (clean, light)')
+      console.log('    2. dark (dark background, light text)')
+      console.log('    3. bandcamp (auto-colors from your Bandcamp page)')
+      console.log('')
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const themeAnswer = await new Promise(resolve => {
+        rl.question('  Theme [1]: ', resolve)
+      })
+      rl.close()
+      const themeMap = { '1': 'standard', '2': 'dark', '3': 'bandcamp', '': 'standard' }
+      chosenTheme = themeMap[themeAnswer.trim()] || 'standard'
+      console.log(`  → Using theme: ${chosenTheme}`)
+      console.log('')
+    }
+    if (!chosenTheme) chosenTheme = 'standard'
+    process.env.SITE_THEME = chosenTheme
+
+    await generateConfig(rawData, process.env, contentDir);
+    console.log('Generated content/config.json — edit it to configure your site.')
+    // Reload config
+    const reloadedConfig = await loadConfig(contentDir)
+    if (reloadedConfig) config = reloadedConfig
   }
 
   // First-run detection: no cache AND no config → trigger scrape + config generation
@@ -194,9 +228,6 @@ async function generate(options) {
     const { downloadArtwork } = require('./downloadArtwork');
     await downloadArtwork(cachePath, contentDir);
   }
-
-  // Step 4: Load content overrides
-  console.log('Loading content overrides...');
 
   // Step 3c: Auto-detect Bandcamp Digital Catalog CSV in private/imports/
   const importDir = 'private/imports'
