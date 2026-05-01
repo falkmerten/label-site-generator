@@ -45,14 +45,34 @@ async function migrate (contentDir = './content', options = {}) {
 
   // Site settings from env vars
   config.site = {
-    ...config.site,
-    name: process.env.SITE_NAME || process.env.LABEL_NAME || config.site.name || 'My Label',
-    url: process.env.SITE_URL || config.site.url || null,
+    name: process.env.SITE_NAME || process.env.LABEL_NAME || (config.site && config.site.name) || 'My Label',
+    url: process.env.SITE_URL || (config.site && config.site.url) || null,
+    mode: process.env.SITE_MODE || 'label',
     theme: process.env.SITE_THEME || 'standard',
-    template: process.env.SITE_TEMPLATE || null,
-    source: 'bandcamp',
-    sourceUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || config.site.sourceUrl || '',
-    mode: 'label'
+    template: process.env.SITE_TEMPLATE || null
+  }
+
+  // Top-level source object
+  config.source = {
+    primary: 'bandcamp',
+    url: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
+    accountType: 'label',
+    detection: 'migration',
+    confidence: 'high'
+  }
+
+  // Convert compilations from array to object
+  if (Array.isArray(config.compilations)) {
+    const compilationsObj = {}
+    for (const slug of config.compilations) {
+      compilationsObj[slug] = {}
+    }
+    config.compilations = compilationsObj
+  }
+
+  // Add stores default if missing
+  if (!config.stores) {
+    config.stores = ['bandcamp']
   }
 
   // Newsletter settings from env vars
@@ -79,7 +99,7 @@ async function migrate (contentDir = './content', options = {}) {
   const artistCount = Object.keys(config.artists || {}).length
   const extraCount = Object.values(config.artists || {}).filter(a => a.source === 'extra').length
   const youtubeCount = Object.values(config.artists || {}).filter(a => a.links && a.links.youtube).length
-  const compilationCount = (config.compilations || []).length
+  const compilationCount = Object.keys(config.compilations || {}).length
 
   console.log(`Migrated ${artistCount} artists, ${extraCount} extra artists, ${youtubeCount} YouTube channels, ${compilationCount} compilations`)
   console.log('You can now remove artists.json, extra-artists.txt, youtube.json, compilations.json')
