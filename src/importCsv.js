@@ -3,7 +3,6 @@
 const fs = require('fs/promises')
 const { toSlug, assignSlugs } = require('./slugs')
 const { readCache } = require('./cache')
-const { loadExtraArtistUrls } = require('./scraper')
 const { getLabelArtistUrls } = require('./bandcampApi')
 
 const VALID_TYPES = new Set(['album', 'album_track', 'track', 'licensed_album'])
@@ -363,14 +362,21 @@ async function buildActiveRoster (options = {}) {
     }
   }
 
-  // Merge extra artist URLs from content/extra-artists.txt
-  const extraUrls = await loadExtraArtistUrls(contentDir)
-  for (const url of extraUrls) {
-    const s = slugFromUrl(url)
-    if (s) slugs.add(s)
-  }
+  // Merge extra artist URLs from config.json (v5 — replaces extra-artists.txt)
+  try {
+    const configPath = require('path').join(contentDir, 'config.json')
+    const configText = await fs.readFile(configPath, 'utf8')
+    const config = JSON.parse(configText)
+    if (config.artists) {
+      for (const [slug, artist] of Object.entries(config.artists)) {
+        if (artist.enabled !== false && artist.bandcampUrl) {
+          slugs.add(slug)
+        }
+      }
+    }
+  } catch { /* no config.json */ }
 
-  // Merge extra artist URLs from EXTRA_ARTIST_URLS env var
+  // Merge extra artist URLs from EXTRA_ARTIST_URLS env var (legacy)
   const envExtra = (process.env.EXTRA_ARTIST_URLS || '')
     .split(',')
     .map(u => u.trim())

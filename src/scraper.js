@@ -38,25 +38,6 @@ function musicUrl (artistUrl) {
 }
 
 /**
- * Loads extra artist URLs from content/extra-artists.txt (one URL per line).
- * Lines starting with # are treated as comments and ignored.
- */
-async function loadExtraArtistUrls (contentDir) {
-  const filePath = path.join(contentDir, 'extra-artists.txt')
-  try {
-    const text = await fs.readFile(filePath, 'utf8')
-    return text
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith('#'))
-      .map(cleanUrl)
-  } catch (err) {
-    if (err.code !== 'ENOENT') console.warn(`[scraper] Could not read ${filePath}:`, err.message)
-    return []
-  }
-}
-
-/**
  * Scrapes all artist and album data from a Bandcamp label page.
  * Uses the Bandcamp API for the artist roster if credentials are provided,
  * otherwise falls back to scraping the label page.
@@ -495,4 +476,4 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
   }
 }
 
-module.exports = { scrapeLabel, loadExtraArtistUrls }
+module.exports = { scrapeLabel }
