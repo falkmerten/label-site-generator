@@ -97,29 +97,37 @@ async function generateConfig (rawData, env, contentDir = './content') {
 
   // ── Connected accounts: fetch via API if credentials available ──────────────
   // Adds connected accounts (partnerships) as disabled entries in config.json
+  // UNLESS they are also in extra-artists.txt (explicit user intent = enabled)
   const connectedAccounts = []
+  let extraArtistUrls = []
+  try {
+    const extraPath = path.join(contentDir, 'extra-artists.txt')
+    const extraText = await fs.readFile(extraPath, 'utf8')
+    extraArtistUrls = extraText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))
+  } catch { /* no extra-artists.txt */ }
+
   if (env.BANDCAMP_CLIENT_ID && env.BANDCAMP_CLIENT_SECRET) {
     try {
       const { getAccessToken, getMyBands } = require('./bandcampApi')
       const token = await getAccessToken(env.BANDCAMP_CLIENT_ID, env.BANDCAMP_CLIENT_SECRET)
       const { bands } = await getMyBands(token)
 
-      // my_bands returns: label entry (with member_bands) + connected accounts (top-level)
-      // member_bands are already in our artists list from the scrape
-      // Connected accounts are the ones NOT in member_bands
       const memberSlugs = new Set(Object.keys(artists))
       const labelSlug = toSlug(siteName || '')
+      // Check which connected accounts are also in extra-artists.txt
+      const extraSubdomains = new Set(extraArtistUrls.map(u => { try { return new URL(u).hostname.split('.')[0] } catch { return '' } }).filter(Boolean))
 
       for (const band of bands) {
         if (!band.subdomain) continue
         const slug = toSlug(band.name || band.subdomain)
         if (memberSlugs.has(slug) || slug === labelSlug) continue
-        // This is a connected account not in the label roster
         if (!artists[slug]) {
+          // If this connected account is also in extra-artists.txt → enable it
+          const isExplicitlyWanted = extraSubdomains.has(band.subdomain)
           artists[slug] = {
             name: band.name || band.subdomain,
-            enabled: false,
-            source: 'bandcamp',
+            enabled: isExplicitlyWanted,
+            source: isExplicitlyWanted ? 'extra' : 'bandcamp',
             relationship: 'connected_account',
             exclude: false,
             excludeAlbums: [],
@@ -129,11 +137,10 @@ async function generateConfig (rawData, env, contentDir = './content') {
               youtube: null, instagram: null, facebook: null, website: null, tiktok: null, twitter: null, bandsintown: null
             }
           }
-          connectedAccounts.push(band.name || band.subdomain)
+          connectedAccounts.push({ name: band.name || band.subdomain, enabled: isExplicitlyWanted })
         }
       }
     } catch (err) {
-      // Non-fatal — API may not be available
       if (!err.message.includes('OAuth')) {
         console.warn(`[warn] Could not fetch connected accounts: ${err.message}`)
       }
@@ -165,8 +172,15 @@ async function generateConfig (rawData, env, contentDir = './content') {
 
   // Report connected accounts
   if (connectedAccounts.length > 0) {
-    console.log(`\n  Found ${connectedAccounts.length} connected account(s): ${connectedAccounts.join(', ')}`)
-    console.log('  These are saved as disabled in config.json. Enable them to include on your website.')
+    const enabled = connectedAccounts.filter(a => a.enabled)
+    const disabled = connectedAccounts.filter(a => !a.enabled)
+    if (enabled.length > 0) {
+      console.log(`\n  Connected accounts (enabled via extra-artists.txt): ${enabled.map(a => a.name).join(', ')}`)
+    }
+    if (disabled.length > 0) {
+      console.log(`  Connected accounts (disabled): ${disabled.map(a => a.name).join(', ')}`)
+      console.log('  Enable them in config.json to include on your website.')
+    }
   }
 
   return config
