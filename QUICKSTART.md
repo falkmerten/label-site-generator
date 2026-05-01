@@ -36,18 +36,20 @@ Create a `.env` file:
 
 ```env
 BANDCAMP_URL=https://your-label.bandcamp.com/
-SITE_MODE=label
 ```
 
-Use `SITE_MODE=artist` only for setup 3 (single band). For setups 1 and 2, use `label`.
+That's all you need. The generator auto-detects whether you're a label or a single band.
 
-### Optional: Choose a theme
+### Optional: Bandcamp API credentials
+
+For better detection and connected account discovery:
 
 ```env
-SITE_THEME=dark
+BANDCAMP_CLIENT_ID=your_client_id
+BANDCAMP_CLIENT_SECRET=your_client_secret
 ```
 
-Available: `standard` (default), `dark`, `bandcamp` (auto-colors from your page).
+Get these from Bandcamp label settings → API Access (label accounts only).
 
 ## 3. Export Bandcamp CSV (optional, recommended)
 
@@ -55,11 +57,11 @@ Before running the generator, export your Digital Catalog Report from Bandcamp:
 
 **Bandcamp → Settings → Tools → Digital Catalog Report → Download CSV**
 
-Place the file in `content/` (filename: `{date}_{slug}_digital.csv`).
+Place the file in `private/imports/` (filename: `{date}_{slug}_digital.csv`).
 
-This provides reliable UPC and ISRC data without any API calls. The generator detects it automatically.
+This provides reliable UPC and ISRC data without any API calls. The generator detects it automatically and prompts you during first run.
 
-> Without the CSV, the generator still works — but UPC/ISRC matching for enrichment is less reliable.
+> Without the CSV, the generator still works — UPC comes from Bandcamp scrape data when available.
 
 ## 4. Generate
 
@@ -67,7 +69,9 @@ This provides reliable UPC and ISRC data without any API calls. The generator de
 node generate.js
 ```
 
-First run (1-2 minutes): Scrapes Bandcamp, downloads artwork, creates `content/config.json`, builds website to `dist/`.
+First run (1-2 minutes): Detects your setup, asks about theme and extra artists, scrapes Bandcamp, downloads artwork, creates `content/config.json`, builds website to `dist/`.
+
+Non-interactive (skip prompts): `node generate.js --yes`
 
 Subsequent runs (2-3 seconds): Rebuilds from cache, no network requests.
 
@@ -96,7 +100,7 @@ node generate.js --enrich
 
 Adds Spotify, Apple Music, and Deezer links. ~3-5 API calls per artist.
 
-### Recommended for labels: Soundcharts
+### Recommended for professional needs: Soundcharts
 
 For full metadata (UPC, ISRCs, all platforms, labels), configure Soundcharts:
 
@@ -109,7 +113,13 @@ Soundcharts provides everything in one API — fewer calls, more data, no rate l
 
 ### Physical releases: Discogs
 
-For vinyl/CD/cassette format display and sell links:
+For vinyl/CD/cassette format display and sell links, add "discogs" to your stores config in `config.json`:
+
+```json
+"stores": ["bandcamp", "discogs"]
+```
+
+And set the token in `.env`:
 
 ```env
 DISCOGS_TOKEN=your_token

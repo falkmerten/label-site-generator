@@ -35,7 +35,6 @@ Create `.env` with one line:
 
 ```env
 BANDCAMP_URL=https://your-label.bandcamp.com/
-SITE_MODE=label
 ```
 
 Run:
@@ -44,9 +43,9 @@ Run:
 node generate.js
 ```
 
-That's it. The generator scrapes your Bandcamp page, creates `content/config.json`, and builds a complete website to `dist/`.
+That's it. The generator detects your account type, asks a few questions (theme, extra artists), scrapes your Bandcamp page, creates `content/config.json`, and builds a complete website to `dist/`.
 
-See [QUICKSTART.md](QUICKSTART.md) for the full walkthrough.
+Use `--yes` to skip prompts (non-interactive mode).
 
 ---
 
@@ -54,19 +53,18 @@ See [QUICKSTART.md](QUICKSTART.md) for the full walkthrough.
 
 ### `.env` — Secrets only
 
-The `.env` file contains only API credentials and URLs that cannot be committed:
+The `.env` file contains only API credentials:
 
 | Variable | Required | Description |
 |---|---|---|
 | `BANDCAMP_URL` | Yes | Your Bandcamp page URL |
-| `SITE_MODE` | Yes | `label` or `artist` |
-| `SITE_THEME` | No | `standard`, `dark`, or `bandcamp` (default: `standard`) |
+| `BANDCAMP_CLIENT_ID` / `SECRET` | No | Improves detection, enables connected accounts |
 | `SPOTIFY_CLIENT_ID` / `SECRET` | No | For streaming link enrichment |
-| `SOUNDCHARTS_APP_ID` / `API_KEY` | No | For full metadata enrichment (recommended) |
-| `DISCOGS_TOKEN` | No | For physical release data |
+| `SOUNDCHARTS_APP_ID` / `API_KEY` | No | For full metadata enrichment |
+| `DISCOGS_TOKEN` | No | For physical release data (only if "discogs" in stores) |
 | `AWS_S3_BUCKET` | No | For deployment |
 
-### `content/config.json` — Content configuration
+### `content/config.json` — Site configuration
 
 Auto-generated on first run. Edit to configure your site:
 
@@ -77,19 +75,28 @@ Auto-generated on first run. Edit to configure your site:
     "url": "https://www.your-label.com/",
     "mode": "label",
     "theme": "standard",
-    "source": "bandcamp",
-    "sourceUrl": "https://your-label.bandcamp.com/"
+    "template": null
+  },
+  "source": {
+    "primary": "bandcamp",
+    "url": "https://your-label.bandcamp.com/",
+    "accountType": "label",
+    "detection": "api_member_bands",
+    "confidence": "high"
   },
   "artists": {
     "artist-slug": {
       "name": "Artist Name",
       "enabled": true,
-      "bandcampUrl": null,
-      "links": { "spotify": null, "soundcharts": null }
+      "bandcampUrl": "https://artist.bandcamp.com/",
+      "links": { "spotify": null }
     }
   },
-  "compilations": ["various-artists"],
-  "newsletter": { "provider": null, "actionUrl": null }
+  "compilations": {
+    "various-artists": {}
+  },
+  "stores": ["bandcamp"],
+  "newsletter": { "provider": null }
 }
 ```
 
@@ -138,7 +145,7 @@ This makes ~3-5 API calls per artist (lightweight, no rate limit issues).
 
 ### Soundcharts (full metadata — recommended)
 
-For labels with 50+ releases, Soundcharts provides UPC, ISRCs, labels, all streaming platforms, and social media links in a single API. Fewer calls, more data.
+For professional catalog needs, Soundcharts provides UPC, ISRCs, labels, all streaming platforms, and social media links in a single API. Fewer calls, more data.
 
 ```env
 SOUNDCHARTS_APP_ID=your_app_id
@@ -151,13 +158,13 @@ See [API-SETUP.md](API-SETUP.md) for credential setup.
 
 ## Themes
 
-Set `SITE_THEME` in `.env` or `site.theme` in `config.json`:
+Set `site.theme` in `config.json` (or choose during first-run prompt):
 
 - **`standard`** — Clean light theme
 - **`dark`** — Dark background, light text
 - **`bandcamp`** — Auto-extracts colors from your Bandcamp page
 
-Custom themes: Create `templates/themes/custom.css` and set `site.theme: "custom"`.
+Custom CSS: Place `style.css` in `content/global/` to override the theme entirely.
 
 ---
 
