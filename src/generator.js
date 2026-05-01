@@ -344,6 +344,16 @@ async function generate(options) {
     'label'
   mergedData._siteMode = siteMode
 
+  // Propagate config.json settings to process.env for renderer/assets (they read env)
+  if (config && config.site) {
+    if (config.site.template && !process.env.SITE_TEMPLATE) {
+      process.env.SITE_TEMPLATE = config.site.template
+    }
+    if (config.site.theme && !process.env.SITE_THEME) {
+      process.env.SITE_THEME = config.site.theme
+    }
+  }
+
   // Pass theme colors through for CSS variable overrides in copyAssets
   if (rawData.themeColors && Object.keys(rawData.themeColors).length > 0) {
     mergedData.themeColors = rawData.themeColors
