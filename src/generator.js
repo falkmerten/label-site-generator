@@ -88,6 +88,36 @@ async function generate(options) {
       clientSecret: process.env.BANDCAMP_CLIENT_SECRET
     };
 
+    // CSV check prompt (before scrape — give user a chance to add it)
+    const importDir = 'private/imports'
+    let hasCsv = false
+    try {
+      const importEntries = await fs.readdir(importDir)
+      hasCsv = importEntries.some(f => f.endsWith('_digital.csv'))
+    } catch { /* private/imports/ may not exist */ }
+
+    if (!hasCsv && !opts._nonInteractive) {
+      const readline = require('readline')
+      console.log('')
+      console.log('  No Bandcamp Digital Catalog CSV found in private/imports/.')
+      console.log('')
+      console.log('  Recommended: export from Bandcamp → Settings → Tools → Digital Catalog Report')
+      console.log('  and place the file in private/imports/ for reliable UPC/ISRC matching.')
+      console.log('')
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const answer = await new Promise(resolve => {
+        rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
+      })
+      rl.close()
+      if (answer.toLowerCase() === 'n') {
+        console.log('Place your CSV in private/imports/ and run again.')
+        process.exit(0)
+      }
+      console.log('')
+    } else if (hasCsv) {
+      console.log('  ✓ Bandcamp Digital Catalog CSV found in private/imports/')
+    }
+
     // Extra artists prompt (first run only)
     let extraArtistUrls = []
     if (!opts._nonInteractive) {
@@ -229,25 +259,6 @@ async function generate(options) {
     } catch (err) {
       console.warn(`[warn] Could not parse catalog CSV: ${err.message}`)
     }
-  } else if (!config && !opts._nonInteractive) {
-    // First run without CSV — recommend but don't block
-    const readline = require('readline')
-    console.log('')
-    console.log('  No Bandcamp Digital Catalog CSV found in private/imports/.')
-    console.log('')
-    console.log('  Recommended: export from Bandcamp → Settings → Tools → Digital Catalog Report')
-    console.log('  and place the file in private/imports/ for reliable UPC/ISRC matching.')
-    console.log('')
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-    const answer = await new Promise(resolve => {
-      rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
-    })
-    rl.close()
-    if (answer.toLowerCase() === 'n') {
-      console.log('Place your CSV in private/imports/ and run again.')
-      process.exit(0)
-    }
-    console.log('')
   }
 
   // Step 4: Load content overrides
