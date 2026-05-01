@@ -67,7 +67,7 @@ async function loadExtraArtistUrls (contentDir) {
  * @param {string} [contentDir] - Path to content directory (for extra-artists.txt)
  * @returns {Promise<RawSiteData>}
  */
-async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') {
+async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', options = {}) {
   let artistUrls
   let siteMode = process.env.SITE_MODE || 'label'
 
@@ -146,16 +146,15 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     }
   }
 
-  // Merge in any extra URLs from content/extra-artists.txt and EXTRA_ARTIST_URLS env var
-  const extraUrls = await loadExtraArtistUrls(contentDir)
-  const envExtra = (process.env.EXTRA_ARTIST_URLS || '')
-    .split(',')
-    .map(u => u.trim())
-    .filter(Boolean)
-    .map(cleanUrl)
-  const allExtra = [...new Set([...extraUrls, ...envExtra])]
+  // Merge in any extra artist URLs (passed from generator prompt or config.json)
+  const allExtra = (options && options.extraArtistUrls) || []
   if (allExtra.length > 0) {
-    artistUrls = [...new Set([...artistUrls, ...allExtra])]
+    for (const url of allExtra) {
+      const cleaned = cleanUrl(url)
+      if (!artistUrls.some(u => u.replace(/\/+$/, '') === cleaned.replace(/\/+$/, ''))) {
+        artistUrls.push(cleaned)
+      }
+    }
   }
 
   // ── Detection Summary ─────────────────────────────────────────────────────

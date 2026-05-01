@@ -87,7 +87,34 @@ async function generate(options) {
       clientId: process.env.BANDCAMP_CLIENT_ID,
       clientSecret: process.env.BANDCAMP_CLIENT_SECRET
     };
-    rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir);
+
+    // Extra artists prompt (first run only)
+    let extraArtistUrls = []
+    if (!opts._nonInteractive) {
+      const readline = require('readline')
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const wantsExtra = await new Promise(resolve => {
+        rl.question('  Do you have additional Bandcamp pages to include? [y/N]: ', resolve)
+      })
+      if (wantsExtra.toLowerCase() === 'y') {
+        console.log('  Enter Bandcamp URLs (one per line, empty line to finish):')
+        let url = ''
+        do {
+          url = await new Promise(resolve => { rl.question('  > ', resolve) })
+          url = url.trim()
+          if (url && url.includes('bandcamp.com')) {
+            extraArtistUrls.push(url)
+          }
+        } while (url)
+        if (extraArtistUrls.length > 0) {
+          console.log(`  Adding ${extraArtistUrls.length} additional artist(s).`)
+        }
+      }
+      rl.close()
+      console.log('')
+    }
+
+    rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir, { extraArtistUrls });
     await writeCache(cachePath, rawData);
 
     // Theme prompt (first run only, skip with --yes or --theme flag)
