@@ -492,52 +492,54 @@ async function generate(options) {
     process.env.NEWSLETTER_PROVIDER || process.env.NEWSLETTER_ACTION_URL
   );
   const hasEnrichment = !!(process.env.SOUNDCHARTS_APP_ID || process.env.SPOTIFY_CLIENT_ID);
+  const hasSoundcharts = !!(process.env.SOUNDCHARTS_APP_ID && process.env.SOUNDCHARTS_API_KEY);
   const hasDeploy = !!process.env.AWS_S3_BUCKET;
+  const currentTheme = (config && config.site && config.site.theme) || 'standard'
 
   console.log('\n--- Summary ---');
+  console.log(`  Artists: ${allArtists.length}${withoutPhotos > 0 ? ` (${withoutPhotos} without photos)` : ''}${withoutBios > 0 ? ` (${withoutBios} without bios)` : ''}`);
+  console.log(`  Albums: ${allAlbums.length}${withoutStreaming > 0 ? ` (${withoutStreaming} without streaming links)` : ''}`);
+  if (newsArticles.length > 0) console.log(`  News: ${newsArticles.length} article(s)`);
+  console.log(`  Theme: ${currentTheme}`);
+  console.log(`  Generated ${pageCount} pages to ${outputDir}`);
 
-  // Artists line
-  const artistWarnings = [];
-  if (withoutPhotos > 0) artistWarnings.push(`${withoutPhotos} without photos`);
-  if (withoutBios > 0) artistWarnings.push(`${withoutBios} without bios`);
-  console.log(`Artists: ${allArtists.length}${artistWarnings.length ? ' (' + artistWarnings.join(', ') + ')' : ''}`);
-
-  // Albums line
-  const albumWarnings = [];
-  if (withoutStreaming > 0) albumWarnings.push(`${withoutStreaming} without streaming links`);
-  if (withoutArtwork > 0) albumWarnings.push(`${withoutArtwork} without artwork`);
-  console.log(`Albums: ${allAlbums.length}${albumWarnings.length ? ' (' + albumWarnings.join(', ') + ')' : ''}`);
-
-  // News line
-  if (newsArticles.length > 0) {
-    const newsSource = (process.env.GHOST_URL && process.env.GHOST_CONTENT_API_KEY) ? 'from Ghost' : 'local';
-    console.log(`News: ${newsArticles.length} article(s) (${newsSource})`);
+  // Next steps — actionable, no documentation needed
+  console.log('\n--- Next steps ---');
+  console.log('  1. View your site:        npx serve dist');
+  if (withoutStreaming > 0 && !hasEnrichment) {
+    console.log('  2. Add streaming links:   node generate.js --enrich  (set SPOTIFY_CLIENT_ID/SECRET in .env)');
+  } else if (withoutStreaming > 0) {
+    console.log('  2. Add streaming links:   node generate.js --enrich');
+  }
+  if (withoutBios > 0) {
+    console.log(`  3. Add artist bios:       content/{artist-slug}/bio.md`);
+  }
+  if (withoutPhotos > 0) {
+    console.log(`  4. Add artist photos:     content/{artist-slug}/photo.jpg`);
+  }
+  console.log('  5. Add news articles:     content/news/2026/MM-DD-slug.md');
+  console.log('  6. Add static pages:      content/pages/about.md, content/pages/imprint.md');
+  if (hasDeploy) {
+    console.log('  7. Deploy:                node generate.js --deploy');
+  } else {
+    console.log('  7. Deploy:                node generate.js --deploy  (set AWS_S3_BUCKET in .env)');
   }
 
-  // Logo line (only if no custom logo)
-  if (!hasCustomLogo && rawData.labelProfileImage) {
-    console.log('Logo: Using Bandcamp profile image (no custom logo)');
-  } else if (!hasCustomLogo && !rawData.labelProfileImage) {
-    console.log('Logo: Not found (add assets/logo-round.png or content/global/logo.png)');
-  }
+  // Config hints
+  console.log('\n--- Configuration ---');
+  console.log('  Edit content/config.json to:');
+  console.log('    - Change theme (site.theme: standard, dark, bandcamp)');
+  console.log('    - Set your domain (site.url) for SEO, sitemap, and social sharing');
+  console.log('    - Enable/disable artists or exclude specific albums');
+  console.log('    - Add new artists (set bandcampUrl, then run --scrape)');
+  console.log('    - Configure newsletter (newsletter.provider, newsletter.actionUrl)');
+  console.log('    - Configure stores (stores: ["bandcamp", "discogs", ...])');
+  console.log('  Full reference: see WORKFLOW.md');
 
-  // Config warnings
-  const currentTheme = (config && config.site && config.site.theme) || process.env.SITE_THEME || 'standard'
-  console.log(`Theme: ${currentTheme} (change site.theme in config.json — available: standard, dark, bandcamp)`)
-  if (!hasNewsletter) console.log('Newsletter: Not configured (set newsletter.provider in config.json)');
-  if (!hasEnrichment) console.log('Enrichment: Not configured (set SPOTIFY_CLIENT_ID in .env)');
-  if (!hasDeploy) console.log('Deploy: Not configured (set AWS_S3_BUCKET in .env)');
-
-  console.log(`Generated ${pageCount} pages to ${outputDir}`);
-
-  // Suggest next steps
-  const hasSoundcharts = !!(process.env.SOUNDCHARTS_APP_ID && process.env.SOUNDCHARTS_API_KEY);
-  if (!hasEnrichment) {
-    console.log('\nTip: Run with --enrich to add streaming links (requires Spotify API credentials).');
-    console.log('     For full metadata (UPC, labels, all platforms), configure Soundcharts — see API-SETUP.md.');
-  } else if (!hasSoundcharts) {
-    console.log('\nTip: For full metadata (UPC, labels, all platforms), configure Soundcharts API.');
-    console.log('     Soundcharts is recommended over Spotify-only enrichment. See API-SETUP.md.');
+  // Enrichment recommendation
+  if (!hasSoundcharts) {
+    console.log('\n  Tip: For full metadata (UPC, labels, all platforms), configure Soundcharts.');
+    console.log('       See API-SETUP.md for setup instructions.');
   }
 
   // Report execution time
