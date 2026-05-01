@@ -102,10 +102,36 @@ async function loadLegacyConfig (contentDir) {
       // Extract slug from bandcamp URL: https://name.bandcamp.com/
       const match = trimmed.match(/^https?:\/\/([a-z0-9-]+)\.bandcamp\.com\/?$/)
       if (match) {
-        const slug = match[1]
-        if (!artists[slug]) {
-          artists[slug] = {
-            name: slug,
+        const urlSlug = match[1]
+        // Check if an existing artist matches this URL by slug similarity or bandcampUrl
+        // URL slug "goldenapes" should match existing "golden-apes"
+        const existingEntry = Object.entries(artists).find(([existingSlug, a]) => {
+          // Exact slug match
+          if (existingSlug === urlSlug) return true
+          // bandcampUrl match
+          if (a.bandcampUrl && a.bandcampUrl.replace(/\/+$/, '') === trimmed.replace(/\/+$/, '')) return true
+          // Normalized match: remove hyphens and compare
+          if (existingSlug.replace(/-/g, '') === urlSlug.replace(/-/g, '')) return true
+          // Prefix match: URL slug has a suffix like "-official", "-music", "-band"
+          // Only match if the suffix starts with a hyphen (to avoid "s" matching "shearer")
+          const suffixes = ['-official', '-music', '-band', '-records', '-label', '-project']
+          for (const suffix of suffixes) {
+            if (urlSlug === existingSlug + suffix) return true
+            if (existingSlug === urlSlug + suffix) return true
+          }
+          return false
+        })
+        if (existingEntry) {
+          // Artist already exists — add bandcampUrl and mark as extra
+          const [existingSlug] = existingEntry
+          artists[existingSlug].source = 'extra'
+          artists[existingSlug].bandcampUrl = artists[existingSlug].bandcampUrl || trimmed
+          if (artists[existingSlug].links) {
+            artists[existingSlug].links.bandcamp = artists[existingSlug].links.bandcamp || trimmed
+          }
+        } else {
+          artists[urlSlug] = {
+            name: urlSlug,
             enabled: true,
             source: 'extra',
             exclude: false,
@@ -124,11 +150,6 @@ async function loadLegacyConfig (contentDir) {
               bandsintown: null
             }
           }
-        } else {
-          // Artist already exists from artists.json — mark as extra source and add bandcampUrl
-          artists[slug].source = 'extra'
-          artists[slug].bandcampUrl = trimmed
-          artists[slug].links.bandcamp = trimmed
         }
       }
     }
