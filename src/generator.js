@@ -517,12 +517,16 @@ async function generate(options) {
   if (withoutPhotos > 0) {
     console.log(`  4. Add artist photos:     content/{artist-slug}/photo.jpg`);
   }
-  console.log('  5. Add news articles:     content/news/2026/MM-DD-slug.md');
-  console.log('  6. Add static pages:      content/pages/about.md, content/pages/imprint.md');
+  if (!hasCustomLogo) {
+    console.log('  5. Add label logo:        assets/logo-round.png');
+    console.log('     Add hero banner:       assets/banner.jpg');
+  }
+  console.log('  6. Add news articles:     content/news/2026/MM-DD-slug.md');
+  console.log('  7. Add static pages:      content/pages/about.md, content/pages/imprint.md');
   if (hasDeploy) {
-    console.log('  7. Deploy:                node generate.js --deploy');
+    console.log('  8. Deploy:                node generate.js --deploy');
   } else {
-    console.log('  7. Deploy:                node generate.js --deploy  (set AWS_S3_BUCKET in .env)');
+    console.log('  8. Deploy:                node generate.js --deploy  (set AWS_S3_BUCKET in .env)');
   }
 
   // Config hints
