@@ -399,16 +399,34 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
         console.log(`\nScraping label page for compilations: ${labelClean}`)
         await delay(DELAY_MS)
         const labelAlbumUrls = await bandcamp.getAlbumUrls(labelClean)
-        // Filter to albums not already scraped under any artist
+
+        // Pre-filter: skip URLs whose hostname belongs to an already-scraped artist
+        const scrapedSubdomains = new Set(artistUrls.map(u => { try { return new URL(u).hostname.split('.')[0] } catch { return '' } }).filter(Boolean))
+        // Also add the label subdomain itself
+        try { scrapedSubdomains.add(new URL(labelClean).hostname.split('.')[0]) } catch { /* */ }
+
+        // Filter to albums on the LABEL subdomain only (not artist subdomains)
+        // Albums on artist subdomains are already scraped under that artist
+        const labelSubdomain = (() => { try { return new URL(labelClean).hostname.split('.')[0] } catch { return '' } })()
+        const labelOnlyUrls = labelAlbumUrls.filter(u => {
+          try {
+            const hostname = new URL(u).hostname.split('.')[0]
+            // Only keep URLs on the label's own subdomain
+            return hostname === labelSubdomain
+          } catch { return false }
+        })
+
+        // Further filter: remove URLs already scraped
         const allScrapedUrls = new Set()
         for (const a of artists) {
           for (const al of a.albums) {
-            if (al.url) allScrapedUrls.add(al.url.replace(/\/+$/, ''))
+            if (al.url) allScrapedUrls.add(al.url.replace(/[?#].*$/, '').replace(/\/+$/, ''))
           }
         }
-        const unscrapedUrls = labelAlbumUrls.filter(u => !allScrapedUrls.has(u.replace(/\/+$/, '')))
+        const unscrapedUrls = labelOnlyUrls.filter(u => !allScrapedUrls.has(u.replace(/[?#].*$/, '').replace(/\/+$/, '')))
+
         if (unscrapedUrls.length > 0) {
-          console.log(`  Found ${unscrapedUrls.length} unscraped album(s) on label page`)
+          console.log(`  Found ${unscrapedUrls.length} album(s) on label page to check for compilations`)
           const compilationAlbums = []
           for (const albumUrl of unscrapedUrls) {
             try {
@@ -434,10 +452,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
                   upc: compUpc || null
                 })
               } else {
-                // Not a compilation — it's a regular album by a specific artist
-                // that happens to be on the label page. Skip it (it belongs to
-                // the artist's own page, or was already scraped there).
-                console.log(`  – Skipped (artist: "${albumInfo.artist}"): "${albumInfo.title}" (${albumUrl})`)
+                // Not a compilation — skip silently (already covered by artist scrape)
               }
             } catch (err) {
               console.warn(`    Error: ${err.message}`)
