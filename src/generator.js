@@ -98,6 +98,26 @@ async function generate(options) {
     };
     rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir);
     await writeCache(cachePath, rawData);
+
+    // Theme prompt (first run only)
+    const readline = require('readline')
+    console.log('')
+    console.log('  Choose a theme:')
+    console.log('    1. standard (clean, light)')
+    console.log('    2. dark (dark background, light text)')
+    console.log('    3. bandcamp (auto-colors from your Bandcamp page)')
+    console.log('')
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    const themeAnswer = await new Promise(resolve => {
+      rl.question('  Theme [1]: ', resolve)
+    })
+    rl.close()
+    const themeMap = { '1': 'standard', '2': 'dark', '3': 'bandcamp', '': 'standard' }
+    const chosenTheme = themeMap[themeAnswer.trim()] || 'standard'
+    process.env.SITE_THEME = chosenTheme
+    console.log(`  → Using theme: ${chosenTheme}`)
+    console.log('')
+
     await generateConfig(rawData, process.env, contentDir);
     console.log('Generated content/config.json — edit it to configure your site.');
   }
@@ -124,26 +144,19 @@ async function generate(options) {
   // Step 4: Load content overrides
   console.log('Loading content overrides...');
 
-  // Step 3c: Auto-detect Bandcamp Digital Catalog CSV and backfill UPC/ISRC
+  // Step 3c: Auto-detect Bandcamp Digital Catalog CSV in assets/ and backfill UPC/ISRC
   const catalogCsvFiles = []
-  try {
-    const contentEntries = await fs.readdir(contentDir)
-    for (const f of contentEntries) {
-      if (f.endsWith('_digital.csv')) catalogCsvFiles.push(f)
-    }
-  } catch { /* content dir may not exist yet */ }
-  // Also check assets/ directory
   try {
     const assetEntries = await fs.readdir('assets')
     for (const f of assetEntries) {
-      if (f.endsWith('_digital.csv')) catalogCsvFiles.push(path.join('..', 'assets', f))
+      if (f.endsWith('_digital.csv')) catalogCsvFiles.push(f)
     }
-  } catch { /* */ }
+  } catch { /* assets dir may not exist */ }
 
   if (catalogCsvFiles.length > 0) {
     // Use the most recent file (sorted by name = sorted by date prefix)
     const csvFile = catalogCsvFiles.sort().pop()
-    const csvPath = catalogCsvFiles[0].startsWith('..') ? path.join('assets', path.basename(csvFile)) : path.join(contentDir, csvFile)
+    const csvPath = path.join('assets', csvFile)
     try {
       const csvText = await fs.readFile(csvPath, 'utf8')
       const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean)
@@ -182,30 +195,40 @@ async function generate(options) {
             }
           }
 
-          // Also backfill ISRCs from track rows
-          const isrcById = new Map()
-          for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',')
-            if (cols[typeIdx] === 'album_track' && cols[idIdx] && cols[isrcIdx]) {
-              isrcById.set(cols[idIdx], cols[isrcIdx])
-            }
-          }
-
           if (filled > 0) {
-            console.log(`Catalog CSV: Filled ${filled} UPC(s) from ${path.basename(csvPath)}`)
+            console.log(`Catalog CSV: Filled ${filled} UPC(s) from ${csvFile}`)
             await writeCache(cachePath, rawData)
           } else {
-            console.log(`Catalog CSV: ${path.basename(csvPath)} loaded (no new UPCs to fill)`)
+            console.log(`Catalog CSV: ${csvFile} loaded (no new UPCs to fill)`)
           }
         }
       }
     } catch (err) {
       console.warn(`[warn] Could not parse catalog CSV: ${err.message}`)
     }
-  } else if (!rawData._catalogCsvChecked) {
-    console.log('Tip: Export your Bandcamp Digital Catalog Report to content/ for reliable UPC/ISRC matching.')
-    rawData._catalogCsvChecked = true
+  } else if (!config) {
+    // First run without CSV — interactive prompt
+    const readline = require('readline')
+    console.log('')
+    console.log('  No Bandcamp Digital Catalog CSV found in assets/.')
+    console.log('  For reliable UPC/ISRC data, export from:')
+    console.log('  Bandcamp → Settings → Tools → Digital Catalog Report')
+    console.log('  Place the file in assets/ and run again.')
+    console.log('')
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    const answer = await new Promise(resolve => {
+      rl.question('  Continue without CSV? (y/N): ', resolve)
+    })
+    rl.close()
+    if (answer.toLowerCase() !== 'y') {
+      console.log('Aborted. Place your CSV in assets/ and run again.')
+      process.exit(0)
+    }
+    console.log('')
   }
+
+  // Step 4: Load content overrides
+  console.log('Loading content overrides...');
   const content = await loadContent(contentDir);
 
   // Step 4b: Load upcoming releases — announce/preview tier (always runs, no scraping)
@@ -238,12 +261,11 @@ async function generate(options) {
     mergedData._labelProfileImage = rawData.labelProfileImage
   }
 
-  // Pass siteMode through for template resolution — SITE_MODE is mandatory
-  const siteMode = process.env.SITE_MODE
-  if (!siteMode || !['label', 'artist'].includes(siteMode)) {
-    console.error('[error] SITE_MODE is required. Set SITE_MODE=label or SITE_MODE=artist in your .env file.')
-    process.exit(1)
-  }
+  // Resolve site mode: config.json > env > auto-detected from scrape > default 'label'
+  const siteMode = (config && config.site && config.site.mode) ||
+    process.env.SITE_MODE ||
+    rawData._siteMode ||
+    'label'
   mergedData._siteMode = siteMode
 
   // Pass theme colors through for CSS variable overrides in copyAssets

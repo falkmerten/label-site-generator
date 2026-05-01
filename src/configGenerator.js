@@ -98,6 +98,50 @@ async function generateConfig (rawData, env, contentDir = './content') {
   // Determine theme: SITE_THEME env > 'standard'
   const siteTheme = env.SITE_THEME || 'standard'
 
+  // ── Connected accounts: fetch via API if credentials available ──────────────
+  // Adds connected accounts (partnerships) as disabled entries in config.json
+  const connectedAccounts = []
+  if (env.BANDCAMP_CLIENT_ID && env.BANDCAMP_CLIENT_SECRET) {
+    try {
+      const { getAccessToken, getMyBands } = require('./bandcampApi')
+      const token = await getAccessToken(env.BANDCAMP_CLIENT_ID, env.BANDCAMP_CLIENT_SECRET)
+      const { bands } = await getMyBands(token)
+
+      // my_bands returns: label entry (with member_bands) + connected accounts (top-level)
+      // member_bands are already in our artists list from the scrape
+      // Connected accounts are the ones NOT in member_bands
+      const memberSlugs = new Set(Object.keys(artists))
+      const labelSlug = toSlug(env.SITE_NAME || '')
+
+      for (const band of bands) {
+        if (!band.subdomain) continue
+        const slug = toSlug(band.name || band.subdomain)
+        if (memberSlugs.has(slug) || slug === labelSlug) continue
+        // This is a connected account not in the label roster
+        if (!artists[slug]) {
+          artists[slug] = {
+            name: band.name || band.subdomain,
+            enabled: false,
+            source: 'connected',
+            exclude: false,
+            excludeAlbums: [],
+            bandcampUrl: `https://${band.subdomain}.bandcamp.com/`,
+            links: {
+              spotify: null, soundcharts: null, bandcamp: `https://${band.subdomain}.bandcamp.com/`,
+              youtube: null, instagram: null, facebook: null, website: null, tiktok: null, twitter: null, bandsintown: null
+            }
+          }
+          connectedAccounts.push(band.name || band.subdomain)
+        }
+      }
+    } catch (err) {
+      // Non-fatal — API may not be available
+      if (!err.message.includes('OAuth')) {
+        console.warn(`[warn] Could not fetch connected accounts: ${err.message}`)
+      }
+    }
+  }
+
   const config = {
     site: {
       name: siteName,
@@ -120,6 +164,13 @@ async function generateConfig (rawData, env, contentDir = './content') {
   }
 
   await writeConfig(config, contentDir)
+
+  // Report connected accounts
+  if (connectedAccounts.length > 0) {
+    console.log(`\n  Found ${connectedAccounts.length} connected account(s): ${connectedAccounts.join(', ')}`)
+    console.log('  These are saved as disabled in config.json. Enable them to include on your website.')
+  }
+
   return config
 }
 
