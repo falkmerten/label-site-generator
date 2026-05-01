@@ -178,6 +178,40 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
       console.log('    Source: Bandcamp HTML scrape')
     }
     console.log('')
+
+    // Detection confirmation — allow override
+    if (!options._nonInteractive) {
+      const readline = require('readline')
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const confirm = await new Promise(resolve => {
+        rl.question('  Use this setup? [Y/n/edit]: ', resolve)
+      })
+      const choice = confirm.trim().toLowerCase()
+      if (choice === 'n') {
+        rl.close()
+        console.log('  Aborted. Edit .env or run with different options.')
+        process.exit(0)
+      } else if (choice === 'edit' || choice === 'e') {
+        // Override mode selection
+        console.log('')
+        console.log('  Choose site mode:')
+        console.log('    1. Label website (multi-artist roster)')
+        console.log('    2. Artist/Band website (single band)')
+        console.log('')
+        const modeChoice = await new Promise(resolve => {
+          rl.question('  Mode [1]: ', resolve)
+        })
+        if (modeChoice.trim() === '2') {
+          siteMode = 'artist'
+          console.log('  → Site mode: Artist (single band)')
+        } else {
+          siteMode = 'label'
+          console.log('  → Site mode: Label (multi-artist)')
+        }
+        console.log('')
+      }
+      rl.close()
+    }
   }
 
   const artists = []

@@ -12,11 +12,11 @@
 const CONFIG_SCHEMA = {
   $schema: 'http://json-schema.org/draft-07/schema#',
   type: 'object',
-  required: ['site', 'artists'],
+  required: ['site', 'source', 'artists'],
   properties: {
     site: {
       type: 'object',
-      required: ['name', 'mode', 'source', 'sourceUrl'],
+      required: ['name', 'mode'],
       properties: {
         name: {
           type: 'string'
@@ -35,15 +35,32 @@ const CONFIG_SCHEMA = {
         template: {
           type: ['string', 'null']
         },
-        source: {
+        discogsUrl: {
+          type: ['string', 'null']
+        }
+      }
+    },
+    source: {
+      type: 'object',
+      required: ['primary', 'url'],
+      properties: {
+        primary: {
           type: 'string',
           enum: ['bandcamp', 'archive', 'spotify']
         },
-        sourceUrl: {
+        url: {
           type: 'string'
         },
-        discogsUrl: {
-          type: ['string', 'null']
+        accountType: {
+          type: 'string',
+          enum: ['label', 'artist']
+        },
+        detection: {
+          type: 'string'
+        },
+        confidence: {
+          type: 'string',
+          enum: ['high', 'medium', 'low']
         }
       }
     },

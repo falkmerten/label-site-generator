@@ -46,8 +46,8 @@ async function generate(options) {
   // Site identity from config.json (no env fallback — config is source of truth)
   const labelName = (config && config.site && config.site.name) || 'My Site';
 
-  // Resolve labelUrl from env (config.site.sourceUrl is informational, env is authoritative for secrets/URLs)
-  const labelUrl = opts.labelUrl || (config && config.site && config.site.sourceUrl) || '';
+  // Resolve labelUrl from env or config source object
+  const labelUrl = opts.labelUrl || (config && config.source && config.source.url) || '';
 
   // Validate BANDCAMP_URL format when refresh is requested
   if (refresh) {
@@ -180,7 +180,7 @@ async function generate(options) {
       console.log('')
     }
 
-    rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir, { extraArtistUrls });
+    rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir, { extraArtistUrls, _nonInteractive: opts._nonInteractive });
     await writeCache(cachePath, rawData);
 
     // Theme prompt (first run only, skip with --yes or --theme flag)
@@ -216,7 +216,7 @@ async function generate(options) {
       clientSecret: process.env.BANDCAMP_CLIENT_SECRET
     };
     try {
-      rawData = await scrapeLabel(labelUrl, apiCredentials, contentDir);
+      rawData = await scrapeLabel(labelUrl, apiCredentials, contentDir, { _nonInteractive: opts._nonInteractive });
     } catch (err) {
       console.error('[generator] Fatal: could not scrape and no cache available.');
       throw err;

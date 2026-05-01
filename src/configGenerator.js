@@ -145,9 +145,14 @@ async function generateConfig (rawData, env, contentDir = './content') {
       mode: siteMode,
       theme: siteTheme,
       template: env.SITE_TEMPLATE || null,
-      source: 'bandcamp',
-      sourceUrl: env.BANDCAMP_URL || '',
       discogsUrl: null
+    },
+    source: {
+      primary: 'bandcamp',
+      url: env.BANDCAMP_URL || '',
+      accountType: rawData._siteMode === 'label' ? 'label' : 'artist',
+      detection: (env.BANDCAMP_CLIENT_ID ? 'api_member_bands' : (rawData._siteMode === 'label' ? 'html_artists_page' : 'html_single_artist')),
+      confidence: env.BANDCAMP_CLIENT_ID ? 'high' : 'medium'
     },
     artists,
     compilations: compilationSlugs,
