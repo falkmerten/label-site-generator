@@ -85,6 +85,41 @@ async function generateConfig (rawData, env, contentDir = './content') {
     compilations[slug] = {}
   }
 
+  // Backfill links from cache data (streamingLinks, socialLinks, bandLinks)
+  for (const artist of rawArtists) {
+    const slug = toSlug(artist.name || '')
+    if (!slug || !artists[slug]) continue
+    const cl = artists[slug].links
+
+    // Streaming links (Spotify artist URL)
+    const sl = artist.streamingLinks || {}
+    if (sl.spotify && !cl.spotify) cl.spotify = sl.spotify
+
+    // Social links (from Soundcharts enrichment)
+    const social = artist.socialLinks || {}
+    if (social.youtube && !cl.youtube) cl.youtube = social.youtube
+    if (social.instagram && !cl.instagram) cl.instagram = social.instagram
+    if (social.facebook && !cl.facebook) cl.facebook = social.facebook
+    if (social.tiktok && !cl.tiktok) cl.tiktok = social.tiktok
+    if (social.twitter && !cl.twitter) cl.twitter = social.twitter
+    if (social.website && !cl.website) cl.website = social.website
+
+    // Discovery links
+    const discovery = artist.discoveryLinks || {}
+    if (discovery.youtube && !cl.youtube) cl.youtube = discovery.youtube
+    if (discovery.website && !cl.website) cl.website = discovery.website
+
+    // Band links (from Bandcamp page)
+    for (const link of artist.bandLinks || []) {
+      if (!link.url) continue
+      if (link.url.includes('youtube.com') && !cl.youtube) cl.youtube = link.url
+      if (link.url.includes('instagram.com') && !cl.instagram) cl.instagram = link.url
+      if (link.url.includes('facebook.com') && !cl.facebook) cl.facebook = link.url
+      if (link.url.includes('tiktok.com') && !cl.tiktok) cl.tiktok = link.url
+      if ((link.url.includes('twitter.com') || link.url.includes('x.com')) && !cl.twitter) cl.twitter = link.url
+    }
+  }
+
   // Determine site name from Bandcamp page title (no env fallback)
   const siteName = rawData.pageTitle || rawData.title || 'My Site'
 
