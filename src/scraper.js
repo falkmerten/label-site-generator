@@ -110,6 +110,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   }
 
   // ── Legacy mode: no config.json, detect account type ──────────────────────
+  let detectedAccountType = 'unknown'
   if (!configDriven) {
     // Step 1: Try API if credentials available
     if (apiCredentials && apiCredentials.clientId && apiCredentials.clientSecret) {
@@ -117,28 +118,27 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
         artistUrls = await getLabelArtistUrls(apiCredentials.clientId, apiCredentials.clientSecret)
         if (artistUrls && artistUrls.length > 0) {
           siteMode = 'label'
-          console.log(`Bandcamp API: found ${artistUrls.length} artist(s) (label account)`)
+          detectedAccountType = 'label'
         }
       } catch (err) {
-        console.warn(`  API roster fetch failed (${err.message}), falling back to scraping...`)
         artistUrls = null
       }
     }
 
     // Step 2: Try /artists page (label account detection)
     if (!artistUrls) {
-      console.log(`Detecting Bandcamp account type for ${labelUrl}...`)
       try {
         const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
         artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
         if (artistUrls.length > 0) {
           siteMode = 'label'
-          console.log(`  Label account detected (${artistUrls.length} artist(s) on /artists page)`)
+          detectedAccountType = 'label'
         }
       } catch (err) {
         if (err.message && err.message.includes('404')) {
-          console.log('  Artist/band account detected (no /artists page)')
           artistUrls = [labelUrl.replace(/\/+$/, '')]
+          detectedAccountType = 'artist'
+          // Will be refined after scrape (regrouping may detect artist-as-label)
         } else {
           throw err
         }
@@ -155,11 +155,23 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
     .map(cleanUrl)
   const allExtra = [...new Set([...extraUrls, ...envExtra])]
   if (allExtra.length > 0) {
-    console.log(`Adding ${allExtra.length} extra artist(s) from extra-artists.txt`)
     artistUrls = [...new Set([...artistUrls, ...allExtra])]
   }
 
-  console.log(`Found ${artistUrls.length} artist(s) total.`)
+  // ── Detection Summary ─────────────────────────────────────────────────────
+  if (!configDriven) {
+    console.log('')
+    console.log('  Detected setup:')
+    console.log(`    Bandcamp account type: ${detectedAccountType === 'label' ? 'Label' : 'Artist/Band'}`)
+    console.log(`    Site mode: ${siteMode === 'label' ? 'Label (multi-artist)' : 'Artist (single band)'}`)
+    console.log(`    Artists to scrape: ${artistUrls.length}${allExtra.length > 0 ? ` (incl. ${allExtra.length} extra)` : ''}`)
+    if (apiCredentials && apiCredentials.clientId) {
+      console.log('    Source: Bandcamp API')
+    } else {
+      console.log('    Source: Bandcamp HTML scrape')
+    }
+    console.log('')
+  }
 
   const artists = []
 

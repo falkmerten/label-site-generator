@@ -15,8 +15,7 @@ const { loadConfig } = require('./configLoader');
 const { generateConfig } = require('./configGenerator');
 
 const DEFAULTS = {
-  labelUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || process.env.BANDCAMP_ARTIST_URL || '',
-  labelName: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site',
+  labelUrl: process.env.BANDCAMP_URL || '',
   outputDir: './dist',
   contentDir: './content',
   cachePath: './cache.json',
@@ -44,16 +43,15 @@ async function generate(options) {
     console.log('Configuration valid')
   }
 
-  // Site identity from config (with env var fallback for backward compat)
-  const labelName = (config && config.site && config.site.name) ||
-    process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site';
+  // Site identity from config.json (no env fallback — config is source of truth)
+  const labelName = (config && config.site && config.site.name) || 'My Site';
 
   // Resolve labelUrl from env (config.site.sourceUrl is informational, env is authoritative for secrets/URLs)
   const labelUrl = opts.labelUrl || (config && config.site && config.site.sourceUrl) || '';
 
   // Validate BANDCAMP_URL format when refresh is requested
   if (refresh) {
-    const bandcampUrl = process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '';
+    const bandcampUrl = process.env.BANDCAMP_URL || '';
     if (!bandcampUrl) {
       console.error('[error] BANDCAMP_URL is required for --update/--scrape. Set it in your .env file.');
       process.exit(1);
@@ -70,13 +68,6 @@ async function generate(options) {
     process.exit(1);
   }
 
-  if (!process.env.BANDCAMP_CLIENT_ID || !process.env.BANDCAMP_CLIENT_SECRET) {
-    console.warn('[warn] BANDCAMP_CLIENT_ID/SECRET not set - falling back to HTML scraping (may miss hidden artists)');
-  }
-  if (!process.env.SITE_URL) {
-    console.warn('[warn] SITE_URL not set - canonical URLs, sitemap, and OG tags will be incomplete');
-  }
-
   // Step 1-3: Resolve raw data from cache or scrape
   let rawData = null;
 
@@ -87,7 +78,7 @@ async function generate(options) {
 
   // First-run detection: no cache AND no config → trigger scrape + config generation
   if (!rawData && !config) {
-    const bandcampUrl = process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '';
+    const bandcampUrl = process.env.BANDCAMP_URL || '';
     if (!bandcampUrl) {
       console.error('[error] BANDCAMP_URL is required for first run. Set it in your .env file.');
       process.exit(1);

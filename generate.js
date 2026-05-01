@@ -442,7 +442,7 @@ async function run() {
   // Auto-convert any bio.docx files before generating
   await convertAllDocs(options.contentDir);
   // Pass scrape flag to generator (full re-scrape mode)
-  const generateOptions = { ...options, refresh: options.scrape && !options.artistFilter }
+  const generateOptions = { ...options, refresh: options.scrape && !options.artistFilter, _nonInteractive: v5Options._nonInteractive || false }
   const { pageCount, outputDir } = await generate(generateOptions);
   console.log(`Generated ${pageCount} pages to ${outputDir}`);
 

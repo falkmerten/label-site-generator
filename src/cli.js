@@ -130,6 +130,12 @@ function parseArgs (argv) {
         options._nonInteractive = true
         break
 
+      case '--theme':
+        i++
+        if (args[i]) process.env.SITE_THEME = args[i]
+        options._nonInteractive = true // --theme implies non-interactive for theme prompt
+        break
+
       case '--output':
         i++
         if (args[i]) options.outputDir = args[i]

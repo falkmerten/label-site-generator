@@ -83,15 +83,11 @@ async function generateConfig (rawData, env, contentDir = './content') {
   const detectedCompilations = detectCompilations(rawArtists)
   compilationSlugs.push(...detectedCompilations)
 
-  // Determine site name: SITE_NAME > LABEL_NAME > page title > default
-  const siteName = env.SITE_NAME ||
-    env.LABEL_NAME ||
-    rawData.pageTitle ||
-    rawData.title ||
-    'My Label'
+  // Determine site name from Bandcamp page title (no env fallback)
+  const siteName = rawData.pageTitle || rawData.title || 'My Site'
 
-  // Determine site URL
-  const siteUrl = env.SITE_URL || null
+  // Site URL: null until user configures it in config.json
+  const siteUrl = null
 
   // Determine site mode
   const siteMode = rawData._siteMode || 'label'
@@ -112,7 +108,7 @@ async function generateConfig (rawData, env, contentDir = './content') {
       // member_bands are already in our artists list from the scrape
       // Connected accounts are the ones NOT in member_bands
       const memberSlugs = new Set(Object.keys(artists))
-      const labelSlug = toSlug(env.SITE_NAME || '')
+      const labelSlug = toSlug(siteName || '')
 
       for (const band of bands) {
         if (!band.subdomain) continue
