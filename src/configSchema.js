@@ -147,6 +147,12 @@ const CONFIG_SCHEMA = {
         type: 'string'
       }
     },
+    stores: {
+      type: 'array',
+      items: {
+        type: ['string', 'object']
+      }
+    },
     newsletter: {
       type: 'object',
       properties: {

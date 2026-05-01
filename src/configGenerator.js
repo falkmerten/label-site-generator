@@ -156,6 +156,7 @@ async function generateConfig (rawData, env, contentDir = './content') {
     },
     artists,
     compilations: compilationSlugs,
+    stores: ['bandcamp', 'discogs'],
     newsletter: {
       provider: null,
       actionUrl: null,
