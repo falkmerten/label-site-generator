@@ -159,12 +159,39 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content') 
   }
 
   // ── Detection Summary ─────────────────────────────────────────────────────
+  let connectedAccountNames = []
   if (!configDriven) {
+    // Detect connected accounts via API (shown in summary, saved disabled in config)
+    if (apiCredentials && apiCredentials.clientId && apiCredentials.clientSecret) {
+      try {
+        const { getAccessToken } = require('./bandcampApi')
+        const { httpsPost } = require('./bandcampApi')
+        const token = await getAccessToken(apiCredentials.clientId, apiCredentials.clientSecret)
+        const res = await httpsPost('bandcamp.com', '/api/account/1/my_bands', {}, {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        })
+        const allBands = res.body.bands || []
+        // Label entry has member_bands — those are already in artistUrls
+        // Top-level bands WITHOUT member_bands are connected accounts
+        const memberSubdomains = new Set(artistUrls.map(u => { try { return new URL(u).hostname.split('.')[0] } catch { return '' } }))
+        for (const band of allBands) {
+          if (!band.subdomain) continue
+          if (band.member_bands && band.member_bands.length > 0) continue // this is the label itself
+          if (memberSubdomains.has(band.subdomain)) continue
+          connectedAccountNames.push(band.name || band.subdomain)
+        }
+      } catch { /* non-fatal */ }
+    }
+
     console.log('')
     console.log('  Detected setup:')
     console.log(`    Bandcamp account type: ${detectedAccountType === 'label' ? 'Label' : 'Artist/Band'}`)
     console.log(`    Site mode: ${siteMode === 'label' ? 'Label (multi-artist)' : 'Artist (single band)'}`)
-    console.log(`    Artists to scrape: ${artistUrls.length}${allExtra.length > 0 ? ` (incl. ${allExtra.length} extra)` : ''}`)
+    console.log(`    Artists found: ${artistUrls.length}${allExtra.length > 0 ? ` (incl. ${allExtra.length} extra)` : ''}`)
+    if (connectedAccountNames.length > 0) {
+      console.log(`    Connected accounts: ${connectedAccountNames.length} (${connectedAccountNames.join(', ')})`)
+    }
     if (apiCredentials && apiCredentials.clientId) {
       console.log('    Source: Bandcamp API')
     } else {
