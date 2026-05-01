@@ -168,8 +168,17 @@ async function generate(options) {
         do {
           url = await new Promise(resolve => { rl.question('  > ', resolve) })
           url = url.trim()
-          if (url && url.includes('bandcamp.com')) {
-            extraArtistUrls.push(url)
+          if (url) {
+            try {
+              const parsed = new URL(url)
+              if (parsed.hostname.endsWith('.bandcamp.com') && parsed.protocol === 'https:') {
+                extraArtistUrls.push(url)
+              } else {
+                console.log('    ⚠ Not a valid Bandcamp URL (must be https://*.bandcamp.com)')
+              }
+            } catch {
+              console.log('    ⚠ Not a valid URL')
+            }
           }
         } while (url)
         if (extraArtistUrls.length > 0) {
