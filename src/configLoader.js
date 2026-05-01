@@ -264,6 +264,7 @@ function getNestedValue (obj, dotPath) {
  * @returns {Promise<void>}
  */
 async function writeConfig (config, contentDir = './content') {
+  await fs.mkdir(contentDir, { recursive: true })
   const configPath = path.join(contentDir, 'config.json')
   const ordered = orderKeys(config)
   const json = JSON.stringify(ordered, null, 2)
