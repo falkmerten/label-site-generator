@@ -4,6 +4,41 @@
 
 ---
 
+### v5.0.0 — 2026-05-01
+
+**Interactive Onboarding (LSG-140)**
+
+- One env var (`BANDCAMP_URL`), one command (`node generate.js`) — the generator handles the rest
+- Interactive first-run flow: CSV check, account-type detection, extra artists prompt, theme selection
+- `config.json` as single source of truth — replaces `artists.json`, `extra-artists.txt`, `compilations.json`, `youtube.json`, `stores.json`
+- Automatic account-type detection: Label (API or /artists page), Single account (regrouping)
+- Site mode auto-resolved after scrape: 1 artist → Artist mode, 2+ artists → Label mode
+- Detection confirmation with Y/n/edit override in interactive mode
+- `--yes` flag for non-interactive mode (CI/CD, scripting)
+- `--migrate` flag converts v4 configuration to v5 format
+- Top-level `source` object in config.json: primary, url, accountType, detection, confidence
+- `stores` array in config.json: controls which purchase/physical store links are shown
+- Discogs enrichment gated on stores config — only runs if "discogs" in stores array
+- `compilations` as object with manual Spotify URL mapping (prevents false matches)
+- `content/global/` for user assets (logo, custom CSS, banner) — replaces manual `assets/` editing
+- Site name auto-detected from Bandcamp page title (no SITE_NAME env var needed)
+- config.json write-back per artist during enrichment (no lost progress on interruption)
+- CSV auto-detection in `private/imports/` with direct Bandcamp export link
+- UPC priority corrected: Manual > Soundcharts > BC CSV > BC scrape > Spotify (--force) > Discogs
+- Connected accounts detected and saved as disabled with `relationship` field
+- Unicode-normalized artist deduplication (handles accented names)
+- Artist placeholder SVG for missing photos
+- Bandcamp profile image auto-downloaded as site logo
+- Spotify artist photos auto-downloaded when no local photo exists
+
+**Breaking changes:**
+- `SITE_MODE` env var no longer required (auto-detected, stored in config.json)
+- `SITE_NAME` env var no longer required (auto-detected from Bandcamp page title)
+- `site.source` and `site.sourceUrl` removed from config.json (use top-level `source` object)
+- `compilations` changed from array of slugs to object with Spotify URL mapping
+- Discogs no longer runs by default — add "discogs" to stores array in config.json
+- Legacy config files (`artists.json`, `extra-artists.txt`, etc.) no longer read — use `--migrate`
+
 ### v5.0.0 — 2026-04-30
 
 **Onboarding Redesign — Single Config File Architecture (LSG-143)**

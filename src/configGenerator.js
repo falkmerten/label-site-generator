@@ -40,7 +40,6 @@ async function generateConfig (rawData, env, contentDir = './content') {
   }
 
   const artists = {}
-  const compilationSlugs = []
 
   const rawArtists = rawData.artists || []
 
@@ -81,7 +80,10 @@ async function generateConfig (rawData, env, contentDir = './content') {
 
   // Detect compilations
   const detectedCompilations = detectCompilations(rawArtists)
-  compilationSlugs.push(...detectedCompilations)
+  const compilations = {}
+  for (const slug of detectedCompilations) {
+    compilations[slug] = {}
+  }
 
   // Determine site name from Bandcamp page title (no env fallback)
   const siteName = rawData.pageTitle || rawData.title || 'My Site'
@@ -144,8 +146,7 @@ async function generateConfig (rawData, env, contentDir = './content') {
       url: siteUrl,
       mode: siteMode,
       theme: siteTheme,
-      template: env.SITE_TEMPLATE || null,
-      discogsUrl: null
+      template: env.SITE_TEMPLATE || null
     },
     source: {
       primary: 'bandcamp',
@@ -155,8 +156,8 @@ async function generateConfig (rawData, env, contentDir = './content') {
       confidence: env.BANDCAMP_CLIENT_ID ? 'high' : 'medium'
     },
     artists,
-    compilations: compilationSlugs,
-    stores: ['bandcamp', 'discogs'],
+    compilations: compilations,
+    stores: ['bandcamp'],
     newsletter: {
       provider: null,
       actionUrl: null,

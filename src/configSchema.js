@@ -34,9 +34,6 @@ const CONFIG_SCHEMA = {
         },
         template: {
           type: ['string', 'null']
-        },
-        discogsUrl: {
-          type: ['string', 'null']
         }
       }
     },
@@ -142,9 +139,12 @@ const CONFIG_SCHEMA = {
       }
     },
     compilations: {
-      type: 'array',
-      items: {
-        type: 'string'
+      type: 'object',
+      additionalProperties: {
+        type: 'object',
+        additionalProperties: {
+          type: ['string', 'null']
+        }
       }
     },
     stores: {

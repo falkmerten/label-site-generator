@@ -141,7 +141,7 @@ async function generate(options) {
       console.log('')
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
       const answer = await new Promise(resolve => {
-        rl.question('  Continue without CSV? [Y/n]: ', resolve)
+        rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
       })
       rl.close()
       if (answer.toLowerCase() === 'n') {

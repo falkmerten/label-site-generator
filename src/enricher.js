@@ -1039,29 +1039,42 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       console.log(`  Using Spotify URL from config for "${artist.name}"`)
     }
     // Skip enrichment for Various Artists / compilations — only gap-fill and Discogs
-    const isCompilationArtist = artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various'
+    const compilationSlugs = v5Config && v5Config.compilations && typeof v5Config.compilations === 'object' && !Array.isArray(v5Config.compilations)
+      ? Object.keys(v5Config.compilations)
+      : []
+    const isCompilationArtist = artist.name.toLowerCase() === 'various artists' || artist.name.toLowerCase() === 'various' || compilationSlugs.includes(slug)
     if (isCompilationArtist) {
-      console.log('  → Compilation artist — applying compilations.json, then gap-fill + Discogs')
-      // Apply compilations.json — direct Spotify ID mapping for compilations
-      let compilationConfig = {}
-      try {
-        const raw = await fs.readFile(path.join(contentDir, 'compilations.json'), 'utf8')
-        compilationConfig = JSON.parse(raw)
-      } catch { /* no compilations.json */ }
+      console.log('  → Compilation artist — applying config, then gap-fill')
+      // Apply compilation Spotify URLs from config.json (v5) or legacy compilations.json
+      let compilationAlbumMap = {}
+      // v5: config.compilations is { "various-artists": { "album-slug": "https://..." } }
+      if (v5Config && v5Config.compilations && typeof v5Config.compilations === 'object' && !Array.isArray(v5Config.compilations)) {
+        // Merge all compilation artist entries into one flat map
+        for (const [, albums] of Object.entries(v5Config.compilations)) {
+          if (albums && typeof albums === 'object') {
+            Object.assign(compilationAlbumMap, albums)
+          }
+        }
+      }
+      // Legacy fallback: content/compilations.json
+      if (Object.keys(compilationAlbumMap).length === 0) {
+        try {
+          const raw = await fs.readFile(path.join(contentDir, 'compilations.json'), 'utf8')
+          const legacy = JSON.parse(raw)
+          for (const [key, val] of Object.entries(legacy)) {
+            if (typeof val === 'string') compilationAlbumMap[key] = val
+            else if (val && val.spotifyUrl) compilationAlbumMap[key] = val.spotifyUrl
+          }
+        } catch { /* no compilations.json */ }
+      }
       for (const album of artist.albums || []) {
         const key = album.slug || toSlug(album.title)
-        const cfg = compilationConfig[key]
-        if (cfg) {
-          if (cfg.spotifyUrl) {
-            album.streamingLinks = album.streamingLinks || {}
-            if (!album.streamingLinks.spotify) {
-              album.streamingLinks.spotify = cfg.spotifyUrl
-              console.log(`    ✓ Compilation Spotify (config): "${album.title}" → ${cfg.spotifyUrl}`)
-            }
-          }
-          if (cfg.upc && !album.upc) {
-            album.upc = cfg.upc
-            console.log(`    ✓ Compilation UPC (config): "${album.title}" → ${cfg.upc}`)
+        const spotifyUrl = compilationAlbumMap[key]
+        if (spotifyUrl) {
+          album.streamingLinks = album.streamingLinks || {}
+          if (!album.streamingLinks.spotify) {
+            album.streamingLinks.spotify = spotifyUrl
+            console.log(`    ✓ Compilation Spotify (config): "${album.title}" → ${spotifyUrl}`)
           }
         }
       }
@@ -1698,8 +1711,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
     }
 
-    // ── Discogs — always runs (both modes), conservative concurrency ────────
-    if (hasDiscogs && !options.tidalOnly) {
+    // ── Discogs — only runs if "discogs" is in stores config ────────────────
+    const storesConfig = (v5Config && v5Config.stores) || ['bandcamp']
+    const discogsInStores = storesConfig.some(s => s === 'discogs' || (s && s.id === 'discogs'))
+    if (hasDiscogs && !options.tidalOnly && discogsInStores) {
       const allAlbums = artist.albums || []
       const needsDiscogs = allAlbums.filter(al => !al.discogsUrl && !al.discogsChecked && !al.upcoming)
       // Also include albums needing per-format sell link re-fetch
@@ -1791,7 +1806,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     }
 
     // ── Discogs label URL lookup — resolve missing label URLs ───────────────
-    if (hasDiscogs && !options.tidalOnly) {
+    if (hasDiscogs && !options.tidalOnly && discogsInStores) {
       const labelsToLookup = new Set()
       for (const al of artist.albums || []) {
         // Check discogsLabel parts
@@ -1854,6 +1869,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
 
     // ── Per-artist cache save (progress preservation) ───────────────────────
     await writeCache(cachePath, data)
+    // Also save config.json per-artist (discovered Spotify URLs, etc.)
+    if (configDirty && v5Config) {
+      await writeConfig(v5Config, contentDir)
+    }
     console.log(`  ✓ Cache saved after ${artist.name}`)
   }
 

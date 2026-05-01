@@ -50,7 +50,7 @@ function musicUrl (artistUrl) {
  */
 async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', options = {}) {
   let artistUrls
-  let siteMode = process.env.SITE_MODE || 'label'
+  let siteMode = process.env.SITE_MODE || null // null = auto-detect
 
   // ── Config-aware mode: if config.json exists, use it as source of truth ───
   let configDriven = false
@@ -73,7 +73,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
         }
       }
 
-      if (configUrls.length > 0 || siteMode === 'label') {
+      if (configUrls.length > 0 || siteMode === 'label' || siteMode === null) {
         configDriven = true
         // Start with the label URL (for regrouped artists without own page)
         artistUrls = [labelUrl.replace(/\/+$/, '')]
@@ -83,7 +83,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
             artistUrls.push(url)
           }
         }
-        console.log(`Config-driven scrape (${siteMode} mode, ${artistUrls.length} source(s))`)
+        console.log(`Config-driven scrape (${siteMode || 'auto'} mode, ${artistUrls.length} source(s))`)
       }
     }
   } catch (err) {
@@ -98,7 +98,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
       try {
         artistUrls = await getLabelArtistUrls(apiCredentials.clientId, apiCredentials.clientSecret)
         if (artistUrls && artistUrls.length > 0) {
-          siteMode = 'label'
+          if (!siteMode) siteMode = 'label'
           detectedAccountType = 'label'
         }
       } catch (err) {
@@ -112,13 +112,14 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
         const rawArtistUrls = await bandcamp.getArtistUrls(labelUrl)
         artistUrls = [...new Set(rawArtistUrls.map(cleanUrl))]
         if (artistUrls.length > 0) {
-          siteMode = 'label'
+          if (!siteMode) siteMode = 'label'
           detectedAccountType = 'label'
         }
       } catch (err) {
         if (err.message && err.message.includes('404')) {
           artistUrls = [labelUrl.replace(/\/+$/, '')]
           detectedAccountType = 'artist'
+          if (!siteMode) siteMode = 'artist'
           // Will be refined after scrape (regrouping may detect artist-as-label)
         } else {
           throw err
@@ -166,9 +167,17 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
 
     console.log('')
     console.log('  Detected setup:')
-    console.log(`    Bandcamp account type: ${detectedAccountType === 'label' ? 'Label' : 'Artist/Band'}`)
-    console.log(`    Site mode: ${siteMode === 'label' ? 'Label (multi-artist)' : 'Artist (single band)'}`)
-    console.log(`    Artists found: ${artistUrls.length}${allExtra.length > 0 ? ` (incl. ${allExtra.length} extra)` : ''}`)
+    console.log(`    Bandcamp account type: ${detectedAccountType === 'label' ? 'Label' : 'Single account'}`)
+    if (detectedAccountType === 'artist') {
+      console.log('    Site mode: Determined after scrape')
+    } else {
+      console.log(`    Site mode: ${siteMode === 'label' ? 'Label (multi-artist)' : 'Artist (single band)'}`)
+    }
+    if (detectedAccountType === 'artist' && siteMode !== 'label') {
+      console.log(`    Artists: determined after scrape (albums regrouped by artist field)${allExtra.length > 0 ? ` + ${allExtra.length} extra` : ''}`)
+    } else {
+      console.log(`    Artists found: ${artistUrls.length}${allExtra.length > 0 ? ` (incl. ${allExtra.length} extra)` : ''}`)
+    }
     if (connectedAccountNames.length > 0) {
       console.log(`    Connected accounts: ${connectedAccountNames.length} (${connectedAccountNames.join(', ')})`)
     }
@@ -215,6 +224,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
   }
 
   const artists = []
+  let pageTitle = null
 
   for (const [i, artistUrl] of artistUrls.entries()) {
     let artistInfo
@@ -286,6 +296,11 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
     }
 
     console.log(`  ✓ ${artistInfo.name} — ${albums.length} album(s)`)
+
+    // Capture page title from the primary account (first URL)
+    if (i === 0 && artistInfo.name) {
+      pageTitle = artistInfo.name
+    }
 
     artists.push({
       url: artistUrl,
@@ -422,6 +437,26 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
   artists.length = 0
   artists.push(...artistsByName.values())
 
+  // ── Post-regrouping mode correction ───────────────────────────────────────
+  // After regrouping we know the actual artist count. Correct siteMode accordingly:
+  // - 1 real artist → artist mode (single band site)
+  // - 2+ real artists → label mode (multi-artist roster)
+  const realArtists = artists.filter(a => a.name.toLowerCase() !== 'various artists' && a.name.toLowerCase() !== 'various')
+  if (!process.env.SITE_MODE) {
+    if (realArtists.length === 1) {
+      siteMode = 'artist'
+    } else if (realArtists.length > 1) {
+      siteMode = 'label'
+    }
+  }
+  // Final fallback
+  if (!siteMode) siteMode = 'label'
+
+  // Log resolved mode (only for single-account detection where mode was deferred)
+  if (detectedAccountType === 'artist') {
+    console.log(`  Site mode resolved: ${siteMode === 'label' ? 'Label' : 'Artist'} (${realArtists.length} artist(s))`)
+  }
+
   // ── Scrape label page for compilations (Various Artists) ──────────────────
   if (labelUrl) {
     const labelClean = cleanUrl(labelUrl)
@@ -518,6 +553,7 @@ async function scrapeLabel (labelUrl, apiCredentials, contentDir = './content', 
 
   return {
     scrapedAt: new Date().toISOString(),
+    pageTitle,
     labelProfileImage,
     themeColors,
     _siteMode: siteMode,
