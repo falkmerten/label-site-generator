@@ -98,19 +98,21 @@ async function generate(options) {
 
     if (!hasCsv && !opts._nonInteractive) {
       const readline = require('readline')
+      const bcSlug = (process.env.BANDCAMP_URL || '').replace(/https?:\/\//, '').replace(/\.bandcamp\.com\/?$/, '')
       console.log('')
       console.log('  No Bandcamp Digital Catalog CSV found in private/imports/.')
       console.log('')
-      console.log('  Recommended: export from Bandcamp → Settings → Tools → Digital Catalog Report')
-      console.log('  and place the file in private/imports/ for reliable UPC/ISRC matching.')
+      console.log(`  Export here: https://${bcSlug}.bandcamp.com/tools#catalog`)
+      console.log('  Place the downloaded file in private/imports/ for reliable UPC/ISRC matching.')
       console.log('')
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
       const answer = await new Promise(resolve => {
-        rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
+        rl.question('  Continue without CSV? [Y/n]: ', resolve)
       })
       rl.close()
       if (answer.toLowerCase() === 'n') {
-        console.log('Place your CSV in private/imports/ and run again.')
+        console.log(`\n  Export your catalog: https://${bcSlug}.bandcamp.com/tools#catalog`)
+        console.log('  Place the file in private/imports/ and run again.')
         process.exit(0)
       }
       console.log('')
