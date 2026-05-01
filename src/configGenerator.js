@@ -60,6 +60,7 @@ async function generateConfig (rawData, env, contentDir = './content') {
       name,
       enabled: true,
       source: 'bandcamp',
+      relationship: 'member_band',
       exclude: false,
       excludeAlbums: [],
       bandcampUrl: isOwnPage,
@@ -122,7 +123,8 @@ async function generateConfig (rawData, env, contentDir = './content') {
           artists[slug] = {
             name: band.name || band.subdomain,
             enabled: false,
-            source: 'connected',
+            source: 'bandcamp',
+            relationship: 'connected_account',
             exclude: false,
             excludeAlbums: [],
             bandcampUrl: `https://${band.subdomain}.bandcamp.com/`,

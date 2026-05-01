@@ -99,24 +99,28 @@ async function generate(options) {
     rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir);
     await writeCache(cachePath, rawData);
 
-    // Theme prompt (first run only)
-    const readline = require('readline')
-    console.log('')
-    console.log('  Choose a theme:')
-    console.log('    1. standard (clean, light)')
-    console.log('    2. dark (dark background, light text)')
-    console.log('    3. bandcamp (auto-colors from your Bandcamp page)')
-    console.log('')
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-    const themeAnswer = await new Promise(resolve => {
-      rl.question('  Theme [1]: ', resolve)
-    })
-    rl.close()
-    const themeMap = { '1': 'standard', '2': 'dark', '3': 'bandcamp', '': 'standard' }
-    const chosenTheme = themeMap[themeAnswer.trim()] || 'standard'
+    // Theme prompt (first run only, skip with --yes or --theme flag)
+    let chosenTheme = process.env.SITE_THEME || null
+    if (!chosenTheme && !opts._nonInteractive) {
+      const readline = require('readline')
+      console.log('')
+      console.log('  Choose a theme:')
+      console.log('    1. standard (clean, light)')
+      console.log('    2. dark (dark background, light text)')
+      console.log('    3. bandcamp (auto-colors from your Bandcamp page)')
+      console.log('')
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const themeAnswer = await new Promise(resolve => {
+        rl.question('  Theme [1]: ', resolve)
+      })
+      rl.close()
+      const themeMap = { '1': 'standard', '2': 'dark', '3': 'bandcamp', '': 'standard' }
+      chosenTheme = themeMap[themeAnswer.trim()] || 'standard'
+      console.log(`  → Using theme: ${chosenTheme}`)
+      console.log('')
+    }
+    if (!chosenTheme) chosenTheme = 'standard'
     process.env.SITE_THEME = chosenTheme
-    console.log(`  → Using theme: ${chosenTheme}`)
-    console.log('')
 
     await generateConfig(rawData, process.env, contentDir);
     console.log('Generated content/config.json — edit it to configure your site.');
@@ -144,19 +148,20 @@ async function generate(options) {
   // Step 4: Load content overrides
   console.log('Loading content overrides...');
 
-  // Step 3c: Auto-detect Bandcamp Digital Catalog CSV in assets/ and backfill UPC/ISRC
+  // Step 3c: Auto-detect Bandcamp Digital Catalog CSV in private/imports/
+  const importDir = 'private/imports'
   const catalogCsvFiles = []
   try {
-    const assetEntries = await fs.readdir('assets')
-    for (const f of assetEntries) {
+    const importEntries = await fs.readdir(importDir)
+    for (const f of importEntries) {
       if (f.endsWith('_digital.csv')) catalogCsvFiles.push(f)
     }
-  } catch { /* assets dir may not exist */ }
+  } catch { /* private/imports/ may not exist */ }
 
   if (catalogCsvFiles.length > 0) {
     // Use the most recent file (sorted by name = sorted by date prefix)
     const csvFile = catalogCsvFiles.sort().pop()
-    const csvPath = path.join('assets', csvFile)
+    const csvPath = path.join(importDir, csvFile)
     try {
       const csvText = await fs.readFile(csvPath, 'utf8')
       const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean)
@@ -206,22 +211,22 @@ async function generate(options) {
     } catch (err) {
       console.warn(`[warn] Could not parse catalog CSV: ${err.message}`)
     }
-  } else if (!config) {
-    // First run without CSV — interactive prompt
+  } else if (!config && !opts._nonInteractive) {
+    // First run without CSV — recommend but don't block
     const readline = require('readline')
     console.log('')
-    console.log('  No Bandcamp Digital Catalog CSV found in assets/.')
-    console.log('  For reliable UPC/ISRC data, export from:')
-    console.log('  Bandcamp → Settings → Tools → Digital Catalog Report')
-    console.log('  Place the file in assets/ and run again.')
+    console.log('  No Bandcamp Digital Catalog CSV found in private/imports/.')
+    console.log('')
+    console.log('  Recommended: export from Bandcamp → Settings → Tools → Digital Catalog Report')
+    console.log('  and place the file in private/imports/ for reliable UPC/ISRC matching.')
     console.log('')
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
     const answer = await new Promise(resolve => {
-      rl.question('  Continue without CSV? (y/N): ', resolve)
+      rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
     })
     rl.close()
-    if (answer.toLowerCase() !== 'y') {
-      console.log('Aborted. Place your CSV in assets/ and run again.')
+    if (answer.toLowerCase() === 'n') {
+      console.log('Place your CSV in private/imports/ and run again.')
       process.exit(0)
     }
     console.log('')

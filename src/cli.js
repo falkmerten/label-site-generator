@@ -125,6 +125,11 @@ function parseArgs (argv) {
         options.force = true
         break
 
+      case '--yes':
+      case '-y':
+        options._nonInteractive = true
+        break
+
       case '--output':
         i++
         if (args[i]) options.outputDir = args[i]

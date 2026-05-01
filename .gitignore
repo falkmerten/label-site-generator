@@ -23,6 +23,9 @@ assets/
 # Import files — CSV exports from Bandcamp, distributors, etc.
 import/
 
+# Private imports — Bandcamp CSV exports with potential PII (sales data)
+private/
+
 # Sales reports — financial data, never commit
 sales/
 
