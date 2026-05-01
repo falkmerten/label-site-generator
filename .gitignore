@@ -15,7 +15,7 @@ cache*.json
 # Content — label-specific, keep private
 content/
 
-# Brand assets — label-specific images (logo, banner, etc.)
+# Repo assets — only placeholders are tracked
 assets/
 !assets/artist-placeholder.svg
 !assets/artwork-placeholder.svg

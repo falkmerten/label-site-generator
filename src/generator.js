@@ -483,9 +483,6 @@ async function generate(options) {
   // Determine logo source
   let hasCustomLogo = false;
   try { await fs.access(path.join(contentDir, 'global', 'logo.png')); hasCustomLogo = true; } catch { /* */ }
-  if (!hasCustomLogo) {
-    try { await fs.access(path.join('assets', 'logo-round.png')); hasCustomLogo = true; } catch { /* */ }
-  }
 
   const hasNewsletter = !!(
     (config && config.newsletter && config.newsletter.provider) ||
@@ -518,8 +515,9 @@ async function generate(options) {
     console.log(`  4. Add artist photos:     content/{artist-slug}/photo.jpg`);
   }
   if (!hasCustomLogo) {
-    console.log('  5. Add label logo:        assets/logo-round.png');
-    console.log('     Add hero banner:       assets/banner.jpg');
+    console.log('  5. Add label logo:        content/global/logo.png');
+    console.log('     Add hero banner:       content/global/banner.jpg');
+    console.log('     Generate favicons:     https://realfavicongenerator.net (from your logo)');
   }
   console.log('  6. Add news articles:     content/news/2026/MM-DD-slug.md');
   console.log('  7. Add static pages:      content/pages/about.md, content/pages/imprint.md');

@@ -98,14 +98,15 @@ async function copyAssets (data, contentDir, outputDir) {
     await fs.writeFile(path.join(outputDir, 'style.css'), css, 'utf8')
   }
 
-  // 3. Copy brand assets (logo, banner, placeholder, favicons) from ./assets/
-  const brandAssets = ['logo-round.png', 'banner.jpg', 'artwork-placeholder.svg', 'artist-placeholder.svg', 'favicon.ico', 'favicon-96x96.png', 'favicon.svg', 'apple-touch-icon.png', 'site.webmanifest', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png']
+  // 3. Copy brand assets from content/global/ (user-provided) and repo defaults
+  const contentGlobalDir = path.join(contentDir, 'global')
+  const brandAssets = ['logo.png', 'banner.jpg', 'favicon.ico', 'favicon-96x96.png', 'favicon.svg', 'apple-touch-icon.png', 'site.webmanifest', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png']
   for (const file of brandAssets) {
-    const src = path.join('assets', file)
-    const dest = path.join(outputDir, file)
+    // Try content/global/ first (user-provided), then fall back to repo defaults
+    const userSrc = path.join(contentGlobalDir, file)
+    const dest = path.join(outputDir, file === 'logo.png' ? 'logo-round.png' : file)
     try {
-      await fs.copyFile(src, dest)
-      // Touch the destination so the image optimizer detects it as newer than cached WebP
+      await fs.copyFile(userSrc, dest)
       const now = new Date()
       await fs.utimes(dest, now, now)
     } catch (err) {
@@ -113,10 +114,20 @@ async function copyAssets (data, contentDir, outputDir) {
     }
   }
 
+  // Copy placeholder SVGs from repo
+  const placeholders = ['artwork-placeholder.svg', 'artist-placeholder.svg']
+  for (const file of placeholders) {
+    const src = path.join(__dirname, '..', 'assets', file)
+    const dest = path.join(outputDir, file)
+    try {
+      await fs.copyFile(src, dest)
+    } catch { /* placeholders are optional */ }
+  }
+
   // 3b. Generate minimal fallback assets if not provided by the user
   const fallbacks = {
     'artwork-placeholder.svg': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="#dcdce8" width="1" height="1"/></svg>',
-    'site.webmanifest': JSON.stringify({ name: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site', short_name: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site', display: 'browser', background_color: '#f7f7fa', theme_color: '#0c0032' })
+    'site.webmanifest': JSON.stringify({ name: 'My Site', short_name: 'My Site', display: 'browser', background_color: '#f7f7fa', theme_color: '#0c0032' })
   }
   for (const [file, content] of Object.entries(fallbacks)) {
     const dest = path.join(outputDir, file)
@@ -126,32 +137,21 @@ async function copyAssets (data, contentDir, outputDir) {
   }
 
   // 3a. Auto-download Bandcamp profile image as logo if no custom logo exists
-  // Labels get auto-logo: explicit label mode OR multiple artists detected (band account acting as label)
   const nonVaArtists = (data.artists || []).filter(a => (a.name || '').toLowerCase() !== 'various artists')
   const isLabel = (data._siteMode || 'label') === 'label' || nonVaArtists.length > 1
   if (data._labelProfileImage && isLabel) {
-    const assetsLogoPath = path.join('assets', 'logo-round.png')
-    let hasAssetsLogo = false
-    try { await fs.access(assetsLogoPath); hasAssetsLogo = true } catch { /* */ }
-
-    if (!hasAssetsLogo) {
-      // Download to assets/ so it persists across generates
-      await fs.mkdir('assets', { recursive: true })
-      const ok = await downloadFile(data._labelProfileImage, assetsLogoPath)
-      if (ok) {
-        console.log('Downloaded Bandcamp profile image to assets/logo-round.png')
-      }
-    }
-
-    // Copy to dist/ (whether just downloaded or already existed)
-    const logoPath = path.join(outputDir, 'logo-round.png')
+    const logoPath = path.join(contentDir, 'global', 'logo.png')
     let hasLogo = false
     try { await fs.access(logoPath); hasLogo = true } catch { /* */ }
+
     if (!hasLogo) {
-      try {
-        await fs.access(assetsLogoPath)
-        await fs.copyFile(assetsLogoPath, logoPath)
-      } catch { /* */ }
+      await fs.mkdir(path.join(contentDir, 'global'), { recursive: true })
+      const ok = await downloadFile(data._labelProfileImage, logoPath)
+      if (ok) {
+        console.log('Downloaded Bandcamp profile image to content/global/logo.png')
+        // Also copy to dist
+        await fs.copyFile(logoPath, path.join(outputDir, 'logo-round.png'))
+      }
     }
   }
 
