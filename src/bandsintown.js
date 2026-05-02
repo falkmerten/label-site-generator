@@ -138,25 +138,51 @@ function transformEvent (raw) {
 
 /**
  * Fetches Bandsintown data for all configured artists and attaches it to mergedData.
- * Iterates artists in content that have a bandsintown config, fetches info + events,
- * merges events with existing data, and attaches bandsintown metadata.
+ * Reads config from config.json (links.bandsintown) first, falls back to content/{slug}/bandsintown.json.
  *
  * @param {object} mergedData - The merged site data (mutated in place)
  * @param {object} content - ContentStore from content.js
  */
 async function fetchAllArtists (mergedData, content) {
   const { mergeBandsintownEvents } = require('./merger')
+  const { loadConfig } = require('./configLoader')
+
+  // Load config.json for bandsintown links
+  let v5Config = null
+  try {
+    v5Config = await loadConfig('./content')
+  } catch { /* no config */ }
 
   const artists = mergedData.artists || []
   for (const artist of artists) {
     const slug = artist.slug
-    const artistContent = content.artists && content.artists[slug]
-    if (!artistContent || !artistContent.bandsintown) continue
 
-    const config = artistContent.bandsintown
-    const appId = config.app_id
-    const artistName = config.artist_name
-    const artistId = config.artist_id || null
+    // Priority 1: config.json links.bandsintown
+    let appId = null
+    let artistName = artist.name
+    let artistId = null
+    let emailSignup = null
+
+    const configArtist = v5Config && v5Config.artists && v5Config.artists[slug]
+    const configBit = configArtist && configArtist.links && configArtist.links.bandsintown
+
+    if (configBit && configBit.appId && configBit.artistId) {
+      appId = configBit.appId
+      artistId = configBit.artistId
+      emailSignup = configBit.email_signup || null
+    } else {
+      // Priority 2: content/{slug}/bandsintown.json (legacy fallback)
+      const artistContent = content.artists && content.artists[slug]
+      if (artistContent && artistContent.bandsintown) {
+        const legacy = artistContent.bandsintown
+        appId = legacy.app_id
+        artistName = legacy.artist_name || artist.name
+        artistId = legacy.artist_id || null
+        emailSignup = legacy.email_signup || null
+      }
+    }
+
+    if (!appId) continue
 
     console.log(`[bandsintown] Fetching data for "${artistName}"...`)
 
@@ -165,7 +191,7 @@ async function fetchAllArtists (mergedData, content) {
       appId,
       artistName,
       artist_id: artistId,
-      email_signup: config.email_signup || null
+      email_signup: emailSignup
     }
 
     // Fetch artist info (non-fatal)
