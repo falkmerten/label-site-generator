@@ -95,7 +95,38 @@ async function migrate (contentDir = './content', options = {}) {
   // 6. Write config
   await writeConfig(config, contentDir)
 
-  // 7. Print summary
+  // 7. Migrate brand assets from assets/ to content/global/
+  const globalDir = path.join(contentDir, 'global')
+  await fs.mkdir(globalDir, { recursive: true })
+  const assetMigrations = [
+    ['logo-round.png', 'logo.png'],
+    ['banner.jpg', 'banner.jpg'],
+    ['favicon.ico', 'favicon.ico'],
+    ['favicon-96x96.png', 'favicon-96x96.png'],
+    ['favicon.svg', 'favicon.svg'],
+    ['apple-touch-icon.png', 'apple-touch-icon.png'],
+    ['site.webmanifest', 'site.webmanifest'],
+    ['web-app-manifest-192x192.png', 'web-app-manifest-192x192.png'],
+    ['web-app-manifest-512x512.png', 'web-app-manifest-512x512.png']
+  ]
+  let assetsMoved = 0
+  for (const [srcName, destName] of assetMigrations) {
+    const src = path.join('assets', srcName)
+    const dest = path.join(globalDir, destName)
+    try {
+      await fs.access(src)
+      // Only copy if not already in content/global/
+      try { await fs.access(dest) } catch {
+        await fs.copyFile(src, dest)
+        assetsMoved++
+      }
+    } catch { /* source doesn't exist */ }
+  }
+  if (assetsMoved > 0) {
+    console.log(`Moved ${assetsMoved} brand asset(s) to content/global/`)
+  }
+
+  // 8. Print summary
   const artistCount = Object.keys(config.artists || {}).length
   const extraCount = Object.values(config.artists || {}).filter(a => a.source === 'extra').length
   const youtubeCount = Object.values(config.artists || {}).filter(a => a.links && a.links.youtube).length
