@@ -98,19 +98,30 @@ async function copyAssets (data, contentDir, outputDir) {
     await fs.writeFile(path.join(outputDir, 'style.css'), css, 'utf8')
   }
 
-  // 3. Copy brand assets from content/global/ (user-provided) and repo defaults
+  // 3. Copy brand assets from content/global/ (user-provided) with ./assets/ fallback
   const contentGlobalDir = path.join(contentDir, 'global')
   const brandAssets = ['logo.png', 'banner.jpg', 'favicon.ico', 'favicon-96x96.png', 'favicon.svg', 'apple-touch-icon.png', 'site.webmanifest', 'web-app-manifest-192x192.png', 'web-app-manifest-512x512.png']
   for (const file of brandAssets) {
-    // Try content/global/ first (user-provided), then fall back to repo defaults
+    const destName = file === 'logo.png' ? 'logo-round.png' : file
+    const dest = path.join(outputDir, destName)
+    // Try content/global/ first (user-provided)
     const userSrc = path.join(contentGlobalDir, file)
-    const dest = path.join(outputDir, file === 'logo.png' ? 'logo-round.png' : file)
+    // Fallback: ./assets/ (auto-downloaded or repo defaults)
+    const repoSrc = path.join('assets', destName)
+    let copied = false
     try {
       await fs.copyFile(userSrc, dest)
+      copied = true
+    } catch { /* not in content/global */ }
+    if (!copied) {
+      try {
+        await fs.copyFile(repoSrc, dest)
+        copied = true
+      } catch { /* not in assets/ either */ }
+    }
+    if (copied) {
       const now = new Date()
       await fs.utimes(dest, now, now)
-    } catch (err) {
-      if (err.code !== 'ENOENT') console.warn(`[assets] Could not copy ${file}:`, err.message)
     }
   }
 
