@@ -35,7 +35,7 @@ async function generate(options) {
     // Validate extra artists have bandcampUrl
     if (config.artists) {
       for (const [slug, artist] of Object.entries(config.artists)) {
-        if (artist.source === 'extra' && !artist.bandcampUrl && process.env.VERBOSE) {
+        if (artist.source === 'extra' && !artist.bandcampUrl) {
           console.warn(`[warn] Extra artist "${slug}" is missing bandcampUrl`)
         }
       }
@@ -343,6 +343,39 @@ async function generate(options) {
     rawData._siteMode ||
     'label'
   mergedData._siteMode = siteMode
+
+  // Propagate config.json settings to process.env for renderer/assets (they read env)
+  if (config && config.site) {
+    if (config.site.template && !process.env.SITE_TEMPLATE) {
+      process.env.SITE_TEMPLATE = config.site.template
+    }
+    if (config.site.theme && !process.env.SITE_THEME) {
+      process.env.SITE_THEME = config.site.theme
+    }
+    if (config.site.url && !process.env.SITE_URL) {
+      process.env.SITE_URL = config.site.url
+    }
+    if (config.site.labelFilter && !process.env.HOMEPAGE_LABELS) {
+      process.env.HOMEPAGE_LABELS = config.site.labelFilter.join(',')
+    }
+    if (config.site.labelAliases && !process.env.LABEL_ALIASES) {
+      process.env.LABEL_ALIASES = config.site.labelAliases.join(',')
+    }
+  }
+  // Propagate newsletter config to process.env
+  if (config && config.newsletter) {
+    const nl = config.newsletter
+    if (nl.provider && !process.env.NEWSLETTER_PROVIDER) process.env.NEWSLETTER_PROVIDER = nl.provider
+    if (nl.actionUrl && !process.env.NEWSLETTER_ACTION_URL) process.env.NEWSLETTER_ACTION_URL = nl.actionUrl
+    if (nl.listId && !process.env.NEWSLETTER_LIST_ID) process.env.NEWSLETTER_LIST_ID = nl.listId
+    if (nl.formId && !process.env.NEWSLETTER_KEILA_FORM_ID) process.env.NEWSLETTER_KEILA_FORM_ID = nl.formId
+    if (nl.doubleOptin !== undefined && !process.env.NEWSLETTER_DOUBLE_OPTIN) process.env.NEWSLETTER_DOUBLE_OPTIN = String(nl.doubleOptin)
+    if (nl.autoCampaign !== undefined && !process.env.NEWSLETTER_AUTO_CAMPAIGN) process.env.NEWSLETTER_AUTO_CAMPAIGN = String(nl.autoCampaign)
+    if (nl.fromName && !process.env.NEWSLETTER_FROM_NAME) process.env.NEWSLETTER_FROM_NAME = nl.fromName
+    if (nl.fromEmail && !process.env.NEWSLETTER_FROM_EMAIL) process.env.NEWSLETTER_FROM_EMAIL = nl.fromEmail
+    if (nl.replyTo && !process.env.NEWSLETTER_REPLY_TO) process.env.NEWSLETTER_REPLY_TO = nl.replyTo
+    if (nl.brandId && !process.env.NEWSLETTER_BRAND_ID) process.env.NEWSLETTER_BRAND_ID = nl.brandId
+  }
 
   // Pass theme colors through for CSS variable overrides in copyAssets
   if (rawData.themeColors && Object.keys(rawData.themeColors).length > 0) {
