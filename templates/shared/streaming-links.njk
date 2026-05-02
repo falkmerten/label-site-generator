@@ -18,6 +18,7 @@
         {% if album.streamingLinks.tidal %}<li><a href="{{ album.streamingLinks.tidal }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-water"></i> Tidal</a></li>{% endif %}
         {% if album.streamingLinks.beatport %}<li><a href="{{ album.streamingLinks.beatport }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-headphones"></i> Beatport</a></li>{% endif %}
         {% if album.streamingLinks.soundcloud %}<li><a href="{{ album.streamingLinks.soundcloud }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-soundcloud"></i> SoundCloud</a></li>{% endif %}
+        {% if album.streamingLinks.archive %}<li><a href="{{ album.streamingLinks.archive }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-box-archive"></i> Internet Archive</a></li>{% endif %}
       {% endif %}
     </ul>
   </section>

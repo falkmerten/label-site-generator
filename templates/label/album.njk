@@ -126,6 +126,14 @@
             seamless></iframe>
         {% endif %}
       </section>
+    {% elif album.archiveIdentifier %}
+      <section class="archive-embed">
+        <iframe
+          src="https://archive.org/embed/{{ album.archiveIdentifier }}?playlist=1"
+          style="border: 0; width: 100%; height: 300px;"
+          allowfullscreen
+          loading="lazy"></iframe>
+      </section>
     {% elif album.url and (not album.upcoming or album.tier == 'full') %}
       <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
     {% endif %}
