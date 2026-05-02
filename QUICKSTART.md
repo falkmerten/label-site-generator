@@ -129,6 +129,10 @@ DISCOGS_TOKEN=your_token
 
 | Content | Location |
 |---------|----------|
+| Site logo | `content/global/logo.png` |
+| Hero banner | `content/global/banner.jpg` |
+| Favicons | `content/global/favicon.ico`, `favicon.svg`, etc. |
+| Custom CSS | `content/global/style.css` (overrides theme entirely) |
 | Artist bio | `content/{artist-slug}/bio.md` |
 | Artist photo | `content/{artist-slug}/photo.jpg` |
 | News articles | `content/news/2026/MM-DD-slug.md` |
