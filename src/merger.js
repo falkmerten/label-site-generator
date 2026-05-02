@@ -100,7 +100,7 @@ async function mergeData (rawData, content) {
       const artistContent = (content.artists || {})[artistSlug]
 
       if (!artistContent) {
-        if (hasContentArtists && artist.name.toLowerCase() !== 'various artists') {
+        if (hasContentArtists && artist.name.toLowerCase() !== 'various artists' && process.env.VERBOSE) {
           console.warn(`[merger] No content override found for artist "${artist.name}" (slug: "${artistSlug}")`)
         }
 
