@@ -114,11 +114,11 @@ async function generateConfig (rawData, env, contentDir = './content') {
       if (!link.url) continue
       try {
         const hostname = new URL(link.url).hostname
-        if (hostname.endsWith('youtube.com') && !cl.youtube) cl.youtube = link.url
-        else if (hostname.endsWith('instagram.com') && !cl.instagram) cl.instagram = link.url
-        else if (hostname.endsWith('facebook.com') && !cl.facebook) cl.facebook = link.url
-        else if (hostname.endsWith('tiktok.com') && !cl.tiktok) cl.tiktok = link.url
-        else if ((hostname.endsWith('twitter.com') || hostname === 'x.com' || hostname.endsWith('.x.com')) && !cl.twitter) cl.twitter = link.url
+        if ((hostname === 'youtube.com' || hostname === 'www.youtube.com') && !cl.youtube) cl.youtube = link.url
+        else if ((hostname === 'instagram.com' || hostname === 'www.instagram.com') && !cl.instagram) cl.instagram = link.url
+        else if ((hostname === 'facebook.com' || hostname === 'www.facebook.com') && !cl.facebook) cl.facebook = link.url
+        else if ((hostname === 'tiktok.com' || hostname === 'www.tiktok.com') && !cl.tiktok) cl.tiktok = link.url
+        else if ((hostname === 'twitter.com' || hostname === 'www.twitter.com' || hostname === 'x.com' || hostname === 'www.x.com') && !cl.twitter) cl.twitter = link.url
       } catch { /* invalid URL, skip */ }
     }
   }
