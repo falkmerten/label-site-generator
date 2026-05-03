@@ -271,16 +271,15 @@
       {% for event in artist.events %}
         {% if event.source == 'bandsintown' %}{% set hasBandsintownEvent = true %}{% endif %}
       {% endfor %}
-      {% set hasSongkick = artist.eventLinks and artist.eventLinks.songkick %}
+      {% set hasSongkick = false %}
       {% set sources = [] %}
       {% if hasBandsintownEvent %}{% set sources = sources.concat([{name: 'Bandsintown', url: 'https://www.bandsintown.com/'}]) %}{% endif %}
-      {% if hasSongkick %}{% set sources = sources.concat([{name: 'Songkick', url: 'https://www.songkick.com/'}]) %}{% endif %}
+      {% if hasSongkick %}{% endif %}
       {% if sources.length == 0 %}{% set sources = [{name: 'Soundcharts', url: 'https://soundcharts.com/'}] %}{% endif %}
       <p class="events-attribution">Event data by {% for src in sources %}<a href="{{ src.url }}" target="_blank" rel="noopener noreferrer">{{ src.name }}</a>{% if not loop.last %} &amp; {% endif %}{% endfor %}</p>
       {% if artist.eventLinks %}
         <div class="event-more-links">
           {% if artist.eventLinks.bandsintown %}<a href="{{ artist.eventLinks.bandsintown }}" target="_blank" rel="noopener noreferrer">More dates on Bandsintown</a>{% endif %}
-          {% if artist.eventLinks.songkick %}<a href="{{ artist.eventLinks.songkick }}" target="_blank" rel="noopener noreferrer">More dates on Songkick</a>{% endif %}
         </div>
       {% endif %}
     </section>
