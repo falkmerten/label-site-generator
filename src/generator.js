@@ -362,6 +362,27 @@ async function generate(options) {
       process.env.LABEL_ALIASES = config.site.labelAliases.join(',')
     }
   }
+  // Propagate stores config to process.env
+  if (config && config.stores && !process.env.PHYSICAL_STORES) {
+    const storeIds = config.stores.map(s => typeof s === 'string' ? s : s.id).filter(Boolean)
+    process.env.PHYSICAL_STORES = storeIds.join(',')
+    const esStore = config.stores.find(s => typeof s === 'object' && s.id === 'elasticstage')
+    if (esStore && esStore.url && !process.env.ELASTICSTAGE_LABEL_URL) {
+      process.env.ELASTICSTAGE_LABEL_URL = esStore.url
+    }
+  }
+  // Propagate social links from config.json
+  if (config && config.site && config.site.social) {
+    const s = config.site.social
+    if (s.spotify && !process.env.LABEL_SPOTIFY_URL) process.env.LABEL_SPOTIFY_URL = s.spotify
+    if (s.soundcloud && !process.env.LABEL_SOUNDCLOUD_URL) process.env.LABEL_SOUNDCLOUD_URL = s.soundcloud
+    if (s.youtube && !process.env.LABEL_YOUTUBE_URL) process.env.LABEL_YOUTUBE_URL = s.youtube
+    if (s.instagram && !process.env.LABEL_INSTAGRAM_URL) process.env.LABEL_INSTAGRAM_URL = s.instagram
+    if (s.facebook && !process.env.LABEL_FACEBOOK_URL) process.env.LABEL_FACEBOOK_URL = s.facebook
+    if (s.tiktok && !process.env.LABEL_TIKTOK_URL) process.env.LABEL_TIKTOK_URL = s.tiktok
+    if (s.twitter && !process.env.LABEL_TWITTER_URL) process.env.LABEL_TWITTER_URL = s.twitter
+    if (s.discogs && !process.env.LABEL_DISCOGS_URL) process.env.LABEL_DISCOGS_URL = s.discogs
+  }
   // Propagate newsletter config to process.env
   if (config && config.newsletter) {
     const nl = config.newsletter

@@ -1,15 +1,24 @@
 {#
-  Physical release section (vinyl, CD, cassette badges + buy links).
+  Physical release section (format badges + buy links).
   Expects: album (with .physicalFormats, .hidePhysical, .upcoming, .bandcampPhysicalFormats,
                    .url, .discogsSellUrlVinyl, .discogsSellUrlCd, .discogsSellUrlCassette,
-                   .discogsSellUrl, .customStores, .upc)
+                   .discogsSellUrl, .discogsUrl, .customStores, .upc)
            artist (with .name)
            physicalStores, customStoreDefs, extraStores
+
+  Logic: Format badges show what's available. Links are one per store (user picks format there).
+  Bandcamp: one link (all formats on same page).
+  Discogs: one link to marketplace (shows all available formats).
 #}
-{% if album.physicalFormats and album.physicalFormats.length and not album.hidePhysical and not album.upcoming %}
+{% set _hasDiscogsSell = album.discogsSellUrl or album.discogsSellUrlVinyl or album.discogsSellUrlCd or album.discogsSellUrlCassette %}
+{% set _hasBandcampPhysical = album.url and 'bandcamp' in physicalStores %}
+{% set _hasCustomStores = album.customStores and album.customStores.length %}
+{% set _hasExtraStores = extraStores and extraStores.length %}
+{% set _hasAmazon = 'amazon' in physicalStores and (album.upc or (artist.name and album.title)) %}
+{% set _hasAnySellLink = _hasDiscogsSell or _hasBandcampPhysical or _hasCustomStores or _hasExtraStores or _hasAmazon %}
+{% if album.physicalFormats and album.physicalFormats.length and not album.hidePhysical and not album.upcoming and _hasAnySellLink %}
   <section class="physical-release">
     <h2>Physical Release</h2>
-    {% if album.physicalFormats and album.physicalFormats.length %}
     <div class="physical-formats">
       {% for format in album.physicalFormats %}
         {% if format === 'Vinyl' %}
@@ -25,48 +34,29 @@
         {% endif %}
       {% endfor %}
     </div>
-    {% endif %}
     <ul class="physical-links">
-      {% if album.bandcampPhysicalFormats and album.bandcampPhysicalFormats.length and album.url %}
-        {% if 'bandcamp' in physicalStores %}
-          <li><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Buy on Bandcamp</a></li>
-        {% endif %}
+      {# Bandcamp — one link, all formats on same page #}
+      {% if _hasBandcampPhysical %}
+        <li><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Buy on Bandcamp</a></li>
       {% endif %}
-      {% if 'discogs' in physicalStores %}
-        {% if album.discogsSellUrlVinyl %}
-          <li><a href="{{ album.discogsSellUrlVinyl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy Vinyl on Discogs</a></li>
+      {# Discogs — one link to master marketplace (or release marketplace as fallback) #}
+      {% if 'discogs' in physicalStores and _hasDiscogsSell %}
+        {% if album.discogsMasterId %}
+          {% set _discogsLink = 'https://www.discogs.com/sell/list?master_id=' + album.discogsMasterId %}
+        {% else %}
+          {% set _discogsLink = album.discogsSellUrl or album.discogsSellUrlVinyl or album.discogsSellUrlCd or album.discogsSellUrlCassette %}
         {% endif %}
-        {% if album.discogsSellUrlCd %}
-          <li><a href="{{ album.discogsSellUrlCd }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-compact-disc"></i> Buy CD on Discogs</a></li>
-        {% endif %}
-        {% if album.discogsSellUrlCassette %}
-          <li><a href="{{ album.discogsSellUrlCassette }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
-        {% endif %}
-        {% if not album.discogsSellUrlVinyl and not album.discogsSellUrlCd and not album.discogsSellUrlCassette and album.discogsSellUrl %}
-          {% if album.physicalFormats and album.physicalFormats.length == 1 %}
-            {% if album.physicalFormats[0] == 'Vinyl' %}
-          <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy Vinyl on Discogs</a></li>
-            {% elif album.physicalFormats[0] == 'CD' %}
-          <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-compact-disc"></i> Buy CD on Discogs</a></li>
-            {% elif album.physicalFormats[0] == 'Cassette' %}
-          <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-tape"></i> Buy Cassette on Discogs</a></li>
-            {% else %}
-          <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy {{ album.physicalFormats[0] }} on Discogs</a></li>
-            {% endif %}
-          {% else %}
-          <li><a href="{{ album.discogsSellUrl }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
+        <li><a href="{{ _discogsLink }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-store"></i> Buy on Discogs</a></li>
+      {% endif %}
+      {# ElasticStage #}
+      {% if 'elasticstage' in physicalStores and album.customStores %}
+        {% for store in album.customStores %}
+          {% if store.store == 'elasticstage' %}
+            <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy on ElasticStage</a></li>
           {% endif %}
-        {% endif %}
+        {% endfor %}
       {% endif %}
-      {% if 'elasticstage' in physicalStores %}
-        {% if album.customStores %}
-          {% for store in album.customStores %}
-            {% if store.store == 'elasticstage' %}
-              <li><a href="{{ store.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-record-vinyl"></i> Buy on ElasticStage</a></li>
-            {% endif %}
-          {% endfor %}
-        {% endif %}
-      {% endif %}
+      {# Other custom stores #}
       {% if album.customStores %}
         {% for store in album.customStores %}
           {% if store.store != 'elasticstage' %}
@@ -74,14 +64,16 @@
           {% endif %}
         {% endfor %}
       {% endif %}
+      {# Custom store definitions from config #}
       {% for storeId in physicalStores %}
-        {% if storeId != 'bandcamp' and storeId != 'discogs' %}
+        {% if storeId != 'bandcamp' and storeId != 'discogs' and storeId != 'elasticstage' %}
           {% if customStoreDefs[storeId] %}
             {% set storeDef = customStoreDefs[storeId] %}
             <li><a href="{{ storeDef.url | storeUrl(artist.name, album.title) }}" target="_blank" rel="noopener noreferrer"><i class="{{ storeDef.icon }}"></i> {{ storeDef.label }}</a></li>
           {% endif %}
         {% endif %}
       {% endfor %}
+      {# Extra stores (search-based) #}
       {% for store in extraStores %}
         {% if store.method == 'POST' %}
         <li>
@@ -96,7 +88,8 @@
         <li><a href="{{ store | extraStoreSearchUrl(artist.name, album.title) }}" target="_blank" rel="noopener noreferrer"><i class="{{ store.icon or 'fa-solid fa-store' }}"></i> {{ store.label }}</a></li>
         {% endif %}
       {% endfor %}
-      {% if 'amazon' in physicalStores and (album.upc or (artist.name and album.title)) %}
+      {# Amazon search #}
+      {% if _hasAmazon %}
         <li><a href="https://www.amazon.com/s?k={{ (artist.name + ' ' + album.title) | urlencode }}&i=popular" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-amazon"></i> Search on Amazon</a></li>
       {% endif %}
     </ul>

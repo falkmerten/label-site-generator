@@ -376,6 +376,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
       facebook:   process.env.LABEL_FACEBOOK_URL || '',
       tiktok:     process.env.LABEL_TIKTOK_URL || '',
       twitter:    process.env.LABEL_TWITTER_URL || '',
+      discogs:    process.env.LABEL_DISCOGS_URL || '',
     },
     newsArticles: newsArticles.slice(0, 10),
     hasNews: newsArticles.length > 0,
