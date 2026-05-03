@@ -100,6 +100,18 @@ Auto-generated on first run. Edit to configure your site:
 }
 ```
 
+**Social links** (footer icons): Add `social` to the `site` object:
+
+```json
+"site": {
+  "social": {
+    "spotify": "https://open.spotify.com/user/...",
+    "youtube": "https://www.youtube.com/...",
+    "discogs": "https://www.discogs.com/seller/..."
+  }
+}
+```
+
 **Adding a new artist**: Add an entry to `artists` with a `bandcampUrl`, then run `node generate.js --scrape`.
 
 **Removing an artist**: Set `"enabled": false` or `"exclude": true`.

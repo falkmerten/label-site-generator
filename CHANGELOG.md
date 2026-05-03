@@ -4,6 +4,21 @@
 
 ---
 
+### v5.0.1 — 2026-05-03
+
+**Content & Template Fixes**
+
+- Social links (Spotify, SoundCloud, YouTube, Discogs Store) now read from `config.json` (`site.social`) instead of env vars
+- Physical release section simplified: one link per store (Bandcamp, Discogs), format badges show what's available
+- Discogs links now point to Master Release marketplace (shows all format editions)
+- `discogsMasterId` added to merger output for master marketplace linking
+- Discogs enricher: Artist name included in search query for better matching (LSG-152)
+- Songkick references removed from templates (service discontinued)
+- `bandcampPhysicalFormats` correctly extracted from Bandcamp packages in cache
+- CodeQL #13: URL hostname validation for social links in configGenerator
+
+---
+
 ### v5.0.0 — 2026-05-01
 
 **Interactive Onboarding (LSG-140)**
