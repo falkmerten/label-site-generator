@@ -11,7 +11,7 @@
   Discogs: one link to marketplace (shows all available formats).
 #}
 {% set _hasDiscogsSell = album.discogsSellUrl or album.discogsSellUrlVinyl or album.discogsSellUrlCd or album.discogsSellUrlCassette %}
-{% set _hasBandcampPhysical = album.url and 'bandcamp' in physicalStores %}
+{% set _hasBandcampPhysical = album.bandcampPhysicalFormats and album.bandcampPhysicalFormats.length and album.url and 'bandcamp' in physicalStores %}
 {% set _hasCustomStores = album.customStores and album.customStores.length %}
 {% set _hasExtraStores = extraStores and extraStores.length %}
 {% set _hasAmazon = 'amazon' in physicalStores and (album.upc or (artist.name and album.title)) %}
