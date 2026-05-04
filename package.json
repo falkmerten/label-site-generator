@@ -1,6 +1,6 @@
 {
   "name": "label-site-generator",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "description": "Static site generator for music labels — scrapes Bandcamp, enriches with Soundcharts/Discogs, generates a branded HTML site.",
   "main": "generate.js",
   "scripts": {

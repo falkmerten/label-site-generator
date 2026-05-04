@@ -4,6 +4,19 @@
 
 ---
 
+### v5.0.2 — 2026-05-04
+
+**Bugfixes & Developer Experience**
+
+- `dist/` is now cleaned before every generate run, preventing stale files from previous builds (LSG-112)
+- SEO validation integrated as `--check-seo` flag and auto-runs before `--deploy` (LSG-154)
+- Soundcharts quota exhaustion message corrected: resets on billing cycle, not 1st of month
+- Wiki updated for v5: config.json references, Songkick removed, private link redacted
+- `lsg-landing/` removed from repo (binaries hosted separately)
+- Utility scripts moved to workspace-level `scripts/` folder
+
+---
+
 ### v5.0.1 — 2026-05-03
 
 **Content & Template Fixes**
