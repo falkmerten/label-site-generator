@@ -13,6 +13,7 @@ const { downloadArtwork } = require('./src/downloadArtwork');
 const { syncElasticStage } = require('./src/elasticstage');
 const { syncYouTube, resolveYouTubeHandles } = require('./src/youtube');
 const { readCache, writeCache, backupCache } = require('./src/cache');
+const { runSeoCheck, printSeoReport } = require('./src/seoCheck');
 const { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary, formatAnalysisReport } = require('./src/importCsv');
 const { parseArgs: parseArgsV5 } = require('./src/cli');
 const { migrate } = require('./src/migrator');
@@ -38,6 +39,7 @@ Options:
   --enrich             Fetch streaming links, labels, physical formats
   --enrich --force     Re-enrich even already-enriched albums
   --deploy             Sync dist/ to S3 and invalidate CloudFront
+  --check-seo          Validate SEO basics after generate (standalone or strict with --deploy)
   --tidal-only         Re-check Tidal links only (implies --enrich)
   --download-artwork   Download remote artwork to content/
   --sync-elasticstage  Sync ElasticStage release links to stores.json
@@ -111,6 +113,8 @@ function parseArgs(argv) {
       options.initContent = true;
     } else if (arg === '--deploy') {
       options.deploy = true;
+    } else if (arg === '--check-seo') {
+      options.checkSeo = true;
     } else if (arg === '--tidal-only') {
       options.tidalOnly = true;
       options.enrich = true; // implies enrich
@@ -447,7 +451,16 @@ async function run() {
   console.log(`Generated ${pageCount} pages to ${outputDir}`);
 
   if (options.deploy) {
+    const seoResult = runSeoCheck(outputDir);
+    printSeoReport(seoResult);
+    if (seoResult.issues && options.checkSeo) {
+      console.error('\n  ✖ SEO issues found. Fix before deploying or remove --check-seo to skip.');
+      process.exit(1);
+    }
     await deploy(outputDir);
+  } else if (options.checkSeo) {
+    const seoResult = runSeoCheck(outputDir);
+    printSeoReport(seoResult);
   }
 }
 
