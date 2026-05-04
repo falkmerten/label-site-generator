@@ -333,7 +333,7 @@ function checkQuota (isFirstCall, state) {
   // Stop at 0
   if (quota <= 0) {
     if (!state.quotaExhausted) {
-      console.error('  ✖ [soundcharts] Monthly quota exhausted (0 credits remaining). Soundcharts free tier resets on the 1st of each month. Continuing with gap-fill and Discogs only.')
+      console.error('  ✖ [soundcharts] Monthly quota exhausted (0 credits remaining). Quota resets 30 days after your billing cycle started. Continuing with gap-fill and Discogs only.')
       state.quotaExhausted = true
     }
     return true
@@ -865,7 +865,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       resetCallCount()
     } else if (quota !== null && quota <= 0) {
       console.warn('  ⚠ Soundcharts monthly quota exhausted (0 credits). Falling back to legacy mode.')
-      console.warn('  ⚠ Quota resets on the 1st of each month.')
+      console.warn('  ⚠ Quota resets 30 days after your billing cycle started.')
       scAvailable = false
       resetCallCount()
     } else {
@@ -1227,7 +1227,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         useScForThisArtist = false
         console.warn(`\n  ⚠ [fallback] Soundcharts quota exhausted mid-run during "${artist.name}".`)
         console.warn('  ⚠ [fallback] Switching to legacy enrichment (Spotify + per-platform) for remaining artists.')
-        console.warn('  ⚠ [fallback] Soundcharts quota resets on the 1st of each month.')
+        console.warn('  ⚠ [fallback] Soundcharts quota resets 30 days after your billing cycle started.')
 
         // Run Spotify metadata/artwork for this artist since SC couldn't finish
         if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled) {
