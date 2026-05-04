@@ -505,7 +505,12 @@ async function generate(options) {
   console.log('Fetching Bandsintown data...');
   await fetchAllArtists(mergedData, content);
 
-  // Step 7: Render site
+  // Step 7: Clean output directory (prevent stale files from previous builds)
+  if (await fs.access(outputDir).then(() => true).catch(() => false)) {
+    await fs.rm(outputDir, { recursive: true, force: true })
+  }
+
+  // Step 8: Render site
   console.log('Rendering pages...');
   let pageCount;
   try {
@@ -515,7 +520,7 @@ async function generate(options) {
     throw err;
   }
 
-  // Step 8: Copy assets
+  // Step 9: Copy assets
   console.log('Copying assets...');
   await copyAssets(mergedData, contentDir, outputDir);
 
