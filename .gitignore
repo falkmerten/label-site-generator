@@ -50,7 +50,8 @@ scripts/private/
 # VS Code workspace settings
 .vscode/
 
-# LSG product landing page (separate deployment)
+# LSG product landing page (managed separately, deployed to gh-pages)
+lsg-landing/
 lsg-site/
 
 # Release tracking (private)
