@@ -193,6 +193,28 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     return new Date(iso) > new Date()
   });
 
+  // Custom filter: normalize credits text (slash-based → dash-based, clean whitespace)
+  env.addFilter('formatCredits', (text) => {
+    if (!text) return ''
+    return text
+      .split('\n')
+      .map(line => {
+        // Don't touch lines containing URLs
+        if (line.includes('http://') || line.includes('https://') || line.includes('www.')) return line.trim()
+        // Normalize "Name / role" or "Name /role" or "Name/ role" → "Name — role"
+        // Only replace slashes surrounded by word characters (not in paths)
+        line = line.replace(/(\w)\s*\/\s*(\w)/g, '$1 — $2')
+        // Normalize "Role: Name" → "Name — Role" (e.g. "Master: Tommy Steuer")
+        const colonMatch = line.match(/^(Master(?:ing)?|Mix(?:ed|ing)?|Record(?:ed|ing)?|Produc(?:ed|tion|er))\s*:\s*(.+)$/i)
+        if (colonMatch) {
+          line = colonMatch[2] + ' — ' + colonMatch[1]
+        }
+        return line.trim()
+      })
+      .filter(line => line.length > 0)
+      .join('\n')
+  });
+
   let count = 0;
 
   // Load optional page content
@@ -356,7 +378,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     extraStores,
     currentYear: new Date().getFullYear(),
     newsletter: resolveNewsletter(),
-    latestReleases: homepageAlbums.slice(0, 12),
+    latestReleases: homepageAlbums.slice(0, 15),
     totalReleases: homepageAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
     labelEmail: process.env.SITE_EMAIL || process.env.LABEL_EMAIL || '',

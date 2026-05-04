@@ -10,11 +10,20 @@
   <span class="event-details">
     {% if event.artistSlug %}
       <a href="{{ rootPath }}artists/{{ event.artistSlug }}/" class="event-artist-link">{{ event.artistName }}</a>
-      <span class="event-separator">-</span>
     {% endif %}
-    {% if event.name %}<span class="event-name{% if event.artistSlug %}-light{% endif %}">{{ event.name }}</span>{% endif %}
-    {% if event.type == 'festival' %}<span class="event-badge festival-badge">Festival</span>{% endif %}
-    {% if event.venueName and event.venueName != 'Unknown Venue' %}<span class="event-venue{% if not event.name and event.type != 'festival' %} event-venue-first{% endif %}">{{ event.venueName }}</span>{% elif event.venueName == 'Unknown Venue' %}<span class="event-venue{% if not event.name and event.type != 'festival' %} event-venue-first{% endif %}">Venue TBA</span>{% endif %}
+    {% if event.name %}
+      {% if event.type == 'festival' %}
+        <span class="event-name">{{ event.name }}</span>
+        <span class="event-badge festival-badge">Festival</span>
+      {% else %}
+        <span class="event-name{% if event.artistSlug %}-light{% endif %}">{{ event.name }}</span>
+      {% endif %}
+    {% endif %}
+    {% if event.venueName and event.venueName != 'Unknown Venue' and event.venueName != event.name %}
+      <span class="event-venue">{{ event.venueName }}</span>
+    {% elif event.venueName == 'Unknown Venue' %}
+      <span class="event-venue">Venue TBA</span>
+    {% endif %}
     {% if event.cityName or event.countryName %}
       <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
     {% endif %}

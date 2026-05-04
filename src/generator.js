@@ -505,8 +505,8 @@ async function generate(options) {
   console.log('Fetching Bandsintown data...');
   await fetchAllArtists(mergedData, content);
 
-  // Step 7: Clean output directory (prevent stale files from previous builds)
-  if (await fs.access(outputDir).then(() => true).catch(() => false)) {
+  // Step 7: Clean stale HTML if --clean flag is set (preserves images/assets by default)
+  if (opts.clean && await fs.access(outputDir).then(() => true).catch(() => false)) {
     await fs.rm(outputDir, { recursive: true, force: true })
   }
 

@@ -40,6 +40,7 @@ Options:
   --enrich --force     Re-enrich even already-enriched albums
   --deploy             Sync dist/ to S3 and invalidate CloudFront
   --check-seo          Validate SEO basics after generate (standalone or strict with --deploy)
+  --clean              Delete dist/ before generate (removes stale files, re-runs image optimizer)
   --tidal-only         Re-check Tidal links only (implies --enrich)
   --download-artwork   Download remote artwork to content/
   --sync-elasticstage  Sync ElasticStage release links to stores.json
@@ -115,6 +116,8 @@ function parseArgs(argv) {
       options.deploy = true;
     } else if (arg === '--check-seo') {
       options.checkSeo = true;
+    } else if (arg === '--clean') {
+      options.clean = true;
     } else if (arg === '--tidal-only') {
       options.tidalOnly = true;
       options.enrich = true; // implies enrich
