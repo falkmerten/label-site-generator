@@ -76,7 +76,7 @@ const CONFIG_SCHEMA = {
           },
           source: {
             type: 'string',
-            enum: ['bandcamp', 'extra']
+            enum: ['bandcamp', 'extra', 'archive']
           },
           exclude: {
             type: 'boolean',
