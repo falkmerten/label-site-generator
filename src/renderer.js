@@ -123,7 +123,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   } else {
     searchPaths = [modeDir, sharedDir];
   }
-  const env = nunjucks.configure(searchPaths, { autoescape: true });
+  const env = nunjucks.configure(searchPaths, { autoescape: true, noCache: true });
 
   // Custom filter: check if a URL is a local file (not http/https)
   env.addFilter('isLocal', (url) => url && !url.startsWith('http'));
@@ -419,7 +419,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   // --- index ---
   await fs.mkdir(outputDir, { recursive: true });
   const sitemapUrls = [];
-  const indexHtml = nunjucks.render('index.njk', {
+  const indexHtml = env.render('index.njk', {
     ...baseCtx,
     allAlbums: homepageAlbums,
     newsHtml,
@@ -443,7 +443,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
         await fs.mkdir(artistDir, { recursive: true });
         const artistUrl = siteUrl ? `${siteUrl}artists/${artist.slug}/` : null;
 
-        const artistHtml = nunjucks.render('artist.njk', {
+        const artistHtml = env.render('artist.njk', {
           ...baseCtx,
         artist: {
           ...artist,
@@ -483,7 +483,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
       }
       await fs.mkdir(albumDir, { recursive: true });
 
-      const albumHtml = nunjucks.render('album.njk', {
+      const albumHtml = env.render('album.njk', {
         ...baseCtx,
         album,
         artist,
@@ -501,7 +501,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   const releasesDir = path.join(outputDir, 'releases');
   await fs.mkdir(releasesDir, { recursive: true });
   const releasesUrl = siteUrl ? `${siteUrl}releases/` : null;
-  const releasesHtml = nunjucks.render('releases.njk', {
+  const releasesHtml = env.render('releases.njk', {
     ...baseCtx,
     allAlbums: homepageAlbums,
     rootPath: '../',
@@ -518,7 +518,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
       const pageDir = path.join(outputDir, page.slug);
       await fs.mkdir(pageDir, { recursive: true });
       const pageUrl = siteUrl ? `${siteUrl}${page.slug}/` : null;
-      await fs.writeFile(path.join(pageDir, 'index.html'), nunjucks.render('page.njk', {
+      await fs.writeFile(path.join(pageDir, 'index.html'), env.render('page.njk', {
         ...baseCtx, title: page.title, pageHtml: html, rootPath: '../',
         canonicalUrl: pageUrl,
       }), 'utf8');
@@ -549,7 +549,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
         article.imageUrl = article.image
       }
 
-      const articleHtml = nunjucks.render('news-article.njk', {
+      const articleHtml = env.render('news-article.njk', {
         ...baseCtx,
         article,
         prevArticle: i < newsArticles.length - 1 ? newsArticles[i + 1] : null,
@@ -575,7 +575,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
         ? (page === 1 ? `${siteUrl}news/` : `${siteUrl}news/page/${page}/`)
         : null
 
-      const listHtml = nunjucks.render('news-list.njk', {
+      const listHtml = env.render('news-list.njk', {
         ...baseCtx,
         articles: pageArticles,
         pagination: { current: page, total: totalPages, prev: page > 1 ? page - 1 : null, next: page < totalPages ? page + 1 : null },
@@ -589,7 +589,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   }
 
   // --- 404 page (used by S3/CloudFront as error document) ---
-  const notFoundHtml = nunjucks.render('page.njk', {
+  const notFoundHtml = env.render('page.njk', {
     ...baseCtx,
     title: 'Page Not Found',
     pageHtml: '<p>The page you are looking for does not exist.</p><p><a href="/">Return to homepage</a></p>',
