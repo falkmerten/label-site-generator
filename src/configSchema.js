@@ -97,9 +97,6 @@ const CONFIG_SCHEMA = {
               spotify: {
                 type: ['string', 'null']
               },
-              soundcharts: {
-                type: ['string', 'null']
-              },
               bandcamp: {
                 type: ['string', 'null']
               },

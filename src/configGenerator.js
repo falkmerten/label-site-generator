@@ -65,7 +65,6 @@ async function generateConfig (rawData, env, contentDir = './content') {
       bandcampUrl: isOwnPage,
       links: {
         spotify: null,
-        soundcharts: null,
         bandcamp: isOwnPage,
         youtube: null,
         instagram: null,
@@ -164,7 +163,7 @@ async function generateConfig (rawData, env, contentDir = './content') {
             excludeAlbums: [],
             bandcampUrl: `https://${band.subdomain}.bandcamp.com/`,
             links: {
-              spotify: null, soundcharts: null, bandcamp: `https://${band.subdomain}.bandcamp.com/`,
+              spotify: null, bandcamp: `https://${band.subdomain}.bandcamp.com/`,
               youtube: null, instagram: null, facebook: null, website: null, tiktok: null, twitter: null, bandsintown: null
             }
           }

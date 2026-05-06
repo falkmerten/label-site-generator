@@ -41,7 +41,6 @@ describe('configValidator', () => {
             bandcampUrl: null,
             links: {
               spotify: 'https://open.spotify.com/artist/123',
-              soundcharts: null,
               bandcamp: 'https://goldenapes.bandcamp.com/',
               youtube: null,
               instagram: null,

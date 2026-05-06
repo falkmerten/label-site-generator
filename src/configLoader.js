@@ -73,7 +73,6 @@ async function loadLegacyConfig (contentDir) {
         bandcampUrl: null,
         links: {
           spotify: entry.spotifyArtistUrl || null,
-          soundcharts: null,
           bandcamp: null,
           youtube: null,
           instagram: null,
@@ -139,7 +138,6 @@ async function loadLegacyConfig (contentDir) {
             bandcampUrl: trimmed,
             links: {
               spotify: null,
-              soundcharts: null,
               bandcamp: trimmed,
               youtube: null,
               instagram: null,
