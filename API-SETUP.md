@@ -2,11 +2,19 @@
 
 The Label Site Generator works without any API credentials — you get a complete website from Bandcamp data alone. APIs add streaming links and metadata.
 
-## Priority
+## Data Sources
 
-1. **Soundcharts** (recommended) — One API for everything: all streaming platforms, UPC, ISRCs, labels, social media. Fewer calls, more data.
-2. **Spotify** — Streaming links only. Good for getting started, but limited metadata.
-3. **Discogs** — Physical release formats and sell links. Complements Spotify or Soundcharts.
+The generator supports three primary data sources (set in `config.json` → `source.primary`):
+
+- **Bandcamp** (default) — Scrapes your Bandcamp page for artist/album data
+- **Archive.org** — Fetches CC-licensed releases from Internet Archive collections
+- **Spotify** (planned v5.1) — Uses Spotify artist/album data as primary source
+
+## Enrichment Priority
+
+1. **Spotify** (recommended) — Streaming links and album matching. Free developer tier is sufficient.
+2. **Last.fm** (recommended) — Artist bios, listener stats, genre tags, similar artists. Free, unlimited.
+3. **Discogs** — Physical release formats and sell links. Complements Spotify + Last.fm.
 
 ## Spotify (streaming links)
 
@@ -25,27 +33,28 @@ SPOTIFY_CLIENT_SECRET=your_client_secret
 node generate.js --enrich
 ```
 
-**Note**: The generator uses a lightweight approach — it fetches the album list from your Spotify artist page and matches titles to your Bandcamp albums. No UPC extraction, no ISRC backfill. For full metadata, use Soundcharts.
+**Note**: The generator uses a lightweight approach — it fetches the album list from your Spotify artist page and matches titles to your Bandcamp albums. Combined with Last.fm for artist metadata, this covers most enrichment needs.
 
 **Tip**: Add Spotify artist URLs to `config.json` (`links.spotify`) to skip the search step and save API calls.
 
-## Soundcharts (full metadata — recommended)
+## Last.fm (artist metadata — recommended)
 
-Soundcharts provides everything in one API: streaming links for all platforms, UPC, ISRCs, label names, social media links, and event data. One call per album instead of 5+ separate calls to different services.
+Provides artist bios, listener/play count stats, genre tags, and similar artist recommendations. Free, unlimited API access.
 
-1. Sign up at [developers.soundcharts.com](https://developers.soundcharts.com)
-2. Get your App ID and API Key
+1. Go to [last.fm/api/account/create](https://www.last.fm/api/account/create)
+2. Log in with your Last.fm account (or create one)
+3. Fill in the application form (any name, e.g. "Label Site Generator")
+4. Copy your **API Key**
 
 ```env
-SOUNDCHARTS_APP_ID=your_app_id
-SOUNDCHARTS_API_KEY=your_api_key
+LASTFM_API_KEY=your_api_key
 ```
 
 ```bash
 node generate.js --enrich
 ```
 
-Free tier: 1,000 credits/month (1 credit per API call). A typical label with 100 albums uses ~400 credits on first enrichment, then ~10-20 per month for new releases.
+No rate limit concerns for typical label usage. Last.fm allows up to 5 requests/second.
 
 ## Discogs (physical releases)
 
@@ -103,7 +112,7 @@ Requires AWS CLI configured with appropriate credentials (`aws configure`).
 
 The generator handles rate limits automatically:
 - **Spotify**: 600ms between calls, exponential backoff on 429
-- **Soundcharts**: 1000ms between calls, quota monitoring
+- **Last.fm**: 200ms between calls (limit: 5 req/sec)
 - **Discogs**: 1000ms between calls
 
 No configuration needed. If a rate limit is hit, the generator waits and retries. If retries are exhausted for one album, it skips and continues.
@@ -114,4 +123,6 @@ No configuration needed. If a rate limit is hit, the generator waits and retries
 |------|------|-------------|
 | None | — | Complete website with Bandcamp links only |
 | Basic | Spotify | + Spotify, Apple Music, Deezer links |
-| Full | Soundcharts + Discogs | + All platforms, UPC, ISRCs, labels, physical formats, sell links |
+| Recommended | Spotify + Last.fm + Discogs | + Streaming links, bios, tags, listener stats, physical formats |
+
+> **Note**: Soundcharts is not available in the free/GPL version. It requires a paid subscription (the one-time trial of 1,000 credits does not reset). For full metadata enrichment via Soundcharts, see [lsg-pro](https://github.com/Aenaos-Records/lsg-pro).

@@ -13,8 +13,9 @@ Static website generator for independent music labels and bands. Scrapes Bandcam
 - **Built-in themes**: `standard` (light), `dark`, `bandcamp` (auto-colors from your page)
 - **Single config file**: All content configuration in `content/config.json` (auto-generated on first run)
 - Streaming link enrichment (Spotify, Apple Music, Deezer, Tidal)
-- Full metadata enrichment via Soundcharts (recommended for labels with 50+ releases)
+- Artist metadata from Last.fm (bios, listener stats, tags, similar artists)
 - Physical release data from Discogs (Vinyl, CD, Cassette, sell links)
+- Multiple data sources: Bandcamp, Archive.org, Spotify (planned v5.1)
 - Tour dates from Bandsintown
 - Newsletter integration (Sendy, Listmonk, Keila) with auto-campaign drafts
 - Ghost CMS for news (headless mode with local file fallback)
@@ -60,7 +61,7 @@ The `.env` file contains only API credentials:
 | `BANDCAMP_URL` | Yes | Your Bandcamp page URL |
 | `BANDCAMP_CLIENT_ID` / `SECRET` | No | Improves detection, enables connected accounts |
 | `SPOTIFY_CLIENT_ID` / `SECRET` | No | For streaming link enrichment |
-| `SOUNDCHARTS_APP_ID` / `API_KEY` | No | For full metadata enrichment |
+| `LASTFM_API_KEY` | No | For artist bios, tags, listener stats |
 | `DISCOGS_TOKEN` | No | For physical release data (only if "discogs" in stores) |
 | `AWS_S3_BUCKET` | No | For deployment |
 
@@ -155,13 +156,12 @@ node generate.js --enrich
 
 This makes ~3-5 API calls per artist (lightweight, no rate limit issues).
 
-### Soundcharts (full metadata — recommended)
+### Last.fm (artist metadata — recommended)
 
-For professional catalog needs, Soundcharts provides UPC, ISRCs, labels, all streaming platforms, and social media links in a single API. Fewer calls, more data.
+Adds artist bios, listener stats, genre tags, and similar artist recommendations. Free, unlimited. Requires `LASTFM_API_KEY` in `.env`.
 
-```env
-SOUNDCHARTS_APP_ID=your_app_id
-SOUNDCHARTS_API_KEY=your_api_key
+```bash
+node generate.js --enrich
 ```
 
 See [API-SETUP.md](API-SETUP.md) for credential setup.
@@ -197,7 +197,7 @@ Generates the site, syncs `dist/` to S3, and invalidates CloudFront. Requires `A
 | `generate.js` | CLI entry point |
 | `src/generator.js` | Pipeline orchestrator |
 | `src/scraper.js` | Bandcamp scraper (config-aware) |
-| `src/enricher.js` | Enrichment pipeline (Spotify/Soundcharts/Discogs) |
+| `src/enricher.js` | Enrichment pipeline (Spotify/Discogs/Last.fm) |
 | `src/configLoader.js` | Config loading with legacy fallback |
 | `src/configGenerator.js` | Auto-generates config.json from scrape |
 | `src/configValidator.js` | JSON Schema validation |
