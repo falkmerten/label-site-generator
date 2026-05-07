@@ -67,6 +67,41 @@ Adds physical format information (Vinyl, CD, Cassette) and Discogs sell links.
 DISCOGS_TOKEN=your_token
 ```
 
+## Tidal (streaming links)
+
+Adds Tidal streaming links. Requires a free developer account.
+
+1. Go to [developer.tidal.com](https://developer.tidal.com)
+2. Create an application
+3. Copy Client ID and Client Secret
+
+```env
+TIDAL_CLIENT_ID=your_client_id
+TIDAL_CLIENT_SECRET=your_client_secret
+```
+
+## YouTube (video embeds)
+
+Enables YouTube video embedding and channel sync on artist pages.
+
+1. Go to [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
+2. Create a project and enable the YouTube Data API v3
+3. Create an API key
+
+```env
+YOUTUBE_API_KEY=your_api_key
+```
+
+## Gap-Fill APIs (automatic, no credentials needed)
+
+During `--enrich`, the generator automatically queries these services to fill streaming links that Spotify didn't return. No API keys required:
+
+- **Apple Music / iTunes** — UPC lookup via iTunes Search API (free, no auth)
+- **Deezer** — UPC lookup via Deezer public API (free, no auth)
+- **MusicFetch** — Amazon Music and other platform links (free, no auth)
+
+These run automatically after Spotify enrichment. If a link is already present, the gap-fill skips it.
+
 ## Ghost CMS (news)
 
 Optional headless CMS for news articles. When configured, Ghost is the exclusive news source. Falls back to local `content/news/` files if Ghost is unavailable.
@@ -113,7 +148,9 @@ Requires AWS CLI configured with appropriate credentials (`aws configure`).
 The generator handles rate limits automatically:
 - **Spotify**: 600ms between calls, exponential backoff on 429
 - **Last.fm**: 200ms between calls (limit: 5 req/sec)
+- **Tidal**: 600ms between calls
 - **Discogs**: 1000ms between calls
+- **iTunes/Deezer/MusicFetch**: 300ms between calls (generous public limits)
 
 No configuration needed. If a rate limit is hit, the generator waits and retries. If retries are exhausted for one album, it skips and continues.
 
@@ -122,7 +159,7 @@ No configuration needed. If a rate limit is hit, the generator waits and retries
 | Tier | APIs | What you get |
 |------|------|-------------|
 | None | — | Complete website with Bandcamp links only |
-| Basic | Spotify | + Spotify, Apple Music, Deezer links |
-| Recommended | Spotify + Last.fm + Discogs | + Streaming links, bios, tags, listener stats, physical formats |
+| Basic | Spotify | + Spotify, Apple Music, Deezer links (via gap-fill) |
+| Recommended | Spotify + Last.fm + Discogs + Tidal | + All streaming links, bios, tags, listener stats, physical formats |
 
 > **Note**: Soundcharts is not available in the free/GPL version. It requires a paid subscription (the one-time trial of 1,000 credits does not reset). For full metadata enrichment via Soundcharts, see [lsg-pro](https://github.com/Aenaos-Records/lsg-pro).
