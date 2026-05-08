@@ -190,6 +190,18 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     return new Date(iso).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
   });
 
+  // Alias for formatDate (used by some custom templates)
+  env.addFilter('dateFormat', (iso) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' });
+  });
+
+  // Custom filter: format number with locale separators (e.g. 1,234,567)
+  env.addFilter('localeNumber', (num) => {
+    if (num == null) return '';
+    return Number(num).toLocaleString('en');
+  });
+
   // Custom filter: check if a date is in the future (for pre-orders / coming soon)
   env.addFilter('isFuture', (iso) => {
     if (!iso) return false
@@ -360,12 +372,21 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     );
 
   // Check which brand assets exist (for conditional rendering in templates)
+  // Note: assets are copied AFTER rendering, so check content/global/ as well
+  const contentDir = process.env.CONTENT_DIR || './content'
+  const globalDir = path.join(contentDir, 'global')
   let hasBanner = false
   let hasLogo = false
+  let logoUrl = null
   try { await fs.access(path.join(outputDir, 'banner.jpg')); hasBanner = true } catch { /* */ }
   if (!hasBanner) { try { await fs.access(path.join('assets', 'banner.jpg')); hasBanner = true } catch { /* */ } }
-  try { await fs.access(path.join(outputDir, 'logo-round.png')); hasLogo = true } catch { /* */ }
-  if (!hasLogo) { try { await fs.access(path.join('assets', 'logo-round.png')); hasLogo = true } catch { /* */ } }
+  if (!hasBanner) { try { await fs.access(path.join(globalDir, 'banner.jpg')); hasBanner = true } catch { /* */ } }
+  // Check for logo: logo-round.png first (standard), then logo.png (custom templates)
+  try { await fs.access(path.join(outputDir, 'logo-round.png')); hasLogo = true; logoUrl = 'logo-round.png' } catch { /* */ }
+  if (!hasLogo) { try { await fs.access(path.join('assets', 'logo-round.png')); hasLogo = true; logoUrl = 'logo-round.png' } catch { /* */ } }
+  if (!hasLogo) { try { await fs.access(path.join(globalDir, 'logo.png')); hasLogo = true; logoUrl = 'logo.png' } catch { /* */ } }
+  if (!hasLogo) { try { await fs.access(path.join(outputDir, 'logo.png')); hasLogo = true; logoUrl = 'logo.png' } catch { /* */ } }
+  if (!hasLogo) { try { await fs.access(path.join('assets', 'logo.png')); hasLogo = true; logoUrl = 'logo.png' } catch { /* */ } }
 
   const showOtherLabels = (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
 
@@ -373,6 +394,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     artists: sortedArtists,
     hasBanner,
     hasLogo,
+    logoUrl,
     showOtherLabels,
     labelName,
     siteUrl,
