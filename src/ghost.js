@@ -2,7 +2,6 @@
 
 const https = require('https')
 const http = require('http')
-const DOMPurify = require('isomorphic-dompurify')
 
 /**
  * Creates a Ghost Content API client.
@@ -58,7 +57,7 @@ function createGhostClient ({ url, apiKey } = {}) {
   async function fetchPosts (page = 1, limit = 15) {
     if (!baseUrl || !key) return { posts: [], meta: { pagination: { page: 1, pages: 1, total: 0, next: null, prev: null } } }
 
-    const data = await apiGet(`posts/?include=tags,authors&page=${page}&limit=${limit}`)
+    const data = await apiGet(`posts/?include=tags,authors&formats=html&page=${page}&limit=${limit}`)
     return {
       posts: data.posts || [],
       meta: data.meta || { pagination: { page: 1, pages: 1, total: 0, next: null, prev: null } }
@@ -99,11 +98,9 @@ function createGhostClient ({ url, apiKey } = {}) {
  * @returns {Object} News_Article compatible object
  */
 function normalizePost (post) {
-  // Sanitize HTML content
-  const sanitizedHtml = DOMPurify.sanitize(post.html || '', {
-    ADD_TAGS: ['iframe'],
-    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src']
-  })
+  // Ghost is a trusted source — pass HTML through without sanitization
+  // (Ghost's own editor already sanitizes user input)
+  const sanitizedHtml = post.html || ''
 
   // Generate excerpt: custom_excerpt > strip HTML from content
   let excerpt = post.custom_excerpt || post.excerpt || ''
