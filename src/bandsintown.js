@@ -64,7 +64,7 @@ function artistPath (artistName, artistId) {
  * @param {string} artistName - Artist name (will be URL-encoded)
  * @param {string} appId - Bandsintown app_id
  * @param {string} [artistId] - Bandsintown numeric artist ID (preferred for lookup)
- * @returns {Promise<{trackerCount: number, upcomingEventCount: number}|null>}
+ * @returns {Promise<{trackerCount: number, upcomingEventCount: number, links: Array, imageUrl: string|null}|null>}
  */
 async function fetchArtistInfo (artistName, appId, artistId) {
   const ident = artistPath(artistName, artistId)
@@ -77,9 +77,19 @@ async function fetchArtistInfo (artistName, appId, artistId) {
     return null
   }
 
+  // Parse links array (may be empty string if not configured)
+  const links = Array.isArray(body.links) ? body.links : []
+
+  // Image URL (skip default placeholder)
+  const imageUrl = body.image_url && !body.image_url.endsWith('artistLarge.jpg')
+    ? body.image_url
+    : null
+
   return {
     trackerCount: typeof body.tracker_count === 'number' ? body.tracker_count : 0,
-    upcomingEventCount: typeof body.upcoming_event_count === 'number' ? body.upcoming_event_count : 0
+    upcomingEventCount: typeof body.upcoming_event_count === 'number' ? body.upcoming_event_count : 0,
+    links,
+    imageUrl
   }
 }
 
@@ -133,6 +143,59 @@ function transformEvent (raw) {
     eventUrl: raw.url || null,
     offers,
     source: 'bandsintown'
+  }
+}
+
+/**
+ * Maps BIT link types to our internal field paths.
+ * Only backfills if the target field is empty/missing.
+ */
+const BIT_LINK_MAP = {
+  spotify: { target: 'streamingLinks', key: 'spotify' },
+  itunes: { target: 'streamingLinks', key: 'appleMusic' },
+  amazon: { target: 'streamingLinks', key: 'amazonMusic' },
+  shazam: { target: 'streamingLinks', key: 'shazam' },
+  youtube: { target: 'socialLinks', key: 'youtube' },
+  facebook: { target: 'socialLinks', key: 'facebook' },
+  instagram: { target: 'socialLinks', key: 'instagram' },
+  website: { target: 'socialLinks', key: 'website' }
+}
+
+/**
+ * Backfills missing artist links from Bandsintown data.
+ * Never overwrites existing values — only fills gaps.
+ * @param {object} artist - Artist object (mutated in place)
+ * @param {Array<{type: string, url: string}>} bitLinks - Links from BIT API
+ */
+function backfillLinksFromBIT (artist, bitLinks) {
+  if (!Array.isArray(bitLinks) || bitLinks.length === 0) return
+
+  // Ensure target objects exist
+  if (!artist.streamingLinks) artist.streamingLinks = {}
+  if (!artist.socialLinks) artist.socialLinks = {}
+
+  let filled = 0
+  for (const link of bitLinks) {
+    if (!link.type || !link.url) continue
+    const mapping = BIT_LINK_MAP[link.type]
+    if (!mapping) continue
+
+    const obj = artist[mapping.target]
+    if (!obj[mapping.key]) {
+      // Strip utm params for cleaner URLs
+      let url = link.url
+      try {
+        const u = new URL(url)
+        u.searchParams.delete('utm_source')
+        url = u.toString()
+      } catch { /* keep original */ }
+      obj[mapping.key] = url
+      filled++
+    }
+  }
+
+  if (filled > 0) {
+    // Silent backfill — only log in verbose/debug mode
   }
 }
 
@@ -200,6 +263,16 @@ async function fetchAllArtists (mergedData, content) {
       if (info) {
         artist.bandsintown.trackerCount = info.trackerCount
         artist.bandsintown.upcomingEventCount = info.upcomingEventCount
+
+        // Backfill links from BIT (only fill gaps, never overwrite existing)
+        if (info.links.length > 0) {
+          backfillLinksFromBIT(artist, info.links)
+        }
+
+        // Backfill artist image if no photo exists
+        if (info.imageUrl && !artist.photo && !artist.coverImage) {
+          artist._bitImageUrl = info.imageUrl
+        }
       }
     } catch (err) {
       console.warn(`[bandsintown] Artist info error for "${artistName}": ${err.message}`)
