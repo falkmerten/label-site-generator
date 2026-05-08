@@ -167,9 +167,12 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     if (physical.includes('CD')) formats.push('CD')
     if (physical.includes('Cassette')) formats.push('Cassette')
     if (physical.includes('Box Set')) formats.push('Box Set')
-    formats.push('Digital')
+    // Only show "Digital" if there are also physical formats (otherwise it's redundant)
+    if (formats.length > 0) formats.push('Digital')
     let result = formats.join(', ')
-    if (album.labelName) result += ' — ' + album.labelName
+    if (album.labelName) {
+      result = result ? result + ' — ' + album.labelName : album.labelName
+    }
     return result
   });
   env.addFilter('youtubeId', (url) => {
@@ -378,7 +381,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     extraStores,
     currentYear: new Date().getFullYear(),
     newsletter: resolveNewsletter(),
-    latestReleases: homepageAlbums.slice(0, 15),
+    latestReleases: homepageAlbums.slice(0, 16),
     totalReleases: homepageAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
     labelEmail: process.env.SITE_EMAIL || process.env.LABEL_EMAIL || '',

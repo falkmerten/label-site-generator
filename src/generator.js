@@ -13,6 +13,7 @@ const { generateRedirects } = require('./redirects');
 const { fetchAllArtists } = require('./bandsintown');
 const { loadConfig } = require('./configLoader');
 const { generateConfig } = require('./configGenerator');
+const { scrapeArchiveCollection, mergeArchiveData, isValidCollectionId } = require('./archive');
 
 const DEFAULTS = {
   labelUrl: process.env.BANDCAMP_URL || '',
@@ -44,7 +45,7 @@ async function generate(options) {
   }
 
   // Site identity from config.json (no env fallback — config is source of truth)
-  const labelName = (config && config.site && config.site.name) || 'My Site';
+  let labelName = (config && config.site && config.site.name) || 'My Site';
 
   // Resolve labelUrl from env or config source object
   const labelUrl = opts.labelUrl || (config && config.source && config.source.url) || '';
@@ -52,26 +53,54 @@ async function generate(options) {
   // Validate BANDCAMP_URL format when refresh is requested
   if (refresh) {
     const bandcampUrl = process.env.BANDCAMP_URL || '';
-    if (!bandcampUrl) {
+
+    // In primary IA mode (from config.json), Bandcamp URL is not required
+    const iaFromConfig = config && config.source && config.source.primary === 'archive.org'
+
+    if (!bandcampUrl && !iaFromConfig) {
       console.error('[error] BANDCAMP_URL is required for --update/--scrape. Set it in your .env file.');
       process.exit(1);
     }
-    if (!/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/?$/.test(bandcampUrl)) {
+    if (bandcampUrl && !/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/?$/.test(bandcampUrl)) {
       console.error('[error] BANDCAMP_URL must be a valid Bandcamp URL (https://name.bandcamp.com/)');
       process.exit(1);
     }
   }
 
-  // Environment validation (only when no config and no cache — need URL to scrape)
-  if (!labelUrl && !config) {
-    console.error('[error] No Bandcamp URL configured. Set BANDCAMP_URL in your .env file.');
-    process.exit(1);
+  // ── Internet Archive mode detection (early, before validation) ────────────
+  // Config.json source is authoritative; env vars are fallback
+  const iaConfigSource = config && config.source && config.source.primary === 'archive.org'
+  const archiveCollection = (config && config.source && config.source.collection) || ''
+  const archiveCcOnly = (config && config.source && config.source.ccOnly === true)
+  const iaPrimaryMode = !!(iaConfigSource && archiveCollection)
+
+  // Environment validation — skip if IA primary mode or interactive onboarding will handle it
+  if (!labelUrl && !config && !iaPrimaryMode) {
+    // No config, no URL — will trigger interactive onboarding below (unless --yes)
+    if (opts._nonInteractive) {
+      console.error('[error] No data source configured. Set BANDCAMP_URL in .env or run interactively.');
+      process.exit(1);
+    }
   }
 
   // Step 1-3: Resolve raw data from cache or scrape
   let rawData = null;
 
-  if (!refresh) {
+  // ── Internet Archive primary mode: skip Bandcamp entirely ─────────────────
+  if (iaPrimaryMode && refresh) {
+    const { scrapeArchiveCollection, mergeArchiveData, isValidCollectionId } = require('./archive')
+    if (!isValidCollectionId(archiveCollection)) {
+      console.error(`[error] source.collection "${archiveCollection}" is invalid — must match /^[a-zA-Z0-9_-]+$/`)
+      process.exit(1)
+    }
+    console.log('[archive] Mode: primary — Internet Archive as sole data source')
+    const existingData = await readCache(cachePath) || { artists: [] }
+    if (archiveCcOnly) console.log('[archive] CC-only filter active — skipping non-Creative Commons releases')
+    const archiveData = await scrapeArchiveCollection(archiveCollection, { artistFilter: options.artistFilter || undefined, ccOnly: archiveCcOnly })
+    rawData = mergeArchiveData(existingData, archiveData, 'primary')
+    await writeCache(cachePath, rawData)
+    console.log(`[archive] Cache updated with IA data (${rawData.artists.length} artists, ${rawData.artists.reduce((n, a) => n + (a.albums || []).length, 0)} albums)`)
+  } else if (!refresh) {
     rawData = await readCache(cachePath);
     if (rawData) console.log(`Using cached data from ${cachePath}`);
   }
@@ -107,119 +136,259 @@ async function generate(options) {
     console.log('Generated content/config.json — edit it to configure your site.')
     // Reload config
     const reloadedConfig = await loadConfig(contentDir)
-    if (reloadedConfig) config = reloadedConfig
+    if (reloadedConfig) {
+      config = reloadedConfig
+      labelName = config.site && config.site.name || labelName
+    }
   }
 
-  // First-run detection: no cache AND no config → trigger scrape + config generation
-  if (!rawData && !config) {
-    const bandcampUrl = process.env.BANDCAMP_URL || '';
-    if (!bandcampUrl) {
-      console.error('[error] BANDCAMP_URL is required for first run. Set it in your .env file.');
-      process.exit(1);
-    }
-    const apiCredentials = {
-      clientId: process.env.BANDCAMP_CLIENT_ID,
-      clientSecret: process.env.BANDCAMP_CLIENT_SECRET
-    };
+  // ══════════════════════════════════════════════════════════════════════════
+  // INTERACTIVE ONBOARDING: no cache AND no config → ask user for data source
+  // ══════════════════════════════════════════════════════════════════════════
+  if (!rawData && !config && !iaPrimaryMode) {
+    const readline = require('readline')
+    const bandcampUrl = process.env.BANDCAMP_URL || ''
 
-    // CSV check prompt (before scrape — give user a chance to add it)
-    const importDir = 'private/imports'
-    let hasCsv = false
-    try {
-      const importEntries = await fs.readdir(importDir)
-      hasCsv = importEntries.some(f => f.endsWith('_digital.csv'))
-    } catch { /* private/imports/ may not exist */ }
+    let chosenSource = null
 
-    if (!hasCsv && !opts._nonInteractive) {
-      const readline = require('readline')
-      const bcSlug = (process.env.BANDCAMP_URL || '').replace(/https?:\/\//, '').replace(/\.bandcamp\.com\/?$/, '')
+    // If BANDCAMP_URL is set in .env, skip source selection
+    if (bandcampUrl) {
+      chosenSource = 'bandcamp'
+    } else if (!opts._nonInteractive) {
+      // Interactive source selection
       console.log('')
-      console.log('  No Bandcamp Digital Catalog CSV found in private/imports/.')
+      console.log('  Welcome to the Label Site Generator!')
       console.log('')
-      console.log(`  Export here: https://${bcSlug}.bandcamp.com/tools#catalog`)
-      console.log('  Place the downloaded file in private/imports/ for reliable UPC/ISRC matching.')
+      console.log('  Choose your primary data source:')
+      console.log('    1. Bandcamp')
+      console.log('    2. Internet Archive')
+      console.log('    3. Spotify (requires SPOTIFY_CLIENT_ID/SECRET in .env)')
       console.log('')
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-      const answer = await new Promise(resolve => {
-        rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
+      const sourceAnswer = await new Promise(resolve => {
+        rl.question('  Source [1]: ', resolve)
       })
       rl.close()
-      if (answer.toLowerCase() === 'n') {
-        console.log(`\n  Export your catalog: https://${bcSlug}.bandcamp.com/tools#catalog`)
-        console.log('  Place the file in private/imports/ and run again.')
-        process.exit(0)
-      }
+      const sourceMap = { '1': 'bandcamp', '2': 'archive.org', '3': 'spotify', '': 'bandcamp' }
+      chosenSource = sourceMap[sourceAnswer.trim()] || 'bandcamp'
+      console.log(`  → Using source: ${chosenSource}`)
       console.log('')
-    } else if (hasCsv) {
-      console.log('  ✓ Bandcamp Digital Catalog CSV found in private/imports/')
+    } else {
+      console.error('[error] No data source configured. Set BANDCAMP_URL in .env or run interactively.')
+      process.exit(1)
     }
 
-    // Extra artists prompt (first run only)
-    let extraArtistUrls = []
-    if (!opts._nonInteractive) {
-      const readline = require('readline')
+    // ── Archive.org onboarding ────────────────────────────────────────────────
+    if (chosenSource === 'archive.org') {
+      const { scrapeArchiveCollection, mergeArchiveData, isValidCollectionId } = require('./archive')
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-      const wantsExtra = await new Promise(resolve => {
-        rl.question('  Do you have additional Bandcamp pages to include? [y/N]: ', resolve)
+
+      // Ask for collection ID
+      const collectionAnswer = await new Promise(resolve => {
+        rl.question('  Archive.org collection ID: ', resolve)
       })
-      if (wantsExtra.toLowerCase() === 'y') {
-        console.log('  Enter Bandcamp URLs (one per line, empty line to finish):')
-        let url = ''
-        do {
-          url = await new Promise(resolve => { rl.question('  > ', resolve) })
-          url = url.trim()
-          if (url) {
-            try {
-              const parsed = new URL(url)
-              if (parsed.hostname.endsWith('.bandcamp.com') && parsed.protocol === 'https:') {
-                extraArtistUrls.push(url)
-              } else {
-                console.log('    ⚠ Not a valid Bandcamp URL (must be https://*.bandcamp.com)')
-              }
-            } catch {
-              console.log('    ⚠ Not a valid URL')
-            }
-          }
-        } while (url)
-        if (extraArtistUrls.length > 0) {
-          console.log(`  Adding ${extraArtistUrls.length} additional artist(s).`)
-        }
+      const collectionId = collectionAnswer.trim()
+      if (!collectionId || !isValidCollectionId(collectionId)) {
+        console.error(`[error] Invalid collection ID: "${collectionId}" — must contain only letters, numbers, hyphens, underscores.`)
+        rl.close()
+        process.exit(1)
       }
-      rl.close()
-      console.log('')
-    }
 
-    rawData = await scrapeLabel(bandcampUrl, apiCredentials, contentDir, { extraArtistUrls, _nonInteractive: opts._nonInteractive });
-    await writeCache(cachePath, rawData);
+      // Ask for CC-only filter
+      const ccAnswer = await new Promise(resolve => {
+        rl.question('  Only include Creative Commons licensed releases? [Y/n]: ', resolve)
+      })
+      const ccOnly = ccAnswer.trim().toLowerCase() !== 'n'
 
-    // Theme prompt (first run only, skip with --yes or --theme flag)
-    let chosenTheme = process.env.SITE_THEME || null
-    if (!chosenTheme && !opts._nonInteractive) {
-      const readline = require('readline')
+      // Theme prompt
       console.log('')
       console.log('  Choose a theme:')
       console.log('    1. standard (clean, light)')
       console.log('    2. dark (dark background, light text)')
-      console.log('    3. bandcamp (auto-colors from your Bandcamp page)')
+      console.log('    3. custom template')
       console.log('')
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-      const themeAnswer = await new Promise(resolve => {
+      let themeAnswer = await new Promise(resolve => {
         rl.question('  Theme [1]: ', resolve)
       })
-      rl.close()
-      const themeMap = { '1': 'standard', '2': 'dark', '3': 'bandcamp', '': 'standard' }
-      chosenTheme = themeMap[themeAnswer.trim()] || 'standard'
-      console.log(`  → Using theme: ${chosenTheme}`)
-      console.log('')
-    }
-    if (!chosenTheme) chosenTheme = 'standard'
-    process.env.SITE_THEME = chosenTheme
+      themeAnswer = themeAnswer.trim()
 
-    await generateConfig(rawData, process.env, contentDir);
-    console.log('Generated content/config.json — edit it to configure your site.');
+      let chosenTheme = 'standard'
+      let chosenTemplate = null
+
+      if (themeAnswer === '3' || themeAnswer.toLowerCase() === 'custom') {
+        const tplAnswer = await new Promise(resolve => {
+          rl.question('  Template folder name (in templates/): ', resolve)
+        })
+        chosenTemplate = tplAnswer.trim() || null
+        if (chosenTemplate) {
+          console.log(`  → Using custom template: ${chosenTemplate}`)
+        } else {
+          console.log('  → No template specified, using standard theme')
+        }
+      } else {
+        const themeMap = { '1': 'standard', '2': 'dark', '': 'standard' }
+        chosenTheme = themeMap[themeAnswer] || 'standard'
+        console.log(`  → Using theme: ${chosenTheme}`)
+      }
+      rl.close()
+      console.log('')
+
+      // Write config.json
+      const iaConfig = {
+        site: {
+          name: collectionId,
+          url: null,
+          mode: 'label',
+          theme: chosenTheme,
+          template: chosenTemplate
+        },
+        source: {
+          primary: 'archive.org',
+          collection: collectionId,
+          ccOnly
+        },
+        artists: {},
+        compilations: {},
+        stores: [],
+        newsletter: { provider: null }
+      }
+      const { writeConfig } = require('./configLoader')
+      await writeConfig(iaConfig, contentDir)
+      console.log('  ✓ Generated content/config.json')
+      config = iaConfig
+      labelName = config.site.name || labelName
+
+      // Scrape the collection
+      console.log('')
+      if (ccOnly) console.log('[archive] CC-only filter active — skipping non-Creative Commons releases')
+      const archiveData = await scrapeArchiveCollection(collectionId, { ccOnly })
+      rawData = mergeArchiveData({ artists: [] }, archiveData, 'primary')
+      await writeCache(cachePath, rawData)
+      console.log(`[archive] Cache written (${rawData.artists.length} artists, ${rawData.artists.reduce((n, a) => n + (a.albums || []).length, 0)} albums)`)
+
+    // ── Bandcamp onboarding ───────────────────────────────────────────────────
+    } else if (chosenSource === 'bandcamp') {
+      let bcUrl = bandcampUrl
+      if (!bcUrl) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        console.log('  Enter your Bandcamp URL (e.g. https://your-label.bandcamp.com/):')
+        const urlAnswer = await new Promise(resolve => {
+          rl.question('  > ', resolve)
+        })
+        rl.close()
+        bcUrl = urlAnswer.trim()
+        if (!bcUrl || !/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/?$/.test(bcUrl)) {
+          console.error('[error] Invalid Bandcamp URL. Must be https://name.bandcamp.com/')
+          process.exit(1)
+        }
+        process.env.BANDCAMP_URL = bcUrl
+      }
+      const apiCredentials = {
+        clientId: process.env.BANDCAMP_CLIENT_ID,
+        clientSecret: process.env.BANDCAMP_CLIENT_SECRET
+      };
+
+      // CSV check prompt
+      const importDir = 'private/imports'
+      let hasCsv = false
+      try {
+        const importEntries = await fs.readdir(importDir)
+        hasCsv = importEntries.some(f => f.endsWith('_digital.csv'))
+      } catch { /* private/imports/ may not exist */ }
+
+      if (!hasCsv && !opts._nonInteractive) {
+        const bcSlug = bcUrl.replace(/https?:\/\//, '').replace(/\.bandcamp\.com\/?$/, '')
+        console.log('  No Bandcamp Digital Catalog CSV found in private/imports/.')
+        console.log('')
+        console.log(`  Export here: https://${bcSlug}.bandcamp.com/tools#catalog`)
+        console.log('  Place the downloaded file in private/imports/ for reliable UPC/ISRC matching.')
+        console.log('')
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        const answer = await new Promise(resolve => {
+          rl.question('  Continue with public Bandcamp data only? [Y/n]: ', resolve)
+        })
+        rl.close()
+        if (answer.toLowerCase() === 'n') {
+          console.log(`\n  Export your catalog: https://${bcSlug}.bandcamp.com/tools#catalog`)
+          console.log('  Place the file in private/imports/ and run again.')
+          process.exit(0)
+        }
+        console.log('')
+      } else if (hasCsv) {
+        console.log('  ✓ Bandcamp Digital Catalog CSV found in private/imports/')
+      }
+
+      // Extra artists prompt
+      let extraArtistUrls = []
+      if (!opts._nonInteractive) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        const wantsExtra = await new Promise(resolve => {
+          rl.question('  Do you have additional Bandcamp pages to include? [y/N]: ', resolve)
+        })
+        if (wantsExtra.toLowerCase() === 'y') {
+          console.log('  Enter Bandcamp URLs (one per line, empty line to finish):')
+          let url = ''
+          do {
+            url = await new Promise(resolve => { rl.question('  > ', resolve) })
+            url = url.trim()
+            if (url) {
+              try {
+                const parsed = new URL(url)
+                if (parsed.hostname.endsWith('.bandcamp.com') && parsed.protocol === 'https:') {
+                  extraArtistUrls.push(url)
+                } else {
+                  console.log('    ⚠ Not a valid Bandcamp URL (must be https://*.bandcamp.com)')
+                }
+              } catch {
+                console.log('    ⚠ Not a valid URL')
+              }
+            }
+          } while (url)
+          if (extraArtistUrls.length > 0) {
+            console.log(`  Adding ${extraArtistUrls.length} additional artist(s).`)
+          }
+        }
+        rl.close()
+        console.log('')
+      }
+
+      rawData = await scrapeLabel(bcUrl, apiCredentials, contentDir, { extraArtistUrls, _nonInteractive: opts._nonInteractive });
+      await writeCache(cachePath, rawData);
+
+      // Theme prompt
+      let chosenTheme = process.env.SITE_THEME || null
+      if (!chosenTheme && !opts._nonInteractive) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+        console.log('')
+        console.log('  Choose a theme:')
+        console.log('    1. standard (clean, light)')
+        console.log('    2. dark (dark background, light text)')
+        console.log('    3. bandcamp (auto-colors from your Bandcamp page)')
+        console.log('')
+        const themeAnswer = await new Promise(resolve => {
+          rl.question('  Theme [1]: ', resolve)
+        })
+        rl.close()
+        const themeMap = { '1': 'standard', '2': 'dark', '3': 'bandcamp', '': 'standard' }
+        chosenTheme = themeMap[themeAnswer.trim()] || 'standard'
+        console.log(`  → Using theme: ${chosenTheme}`)
+        console.log('')
+      }
+      if (!chosenTheme) chosenTheme = 'standard'
+      process.env.SITE_THEME = chosenTheme
+
+      await generateConfig(rawData, process.env, contentDir);
+      console.log('Generated content/config.json — edit it to configure your site.');
+
+    // ── Spotify onboarding (placeholder) ──────────────────────────────────────
+    } else if (chosenSource === 'spotify') {
+      console.error('[error] Spotify-first onboarding is not yet implemented (planned for v5.2).')
+      console.error('  Set BANDCAMP_URL in .env for now, or use Internet Archive.')
+      process.exit(1)
+    }
   }
 
-  if (rawData === null) {
+  if (rawData === null && !iaPrimaryMode) {
     const apiCredentials = {
       clientId: process.env.BANDCAMP_CLIENT_ID,
       clientSecret: process.env.BANDCAMP_CLIENT_SECRET
@@ -236,6 +405,42 @@ async function generate(options) {
     // Step 3b: Download remote artwork to local content (only on scrape)
     const { downloadArtwork } = require('./downloadArtwork');
     await downloadArtwork(cachePath, contentDir);
+  }
+
+  // Step 3b-IA: Internet Archive integration (secondary/archive modes)
+  if (archiveCollection && refresh && !iaPrimaryMode) {
+    const { scrapeArchiveCollection, mergeArchiveData, isValidCollectionId } = require('./archive')
+    // Validate collection ID
+    if (!isValidCollectionId(archiveCollection)) {
+      console.error(`[error] ARCHIVE_ORG_COLLECTION "${archiveCollection}" is invalid — must match /^[a-zA-Z0-9_-]+$/`)
+      process.exit(1)
+    }
+
+    // Validate mode
+    if (archiveMode && !['secondary', 'archive'].includes(archiveMode)) {
+      console.error(`[error] ARCHIVE_ORG_MODE "${archiveMode}" is invalid — must be "primary", "secondary", or "archive"`)
+      process.exit(1)
+    }
+
+    const effectiveMode = archiveMode || 'secondary'
+    if (archiveCcOnly) console.log('[archive] CC-only filter active — skipping non-Creative Commons releases')
+    const archiveOpts = { artistFilter: opts.artistFilter || undefined, ccOnly: archiveCcOnly }
+
+    if (effectiveMode === 'secondary') {
+      // Merge IA alongside Bandcamp (Bandcamp already scraped above)
+      console.log('[archive] Mode: secondary — merging Internet Archive with Bandcamp')
+      const archiveData = await scrapeArchiveCollection(archiveCollection, archiveOpts)
+      rawData = mergeArchiveData(rawData, archiveData, 'secondary')
+      await writeCache(cachePath, rawData)
+      console.log(`[archive] Cache updated with merged data (secondary mode)`)
+    } else if (effectiveMode === 'archive') {
+      // Fill gaps only — add IA albums not in existing cache
+      console.log('[archive] Mode: archive — filling gaps from Internet Archive')
+      const archiveData = await scrapeArchiveCollection(archiveCollection, archiveOpts)
+      rawData = mergeArchiveData(rawData, archiveData, 'archive')
+      await writeCache(cachePath, rawData)
+      console.log(`[archive] Cache updated with gap-fill data (archive mode)`)
+    }
   }
 
   // Step 3c: Auto-detect Bandcamp Digital Catalog CSV in private/imports/

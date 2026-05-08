@@ -4,6 +4,32 @@
 
 ---
 
+### v5.2.0 — 2026-05-08
+
+**Internet Archive Integration (LSG-140)**
+
+- Add `src/archive.js` — Internet Archive as alternative/supplementary data source
+- Three modes: primary (IA only), secondary (merge with Bandcamp), archive (fill gaps)
+- CC-only filter: skip non-Creative Commons releases when `source.ccOnly: true`
+- Interactive onboarding: source selection prompt (Bandcamp / Internet Archive / Spotify)
+- Custom template selection during onboarding
+- Configuration lives in `config.json` → `source.primary: "archive.org"`
+
+---
+
+### v5.1.0 — 2026-05-08
+
+**Enrichment Refactor (LSG-158)**
+
+- Remove Soundcharts integration from GPL version (Pro-only going forward)
+- Add `src/songlink.js` — Odesli API for YouTube Music, Amazon Music, SoundCloud, Pandora, Napster links
+- Add `src/youtubeMusic.js` — YouTube Music album search via youtubei internal API
+- Simplified enrichment pipeline: Spotify → Songlink → YouTube Music → iTunes/Deezer/Tidal → Discogs
+- ~800 lines of code removed (net), cleaner architecture
+- Legacy fields (UPC, ISRC, soundchartsUuid) preserved in cache but no longer actively populated
+
+---
+
 ### v5.0.2 — 2026-05-04
 
 **Bugfixes & Developer Experience**

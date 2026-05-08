@@ -39,14 +39,27 @@ const CONFIG_SCHEMA = {
     },
     source: {
       type: 'object',
-      required: ['primary', 'url'],
+      required: ['primary'],
       properties: {
         primary: {
           type: 'string',
-          enum: ['bandcamp', 'archive', 'spotify']
+          enum: ['bandcamp', 'archive.org', 'archive', 'spotify']
         },
         url: {
           type: 'string'
+        },
+        collection: {
+          type: 'string',
+          description: 'Internet Archive collection identifier'
+        },
+        ccOnly: {
+          type: 'boolean',
+          description: 'Only include Creative Commons licensed releases (IA mode)'
+        },
+        enrichment: {
+          type: 'array',
+          items: { type: 'string', enum: ['spotify', 'songlink', 'youtubeMusic', 'lastfm', 'itunes', 'deezer', 'tidal', 'discogs'] },
+          description: 'Which enrichment sources to enable (default: all for bandcamp, lastfm-only for archive.org)'
         },
         accountType: {
           type: 'string',

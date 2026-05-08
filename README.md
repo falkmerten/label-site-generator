@@ -1,6 +1,6 @@
 # Label Site Generator
 
-Static website generator for independent music labels and bands. Scrapes Bandcamp, enriches with streaming links, generates a complete branded website.
+Static website generator for independent music labels and bands. Supports multiple data sources (Bandcamp, Internet Archive), enriches with streaming links, generates a complete branded website.
 
 [See it live](https://aenaos-records.com) | [Quickstart](QUICKSTART.md) | [Full Documentation](https://github.com/falkmerten/label-site-generator/wiki)
 
@@ -8,14 +8,15 @@ Static website generator for independent music labels and bands. Scrapes Bandcam
 
 ## Features
 
-- **One-command setup**: Set `BANDCAMP_URL`, run `node generate.js`, get a website
+- **One-command setup**: Run `node generate.js`, choose your data source, get a website
 - **Two site modes**: `label` (multi-artist roster) or `artist` (single band website)
 - **Built-in themes**: `standard` (light), `dark`, `bandcamp` (auto-colors from your page)
 - **Single config file**: All content configuration in `content/config.json` (auto-generated on first run)
-- Streaming link enrichment (Spotify, Apple Music, Deezer, Tidal)
+- **Multiple data sources**: Bandcamp (default), Internet Archive (CC-licensed catalogs)
+- Streaming link enrichment (Spotify, Apple Music, Deezer, Tidal, YouTube Music, Amazon Music)
+- Automatic gap-fill via Songlink/Odesli (no API key needed)
 - Artist metadata from Last.fm (bios, listener stats, tags, similar artists)
 - Physical release data from Discogs (Vinyl, CD, Cassette, sell links)
-- Multiple data sources: Bandcamp, Archive.org, Spotify (planned v5.1)
 - Tour dates from Bandsintown
 - Newsletter integration (Sendy, Listmonk, Keila) with auto-campaign drafts
 - Ghost CMS for news (headless mode with local file fallback)
@@ -32,21 +33,37 @@ cd label-site-generator
 npm install
 ```
 
-Create `.env` with one line:
-
-```env
-BANDCAMP_URL=https://your-label.bandcamp.com/
-```
-
 Run:
 
 ```bash
 node generate.js
 ```
 
-That's it. The generator detects your account type, asks a few questions (theme, extra artists), scrapes your Bandcamp page, creates `content/config.json`, and builds a complete website to `dist/`.
+The interactive onboarding asks for your data source:
 
-Use `--yes` to skip prompts (non-interactive mode).
+1. **Bandcamp** — paste your Bandcamp URL (default, most common)
+2. **Internet Archive** — enter a collection identifier (for netlabels / CC catalogs)
+3. **Spotify** — provide Spotify artist URLs (planned)
+
+After source selection, the generator detects your account type, asks a few questions (theme, extra artists), scrapes your catalog, creates `content/config.json`, and builds a complete website to `dist/`.
+
+Use `--yes` to skip prompts (non-interactive mode, requires `BANDCAMP_URL` in `.env`).
+
+---
+
+## Data Sources
+
+| Source | Use case | Config |
+|--------|----------|--------|
+| **Bandcamp** (default) | Labels and bands with a Bandcamp page | `source.primary: "bandcamp"` |
+| **Internet Archive** | Netlabels, CC-licensed catalogs, archive collections | `source.primary: "archive.org"` |
+
+Internet Archive mode supports three strategies:
+- **primary** — IA as sole data source (no Bandcamp needed)
+- **secondary** — merge IA releases with Bandcamp catalog
+- **archive** — fill gaps only (releases not on Bandcamp)
+
+Set `source.ccOnly: true` to skip non-Creative Commons releases.
 
 ---
 
@@ -54,20 +71,19 @@ Use `--yes` to skip prompts (non-interactive mode).
 
 ### `.env` — Secrets only
 
-The `.env` file contains only API credentials:
-
 | Variable | Required | Description |
 |---|---|---|
-| `BANDCAMP_URL` | Yes | Your Bandcamp page URL |
-| `BANDCAMP_CLIENT_ID` / `SECRET` | No | Improves detection, enables connected accounts |
+| `BANDCAMP_URL` | For Bandcamp source | Your Bandcamp page URL |
 | `SPOTIFY_CLIENT_ID` / `SECRET` | No | For streaming link enrichment |
 | `LASTFM_API_KEY` | No | For artist bios, tags, listener stats |
-| `DISCOGS_TOKEN` | No | For physical release data (only if "discogs" in stores) |
+| `DISCOGS_TOKEN` | No | For physical release data |
 | `AWS_S3_BUCKET` | No | For deployment |
+
+Internet Archive requires no API credentials.
 
 ### `content/config.json` — Site configuration
 
-Auto-generated on first run. Edit to configure your site:
+Auto-generated on first run. Key sections:
 
 ```json
 {
@@ -75,49 +91,18 @@ Auto-generated on first run. Edit to configure your site:
     "name": "Your Label",
     "url": "https://www.your-label.com/",
     "mode": "label",
-    "theme": "standard",
-    "template": null
+    "theme": "standard"
   },
   "source": {
     "primary": "bandcamp",
     "url": "https://your-label.bandcamp.com/",
-    "accountType": "label",
-    "detection": "api_member_bands",
-    "confidence": "high"
+    "accountType": "label"
   },
-  "artists": {
-    "artist-slug": {
-      "name": "Artist Name",
-      "enabled": true,
-      "bandcampUrl": "https://artist.bandcamp.com/",
-      "links": { "spotify": null }
-    }
-  },
-  "compilations": {
-    "various-artists": {}
-  },
+  "artists": { },
   "stores": ["bandcamp"],
   "newsletter": { "provider": null }
 }
 ```
-
-**Social links** (footer icons): Add `social` to the `site` object:
-
-```json
-"site": {
-  "social": {
-    "spotify": "https://open.spotify.com/user/...",
-    "youtube": "https://www.youtube.com/...",
-    "discogs": "https://www.discogs.com/seller/..."
-  }
-}
-```
-
-**Adding a new artist**: Add an entry to `artists` with a `bandcampUrl`, then run `node generate.js --scrape`.
-
-**Removing an artist**: Set `"enabled": false` or `"exclude": true`.
-
-**Excluding albums**: Add album slugs to `"excludeAlbums": ["album-slug"]`.
 
 ---
 
@@ -125,8 +110,8 @@ Auto-generated on first run. Edit to configure your site:
 
 ```bash
 node generate.js                    # Generate from cache (offline, fast, ~2s)
-node generate.js --scrape           # Re-scrape from Bandcamp
-node generate.js --enrich           # Add streaming links (Spotify)
+node generate.js --scrape           # Re-scrape from data source
+node generate.js --enrich           # Add streaming links (Spotify + gap-fill)
 node generate.js --scrape --enrich  # Full update
 node generate.js --deploy           # Generate + deploy to S3
 node generate.js --migrate          # Convert v4 config to v5 format
@@ -146,23 +131,15 @@ Run `node generate.js --help` for the full list.
 
 ## Enrichment
 
-### Spotify (streaming links)
+The enrichment pipeline adds streaming links and metadata to your albums:
 
-The default enrichment adds Spotify, Apple Music, and Deezer links to your albums. Requires `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`.
+**Spotify** → **Songlink/Odesli** → **YouTube Music** → **iTunes/Deezer/Tidal** → **Discogs**
 
-```bash
-node generate.js --enrich
-```
-
-This makes ~3-5 API calls per artist (lightweight, no rate limit issues).
-
-### Last.fm (artist metadata — recommended)
-
-Adds artist bios, listener stats, genre tags, and similar artist recommendations. Free, unlimited. Requires `LASTFM_API_KEY` in `.env`.
-
-```bash
-node generate.js --enrich
-```
+- **Spotify** (requires API key) — Spotify, Apple Music, Deezer links
+- **Songlink/Odesli** (automatic, no key) — YouTube Music, Amazon Music, SoundCloud, Pandora, Napster
+- **YouTube Music** (automatic, no key) — YouTube Music search fallback
+- **Last.fm** (requires API key) — Artist bios, listener stats, genre tags, similar artists
+- **Discogs** (requires token) — Physical formats, sell links
 
 See [API-SETUP.md](API-SETUP.md) for credential setup.
 
@@ -197,7 +174,10 @@ Generates the site, syncs `dist/` to S3, and invalidates CloudFront. Requires `A
 | `generate.js` | CLI entry point |
 | `src/generator.js` | Pipeline orchestrator |
 | `src/scraper.js` | Bandcamp scraper (config-aware) |
+| `src/archive.js` | Internet Archive data source |
 | `src/enricher.js` | Enrichment pipeline (Spotify/Discogs/Last.fm) |
+| `src/songlink.js` | Odesli API gap-fill (YouTube Music, Amazon, etc.) |
+| `src/youtubeMusic.js` | YouTube Music album search |
 | `src/configLoader.js` | Config loading with legacy fallback |
 | `src/configGenerator.js` | Auto-generates config.json from scrape |
 | `src/configValidator.js` | JSON Schema validation |

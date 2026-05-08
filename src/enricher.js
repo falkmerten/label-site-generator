@@ -18,6 +18,7 @@ const { withRateLimit } = require('./rateLimiter')
 const { loadConfig, writeConfig } = require('./configLoader')
 const { lookupBySpotifyUrl } = require('./songlink')
 const { searchAlbum: searchAlbumYTMusic } = require('./youtubeMusic')
+const { enrichArtistWithLastfm } = require('./lastfm')
 
 function delay (ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -530,11 +531,27 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   const v5Config = await loadConfig(contentDir).catch(() => null)
   let configDirty = false // track whether config needs write-back at end
 
+  // ── Enrichment sources (config-driven) ────────────────────────────────────
+  // Default depends on primary data source:
+  //   archive.org → only Last.fm (CC releases aren't on streaming platforms)
+  //   bandcamp    → full pipeline (all streaming + metadata)
+  const isArchiveSource = v5Config && v5Config.source && v5Config.source.primary === 'archive.org'
+  const defaultEnrichment = isArchiveSource
+    ? ['lastfm']
+    : ['spotify', 'songlink', 'youtubeMusic', 'lastfm', 'itunes', 'deezer', 'tidal', 'discogs']
+  const enabledEnrichment = new Set(
+    (v5Config && v5Config.source && v5Config.source.enrichment) || defaultEnrichment
+  )
+
   // Log active mode
   if (!options.tidalOnly) {
-    console.log('  → Enrichment mode (Spotify + per-platform lookups)')
-    if (!hasSpotify) console.log('  (No SPOTIFY_CLIENT_ID/SECRET — skipping Spotify)')
-    if (!hasTidal)   console.log('  (No TIDAL_CLIENT_ID/SECRET — skipping Tidal)')
+    if (isArchiveSource) {
+      console.log(`  → Archive.org enrichment (${[...enabledEnrichment].join(', ')})`)
+    } else {
+      console.log('  → Enrichment mode (Spotify + per-platform lookups)')
+    }
+    if (!hasSpotify || !enabledEnrichment.has('spotify')) console.log('  (Spotify: skipped)')
+    if (!hasTidal || !enabledEnrichment.has('tidal'))     console.log('  (Tidal: skipped)')
     if (hasMusicFetch) console.log('  (MusicFetch active — will fill remaining gaps)')
   } else {
     console.log('  → Tidal-only mode')
@@ -685,7 +702,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     if (!options.tidalOnly) {
 
       // ── Step 1: Spotify (lightweight — links only, no metadata) ──────────────
-      if (hasSpotify && spotifyToken && !fallbackState.spotifyDisabled && !isCompilationArtist) {
+      if (enabledEnrichment.has('spotify') && hasSpotify && spotifyToken && !fallbackState.spotifyDisabled && !isCompilationArtist) {
         try {
         // 1a. Resolve artist Spotify URL (from config or search)
         let artistSpotifyUrl = config.spotifyArtistUrl ||
@@ -754,7 +771,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
 
       // ── Songlink gap-fill (YouTube Music, Amazon Music, SoundCloud, Pandora, Napster) ──
-      {
+      if (enabledEnrichment.has('songlink')) {
         const songlinkTargets = ['youtubeMusic', 'amazonMusic', 'soundcloud', 'pandora', 'napster']
         const songlinkEligible = (artist.albums || []).filter(al => {
           if (!al.streamingLinks || !al.streamingLinks.spotify) return false
@@ -793,7 +810,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
 
       // ── YouTube Music gap-fill ──────────────────────────────────────────────
-      {
+      if (enabledEnrichment.has('youtubeMusic')) {
         const ytmEligible = (artist.albums || []).filter(al => {
           if (al.streamingLinks && al.streamingLinks.youtubeMusic) return false
           if (al.enrichmentChecked && al.enrichmentChecked.youtubeMusic === true) return false
@@ -820,10 +837,19 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
         }
       }
 
+      // ── Last.fm enrichment (artist-level: bio, tags, listeners, similar) ────
+      if (enabledEnrichment.has('lastfm') && !isCompilationArtist) {
+        const lastfmKey = (process.env.LASTFM_API_KEY || '').trim()
+        if (lastfmKey) {
+          await enrichArtistWithLastfm(artist, lastfmKey)
+        }
+      }
+
       // ── Steps 2–4+6: iTunes, Deezer, Tidal, MusicFetch ─────────────────────
+      const hasStreamingEnrichment = enabledEnrichment.has('itunes') || enabledEnrichment.has('deezer') || enabledEnrichment.has('tidal')
 
       // ── Label content filter (LSG-125) ──────────────────────────────────────
-      if (!includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
+      if (hasStreamingEnrichment && !includeOtherLabelContent && siteMode !== 'artist' && ownLabelNames.length > 0 && !isCompilationArtist) {
         const { kept, removed } = filterSpotifyOnlyByLabel(artist.albums || [], ownLabelNames)
         if (removed > 0) {
           artist.albums = kept
@@ -832,7 +858,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
 
       const albums = artist.albums || []
-      const needsEnrichment = albums.filter(al =>
+      const needsEnrichment = !hasStreamingEnrichment ? [] : albums.filter(al =>
         !al.upcoming &&
         // Skip Bandcamp-only albums with no Spotify/UPC — nothing to search with
         (al.upc || (al.streamingLinks && al.streamingLinks.spotify)) &&
@@ -1001,10 +1027,10 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
     }
 
-    // ── Discogs — only runs if "discogs" is in stores config ────────────────
+    // ── Discogs — only runs if "discogs" is in stores config AND enabled ────
     const storesConfig = (v5Config && v5Config.stores) || ['bandcamp']
     const discogsInStores = storesConfig.some(s => s === 'discogs' || (s && s.id === 'discogs'))
-    if (hasDiscogs && !options.tidalOnly && discogsInStores) {
+    if (enabledEnrichment.has('discogs') && hasDiscogs && !options.tidalOnly && discogsInStores) {
       const allAlbums = artist.albums || []
       const needsDiscogs = allAlbums.filter(al => !al.discogsUrl && !al.discogsChecked && !al.upcoming)
       // Also include albums needing per-format sell link re-fetch
@@ -1096,7 +1122,7 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     }
 
     // ── Discogs label URL lookup — resolve missing label URLs ───────────────
-    if (hasDiscogs && !options.tidalOnly && discogsInStores) {
+    if (enabledEnrichment.has('discogs') && hasDiscogs && !options.tidalOnly && discogsInStores) {
       const labelsToLookup = new Set()
       for (const al of artist.albums || []) {
         // Check discogsLabel parts
