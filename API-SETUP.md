@@ -4,11 +4,13 @@ The Label Site Generator works without any API credentials — you get a complet
 
 ## Data Sources
 
-The generator supports three primary data sources (set in `config.json` → `source.primary`):
+The generator supports multiple primary data sources (set in `config.json` → `source.primary`):
 
 - **Bandcamp** (default) — Scrapes your Bandcamp page for artist/album data
-- **Archive.org** — Fetches CC-licensed releases from Internet Archive collections
-- **Spotify** (planned v5.1) — Uses Spotify artist/album data as primary source
+- **Archive.org** — Fetches CC-licensed releases from Internet Archive collections (no API credentials needed)
+- **Spotify** (planned) — Uses Spotify artist/album data as primary source
+
+Internet Archive requires no API key, no authentication, and no rate limit configuration. Just set `source.primary: "archive.org"` and provide a collection identifier in `source.url`.
 
 ## Enrichment Priority
 

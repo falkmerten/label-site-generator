@@ -378,7 +378,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     extraStores,
     currentYear: new Date().getFullYear(),
     newsletter: resolveNewsletter(),
-    latestReleases: homepageAlbums.slice(0, 15),
+    latestReleases: homepageAlbums.slice(0, 16),
     totalReleases: homepageAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
     labelEmail: process.env.SITE_EMAIL || process.env.LABEL_EMAIL || '',
