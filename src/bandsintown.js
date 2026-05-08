@@ -141,6 +141,7 @@ function transformEvent (raw) {
     countryCode: venue.country || null,
     countryName: venue.region || venue.country || null,
     eventUrl: raw.url || null,
+    lineup: Array.isArray(raw.lineup) ? raw.lineup : [],
     offers,
     source: 'bandsintown'
   }

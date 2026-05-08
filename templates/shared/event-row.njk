@@ -27,6 +27,15 @@
     {% if event.cityName or event.countryName %}
       <span class="event-location">{{ event.cityName }}{% if event.cityName and event.countryName %}, {% endif %}{{ event.countryName }}</span>
     {% endif %}
+    {% if event.lineup and event.lineup.length > 1 and event.lineup.length <= 5 %}
+      {% set others = [] %}
+      {% for act in event.lineup %}
+        {% if act != event.artistName %}{% set others = others.concat([act]) %}{% endif %}
+      {% endfor %}
+      {% if others.length %}
+      <span class="event-lineup">with {{ others | join(', ') }}</span>
+      {% endif %}
+    {% endif %}
     {% if event.eventUrl %}
       <a href="{{ event.eventUrl }}" target="_blank" rel="noopener noreferrer" class="event-tickets"><i class="fa-solid fa-ticket"></i> Tickets</a>
     {% endif %}
