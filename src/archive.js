@@ -543,6 +543,12 @@ function buildAlbumIndex (data) {
 function preserveEnrichmentFields (newData, existingData) {
   if (!existingData || !existingData.artists) return newData
 
+  // Build a lookup of existing artists by normalized name
+  const existingArtistMap = new Map()
+  for (const artist of existingData.artists) {
+    existingArtistMap.set(normalizeArtistName(artist.name), artist)
+  }
+
   // Build a lookup of existing albums by duplicate key
   const existingAlbums = new Map()
   for (const artist of existingData.artists) {
@@ -554,6 +560,14 @@ function preserveEnrichmentFields (newData, existingData) {
 
   // Apply enrichment fields from existing to new
   for (const artist of newData.artists || []) {
+    // Preserve artist-level enrichment (Last.fm, streaming links, etc.)
+    const existingArtist = existingArtistMap.get(normalizeArtistName(artist.name))
+    if (existingArtist) {
+      if (existingArtist.lastfm) artist.lastfm = existingArtist.lastfm
+      if (existingArtist.streamingLinks) artist.streamingLinks = existingArtist.streamingLinks
+      if (existingArtist.description && !artist.description) artist.description = existingArtist.description
+    }
+
     for (const album of artist.albums || []) {
       const key = buildDuplicateKey(album.artist || artist.name, album.title)
       const existing = existingAlbums.get(key)
