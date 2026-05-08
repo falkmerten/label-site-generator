@@ -96,11 +96,20 @@ YOUTUBE_API_KEY=your_api_key
 
 During `--enrich`, the generator automatically queries these services to fill streaming links that Spotify didn't return. No API keys required:
 
+- **Songlink / Odesli** — YouTube Music, Amazon Music, SoundCloud, Pandora, Napster links (free, no auth). Rate limit: 10 req/min (~18 minutes for 183 albums).
 - **Apple Music / iTunes** — UPC lookup via iTunes Search API (free, no auth)
 - **Deezer** — UPC lookup via Deezer public API (free, no auth)
 - **MusicFetch** — Amazon Music and other platform links (free, no auth)
 
 These run automatically after Spotify enrichment. If a link is already present, the gap-fill skips it.
+
+### Songlink / Odesli (automatic gap-fill)
+
+Provides YouTube Music, Amazon Music, SoundCloud, Pandora, and Napster links by resolving your Spotify album URLs through the Odesli/Songlink API. No API key needed — runs automatically during `--enrich`.
+
+**Rate limit**: 10 requests per minute. For a catalog of 183 albums, expect ~18 minutes for the Songlink step on first run. Subsequent runs skip albums that already have all links or returned empty previously.
+
+**How it works**: For each album with a Spotify URL, Songlink queries the Odesli API to find matching releases on other platforms. Links are merged into `streamingLinks` without overwriting existing values. If no links are found, the album is marked as checked to avoid repeated lookups.
 
 ## Ghost CMS (news)
 
@@ -162,4 +171,4 @@ No configuration needed. If a rate limit is hit, the generator waits and retries
 | Basic | Spotify | + Spotify, Apple Music, Deezer links (via gap-fill) |
 | Recommended | Spotify + Last.fm + Discogs + Tidal | + All streaming links, bios, tags, listener stats, physical formats |
 
-> **Note**: Soundcharts is not available in the free/GPL version. It requires a paid subscription (the one-time trial of 1,000 credits does not reset). For full metadata enrichment via Soundcharts, see [lsg-pro](https://github.com/Aenaos-Records/lsg-pro).
+Songlink (YouTube Music, Amazon Music, SoundCloud, Pandora, Napster) runs automatically at all tiers when a Spotify URL is present — no API key needed.

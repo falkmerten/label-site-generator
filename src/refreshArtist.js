@@ -13,6 +13,8 @@ function delay (ms) {
 
 /**
  * All album-level enrichment fields that must be preserved during re-scrape.
+ * NOTE: soundchartsUuid and soundchartsEnriched are retained for legacy cache data
+ * preservation only — they are not actively enriched in the GPL version.
  */
 const ALBUM_ENRICHMENT_FIELDS = [
   'streamingLinks', 'upc', 'discogsUrl', 'discogsChecked', 'enrichmentChecked', 'discogsSellUrl',
@@ -27,6 +29,8 @@ const ALBUM_ENRICHMENT_FIELDS = [
 
 /**
  * All artist-level enrichment fields that must be preserved during re-scrape.
+ * NOTE: soundchartsUuid is retained for legacy cache data preservation only —
+ * it is not actively enriched in the GPL version.
  */
 const ARTIST_ENRICHMENT_FIELDS = [
   'streamingLinks', 'socialLinks', 'discoveryLinks', 'eventLinks',

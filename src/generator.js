@@ -556,8 +556,7 @@ async function generate(options) {
     (config && config.newsletter && config.newsletter.provider) ||
     process.env.NEWSLETTER_PROVIDER || process.env.NEWSLETTER_ACTION_URL
   );
-  const hasEnrichment = !!(process.env.SOUNDCHARTS_APP_ID || process.env.SPOTIFY_CLIENT_ID);
-  const hasSoundcharts = !!(process.env.SOUNDCHARTS_APP_ID && process.env.SOUNDCHARTS_API_KEY);
+  const hasEnrichment = !!process.env.SPOTIFY_CLIENT_ID;
   const hasDeploy = !!process.env.AWS_S3_BUCKET;
   const currentTheme = (config && config.site && config.site.theme) || 'standard'
 
@@ -605,12 +604,6 @@ async function generate(options) {
   console.log('    - Configure newsletter (newsletter.provider, newsletter.actionUrl)');
   console.log('    - Configure stores (stores: ["bandcamp", "discogs", ...])');
   console.log('  Full reference: see WORKFLOW.md');
-
-  // Enrichment recommendation
-  if (!hasSoundcharts) {
-    console.log('\n  Tip: For full metadata (UPC, labels, all platforms), configure Soundcharts.');
-    console.log('       See API-SETUP.md for setup instructions.');
-  }
 
   // Report execution time
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
