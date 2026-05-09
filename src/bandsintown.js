@@ -280,11 +280,12 @@ async function fetchAllArtists (mergedData, content) {
     }
 
     // Fetch events (non-fatal)
+    // BIT is authoritative for upcoming events — replaces cached (Soundcharts) events
     try {
       const events = await fetchArtistEvents(artistName, appId, artistId)
       if (events.length > 0) {
-        artist.events = mergeBandsintownEvents(artist.events || [], events)
-        console.log(`[bandsintown] Merged ${events.length} event(s) for "${artistName}"`)
+        artist.events = events
+        console.log(`[bandsintown] ${events.length} event(s) for "${artistName}"`)
       }
     } catch (err) {
       console.warn(`[bandsintown] Events error for "${artistName}": ${err.message}`)

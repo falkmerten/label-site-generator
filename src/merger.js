@@ -28,11 +28,16 @@ function deduplicateEvents (events) {
   for (const e of events) {
     const day = (e.date || '').slice(0, 10)
     const city = (e.cityName || '').toLowerCase().trim()
-    const venue = (e.venueName || '').toLowerCase().trim()
+    const venue = (e.venueName || '').toLowerCase().replace(/[.\s]+$/, '').replace(/\s+/g, ' ').trim()
     const key = `${day}|${city}|${venue}`
-    const existing = seen.get(key)
-    if (!existing) {
+    if (!seen.has(key)) {
       seen.set(key, e)
+    } else {
+      // Keep the entry with an eventUrl (BIT data preferred)
+      const existing = seen.get(key)
+      if (!existing.eventUrl && e.eventUrl) {
+        seen.set(key, e)
+      }
     }
   }
   return [...seen.values()]
