@@ -133,6 +133,10 @@ function parseArgs(argv) {
       options.cleanup = true;
     } else if (arg === '--rollback') {
       options.rollback = true;
+    } else if (arg === '--sync-up') {
+      options.syncUp = true;
+    } else if (arg === '--sync-down') {
+      options.syncDown = true;
     } else if (arg === '--create-campaigns') {
       options.createCampaigns = true;
     } else if (arg === '--analyze-csv') {
@@ -255,6 +259,41 @@ async function run() {
   if (v5Options.command === 'migrate') {
     await migrate(v5Options.contentDir, { force: v5Options.force })
     return
+  }
+
+  // ── Workspace Sync ─────────────────────────────────────────────────────────
+  const { syncDown, syncUp, resolveSyncConfig } = require('./src/sync')
+  const { loadConfig } = require('./src/configLoader')
+  let syncConfig = null
+  try {
+    const cfg = await loadConfig(options.contentDir)
+    syncConfig = resolveSyncConfig(cfg)
+  } catch { /* no config yet */ }
+
+  // --sync-up: push local state to remote (standalone command)
+  if (options.syncUp) {
+    if (!syncConfig) {
+      console.error('[sync] No sync backend configured. Add "sync" section to config.json or set SYNC_BUCKET in .env')
+      process.exit(1)
+    }
+    const ok = await syncUp(syncConfig, { cachePath: options.cachePath, contentDir: options.contentDir, force: options.force })
+    if (!ok) process.exit(1)
+    return
+  }
+
+  // --sync-down: explicit pull (standalone command)
+  if (options.syncDown) {
+    if (!syncConfig) {
+      console.error('[sync] No sync backend configured. Add "sync" section to config.json or set SYNC_BUCKET in .env')
+      process.exit(1)
+    }
+    await syncDown(syncConfig, { cachePath: options.cachePath, contentDir: options.contentDir, force: true })
+    return
+  }
+
+  // Auto-pull on generate (if sync is configured)
+  if (syncConfig && !options.syncUp) {
+    await syncDown(syncConfig, { cachePath: options.cachePath, contentDir: options.contentDir })
   }
 
   if (options.rollback) {

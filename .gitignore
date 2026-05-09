@@ -12,6 +12,11 @@ node_modules
 dist/
 cache*.json
 
+# Workspace sync state
+.sync-state.json
+.sync-*.tar.gz
+workspace-sync.tar.gz
+
 # Content — label-specific, keep private
 content/
 
