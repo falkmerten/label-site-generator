@@ -290,8 +290,15 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
   const ytConfig = loadOrCreateYouTubeConfig(contentDir, cache.artists || [])
   const labelChannelId = ytConfig.labelChannelId
 
+  // Determine priority: label mode → label channel first; artist mode → artist channel first
+  const siteMode = process.env.SITE_MODE || cache._siteMode || 'label'
+  const preferArtistChannel = siteMode === 'artist'
+
   if (labelChannelId) {
     console.log(`[youtube] Label channel: ${labelChannelId}`)
+  }
+  if (preferArtistChannel) {
+    console.log('[youtube] Artist mode — artist channel takes priority over label channel')
   }
 
   let searched = 0
@@ -332,19 +339,25 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
           // Search for new videos to merge
           let newResults = []
 
-          if (labelChannelId) {
+          // Determine search order based on site mode
+          const primaryId = preferArtistChannel ? artistChannelId : labelChannelId
+          const secondaryId = preferArtistChannel ? labelChannelId : artistChannelId
+          const primaryQuery = preferArtistChannel ? album.title : `${artist.name} ${album.title}`
+          const secondaryQuery = preferArtistChannel ? `${artist.name} ${album.title}` : album.title
+
+          if (primaryId) {
             await delay(DELAY_MS)
-            const labelResults = await searchChannel(apiKey, labelChannelId, `${artist.name} ${album.title}`, maxResults, allowedIds)
+            const primaryResults = await searchChannel(apiKey, primaryId, primaryQuery, maxResults, allowedIds)
             searched++
-            for (const r of labelResults) {
+            for (const r of primaryResults) {
               if (!existingUrls.has(r.url)) newResults.push(r)
             }
           }
-          if (artistChannelId && newResults.length < maxResults) {
+          if (secondaryId && newResults.length < maxResults) {
             await delay(DELAY_MS)
-            const artistResults = await searchChannel(apiKey, artistChannelId, album.title, maxResults, allowedIds)
+            const secondaryResults = await searchChannel(apiKey, secondaryId, secondaryQuery, maxResults, allowedIds)
             searched++
-            for (const r of artistResults) {
+            for (const r of secondaryResults) {
               if (!existingUrls.has(r.url)) newResults.push(r)
             }
           }
@@ -364,12 +377,18 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
       const seenVideoIds = new Set()
       let allResults = []
 
-      // Search label channel first (preferred)
-      if (labelChannelId) {
+      // Determine search order based on site mode
+      const primaryId = preferArtistChannel ? artistChannelId : labelChannelId
+      const secondaryId = preferArtistChannel ? labelChannelId : artistChannelId
+      const primaryQuery = preferArtistChannel ? album.title : `${artist.name} ${album.title}`
+      const secondaryQuery = preferArtistChannel ? `${artist.name} ${album.title}` : album.title
+
+      // Search primary channel first
+      if (primaryId) {
         await delay(DELAY_MS)
-        const labelResults = await searchChannel(apiKey, labelChannelId, `${artist.name} ${album.title}`, maxResults, allowedIds)
+        const primaryResults = await searchChannel(apiKey, primaryId, primaryQuery, maxResults, allowedIds)
         searched++
-        for (const r of labelResults) {
+        for (const r of primaryResults) {
           const vidId = r.url.split('v=')[1]
           if (!seenVideoIds.has(vidId)) {
             seenVideoIds.add(vidId)
@@ -378,12 +397,12 @@ async function syncYouTube (apiKey, cachePath, contentDir, options = {}) {
         }
       }
 
-      // Then search artist channel for remaining slots
-      if (artistChannelId && allResults.length < maxResults) {
+      // Then search secondary channel for remaining slots
+      if (secondaryId && allResults.length < maxResults) {
         await delay(DELAY_MS)
-        const artistResults = await searchChannel(apiKey, artistChannelId, album.title, maxResults - allResults.length, allowedIds)
+        const secondaryResults = await searchChannel(apiKey, secondaryId, secondaryQuery, maxResults - allResults.length, allowedIds)
         searched++
-        for (const r of artistResults) {
+        for (const r of secondaryResults) {
           const vidId = r.url.split('v=')[1]
           if (!seenVideoIds.has(vidId)) {
             seenVideoIds.add(vidId)
