@@ -513,10 +513,16 @@ async function generate(options) {
   const content = await loadContent(contentDir);
 
   // Step 4b: Load upcoming releases — announce/preview tier (always runs, no scraping)
-  const { loadUpcomingLocal, loadUpcomingFull, applyPresaveUrls } = require('./upcoming');
+  const { loadUpcomingLocal, loadUpcomingFull, applyPresaveUrls, clearStaleUpcoming } = require('./upcoming');
   const localCount = await loadUpcomingLocal(contentDir, rawData, opts.artistFilter);
   if (localCount > 0) {
     console.log(`Loaded ${localCount} upcoming release(s) (announce/preview).`);
+  }
+
+  // Step 4b1: Clear stale upcoming flags (albums removed from upcoming.json)
+  const staleCount = await clearStaleUpcoming(contentDir, rawData);
+  if (staleCount > 0) {
+    console.log(`Cleared ${staleCount} stale upcoming flag(s).`);
   }
 
   // Step 4b2: Apply presaveUrls from upcoming.json to existing albums (always runs)

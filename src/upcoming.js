@@ -412,7 +412,61 @@ async function applyPresaveUrls (contentDir, rawData) {
   return count
 }
 
+/**
+ * Clears stale upcoming flags from the cache.
+ * Albums with upcoming:true that are no longer in upcoming.json get their
+ * upcoming/tier/presaveUrl/privateUrl fields cleared.
+ *
+ * @param {string} contentDir - Path to content directory
+ * @param {object} rawData - RawSiteData (mutated in place)
+ * @returns {number} Number of stale entries cleared
+ */
+async function clearStaleUpcoming (contentDir, rawData) {
+  let config
+  try {
+    const raw = await fs.readFile(path.join(contentDir, 'upcoming.json'), 'utf8')
+    config = JSON.parse(raw)
+  } catch {
+    // No upcoming.json — clear ALL upcoming flags in cache
+    config = {}
+  }
+
+  // Build a set of all album titles currently in upcoming.json
+  const upcomingTitles = new Set()
+  for (const [, entries] of Object.entries(config)) {
+    const list = Array.isArray(entries) ? entries : [entries]
+    for (const entry of list) {
+      if (typeof entry === 'string') {
+        // URL-only entry — title comes from scrape, can't match by title
+        continue
+      }
+      if (entry.title) upcomingTitles.add(entry.title.toLowerCase().trim())
+      if (entry.url) upcomingTitles.add(entry.url) // keep URL entries as markers
+    }
+  }
+
+  let cleared = 0
+  for (const artist of rawData.artists || []) {
+    for (const album of artist.albums || []) {
+      if (!album.upcoming) continue
+      // Check if this album is still in upcoming.json
+      const titleLower = (album.title || '').toLowerCase().trim()
+      const isStillUpcoming = upcomingTitles.has(titleLower) ||
+        (album.privateUrl && upcomingTitles.has(album.privateUrl))
+      if (!isStillUpcoming) {
+        album.upcoming = false
+        album.tier = null
+        album.presaveUrl = null
+        album.privateUrl = null
+        cleared++
+        console.log(`  ✓ Cleared stale upcoming flag: "${album.title}" by ${artist.name}`)
+      }
+    }
+  }
+  return cleared
+}
+
 // Backward-compatible alias
 const loadUpcoming = loadUpcomingFull
 
-module.exports = { loadUpcoming, loadUpcomingFull, loadUpcomingLocal, applyPresaveUrls, classifyTier, validateEntry }
+module.exports = { loadUpcoming, loadUpcomingFull, loadUpcomingLocal, applyPresaveUrls, clearStaleUpcoming, classifyTier, validateEntry }
