@@ -466,7 +466,13 @@ async function scrapeArchiveCollection (collectionId, options = {}) {
     // Skip non-CC items when ccOnly filter is active
     if (ccOnly) {
       const license = (itemMeta.metadata && itemMeta.metadata.licenseurl) || ''
-      if (!license || !license.includes('creativecommons.org')) {
+      // Validate against actual Creative Commons domain (not just substring)
+      let isCC = false
+      try {
+        const licenseHost = new URL(license).hostname
+        isCC = licenseHost === 'creativecommons.org' || licenseHost.endsWith('.creativecommons.org')
+      } catch { /* invalid URL */ }
+      if (!isCC) {
         skipped++
         continue
       }

@@ -27,9 +27,16 @@ function fetchJson (url) {
 
 /**
  * Strips HTML tags from a string.
+ * Uses a robust approach that handles multi-line tags and edge cases.
  */
 function stripHtml (html) {
-  return (html || '').replace(/<[^>]+>/g, '')
+  if (!html) return ''
+  // Remove script/style blocks entirely, then strip remaining tags
+  let text = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
+  text = text.replace(/<[^>]*>/g, '')
+  // Decode common HTML entities
+  text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  return text
 }
 
 /**
