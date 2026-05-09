@@ -28,9 +28,10 @@ function deduplicateEvents (events) {
   for (const e of events) {
     const day = (e.date || '').slice(0, 10)
     const city = (e.cityName || '').toLowerCase().trim()
-    const key = `${day}|${city}`
+    const venue = (e.venueName || '').toLowerCase().trim()
+    const key = `${day}|${city}|${venue}`
     const existing = seen.get(key)
-    if (!existing || (e.venueName || '').length > (existing.venueName || '').length) {
+    if (!existing) {
       seen.set(key, e)
     }
   }
@@ -607,14 +608,15 @@ function extractBitEventId (url) {
 }
 
 /**
- * Creates a deduplication key from an event's date and city (case-insensitive).
+ * Creates a deduplication key from an event's date, city, and venue (case-insensitive).
  * @param {object} event
  * @returns {string}
  */
 function dedupKey (event) {
   const day = (event.date || '').slice(0, 10)
   const city = (event.cityName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-\s]+/g, '').trim()
-  return `${day}|${city}`
+  const venue = (event.venueName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-\s]+/g, '').trim()
+  return `${day}|${city}|${venue}`
 }
 
 module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist, convertLocalTourDates, mergeBandsintownEvents }
