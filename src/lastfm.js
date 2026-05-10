@@ -34,11 +34,12 @@ function stripHtml (html) {
   // Remove script/style blocks entirely, then strip remaining tags
   let text = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
   text = text.replace(/<[^>]*>/g, '')
-  // Decode HTML entities in a single pass (avoids double-decode vulnerabilities)
-  text = text.replace(/&(amp|lt|gt|quot|#39|#x27|nbsp);/g, (match, entity) => {
-    const map = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'", nbsp: ' ' }
-    return map[entity] || match
-  })
+  // Decode numeric character references
+  text = text.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+  text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+  // Decode named entities via lookup (single pass, no chaining)
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
+  text = text.replace(/&([a-z]+);/gi, (match, name) => entities[name.toLowerCase()] || match)
   return text
 }
 

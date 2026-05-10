@@ -1,26 +1,10 @@
 # Quickstart
 
-Create a website from your Bandcamp catalog.
-
-## Which setup are you?
-
-Before starting, identify your situation:
-
-### 1. Label with a Bandcamp Label account
-Your Bandcamp page has an `/artists` section with multiple artists listed. This is the standard label setup.
-
-### 2. Label using a Bandcamp Artist account
-You operate as a label (multiple projects/artists), but your Bandcamp page is technically a normal artist account. The generator handles this via album regrouping — it splits releases by the artist field.
-
-### 3. Artist/Band with a Bandcamp Artist account
-The website is for one band, solo artist, or project.
-
----
+Generate a website for your music label or band. No configuration file needed — the interactive setup guides you through everything.
 
 ## Prerequisites
 
 - Node.js 18+
-- A Bandcamp page (label or artist)
 
 ## 1. Install
 
@@ -30,52 +14,42 @@ cd label-site-generator
 npm install
 ```
 
-## 2. Configure
-
-Create a `.env` file:
-
-```env
-BANDCAMP_URL=https://your-label.bandcamp.com/
-```
-
-That's all you need. The generator auto-detects whether you're a label or a single band.
-
-### Optional: Bandcamp API credentials
-
-For better detection and connected account discovery:
-
-```env
-BANDCAMP_CLIENT_ID=your_client_id
-BANDCAMP_CLIENT_SECRET=your_client_secret
-```
-
-Get these from Bandcamp label settings → API Access (label accounts only).
-
-## 3. Export Bandcamp CSV (optional, recommended)
-
-Before running the generator, export your Digital Catalog Report from Bandcamp:
-
-**Bandcamp → Settings → Tools → Digital Catalog Report → Download CSV**
-
-Place the file in `private/imports/` (filename: `{date}_{slug}_digital.csv`).
-
-This provides reliable UPC and ISRC data without any API calls. The generator detects it automatically and prompts you during first run.
-
-> Without the CSV, the generator still works — UPC comes from Bandcamp scrape data when available.
-
-## 4. Generate
+## 2. Run
 
 ```bash
 node generate.js
 ```
 
-First run (1-2 minutes): Detects your setup, asks about theme and extra artists, scrapes Bandcamp, downloads artwork, creates `content/config.json`, builds website to `dist/`.
+That's it. No `.env` file required. The interactive setup asks you to choose a data source:
 
-Non-interactive (skip prompts): `node generate.js --yes`
+1. **Bandcamp** — paste your Bandcamp URL (label or artist page)
+2. **Internet Archive** — enter a collection identifier (for netlabels / CC-licensed catalogs)
+3. **Spotify** — provide Spotify artist URLs (planned, not yet fully implemented)
 
-Subsequent runs (2-3 seconds): Rebuilds from cache, no network requests.
+The generator then:
+- Detects your account type (label vs. artist)
+- Asks about theme preference (standard, dark, or bandcamp auto-colors)
+- Scrapes your catalog
+- Creates `content/config.json`
+- Builds a complete website to `dist/`
 
-## 5. View locally
+First run takes 1-2 minutes (network requests). Subsequent runs rebuild from cache in 2-3 seconds.
+
+### Non-interactive mode
+
+If you prefer to skip prompts, create a `.env` file with your source URL:
+
+```env
+BANDCAMP_URL=https://your-label.bandcamp.com/
+```
+
+Then run with `--yes`:
+
+```bash
+node generate.js --yes
+```
+
+## 3. View locally
 
 ```bash
 npx serve dist
@@ -83,49 +57,50 @@ npx serve dist
 
 Open `http://localhost:3000`.
 
-## 6. Enrich with streaming links (optional)
+## 4. Enrich with streaming links (optional)
 
-### Basic: Spotify links
+Enrichment adds streaming links and artist metadata. All APIs are optional — the site works without them.
 
-Get credentials from [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard):
+### Spotify (streaming links)
 
 ```env
 SPOTIFY_CLIENT_ID=your_client_id
 SPOTIFY_CLIENT_SECRET=your_client_secret
 ```
 
+Get credentials from [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard). Then:
+
 ```bash
 node generate.js --enrich
 ```
 
-Adds Spotify, Apple Music, and Deezer links. ~3-5 API calls per artist.
+Adds Spotify, Apple Music, Deezer, YouTube Music, and Amazon Music links.
 
-### Recommended for professional needs: Soundcharts
-
-For full metadata (UPC, ISRCs, all platforms, labels), configure Soundcharts:
+### Last.fm (artist metadata — free, recommended)
 
 ```env
-SOUNDCHARTS_APP_ID=your_app_id
-SOUNDCHARTS_API_KEY=your_api_key
+LASTFM_API_KEY=your_api_key
 ```
 
-Soundcharts provides everything in one API — fewer calls, more data, no rate limit issues. See [API-SETUP.md](API-SETUP.md).
+Get a key at [last.fm/api/account/create](https://www.last.fm/api/account/create).
 
-### Physical releases: Discogs
+Adds artist bios, listener stats, genre tags, and similar artist recommendations. Free, unlimited.
 
-For vinyl/CD/cassette format display and sell links, add "discogs" to your stores config in `config.json`:
-
-```json
-"stores": ["bandcamp", "discogs"]
-```
-
-And set the token in `.env`:
+### Discogs (physical releases)
 
 ```env
 DISCOGS_TOKEN=your_token
 ```
 
-## 7. Add content
+Get a token at [discogs.com/settings/developers](https://www.discogs.com/settings/developers).
+
+Adds vinyl/CD/cassette format display and Discogs sell links. Only runs if `"discogs"` is in your stores config.
+
+### Bandsintown (live events — automatic)
+
+No API key needed. Tour dates are fetched automatically during `--enrich` for artists with a `bandsintown.json` config.
+
+## 5. Add content
 
 | Content | Location |
 |---------|----------|
@@ -139,22 +114,7 @@ DISCOGS_TOKEN=your_token
 | Static pages | `content/pages/imprint.md` |
 | Album artwork | `content/{artist-slug}/{album-slug}/artwork.jpg` |
 
-## 8. Add a new artist
-
-Edit `content/config.json`:
-
-```json
-"new-artist": {
-  "name": "New Artist",
-  "enabled": true,
-  "bandcampUrl": "https://newartist.bandcamp.com/",
-  "links": { "spotify": null }
-}
-```
-
-Then: `node generate.js --scrape`
-
-## 9. Deploy (optional)
+## 6. Deploy (optional)
 
 ```env
 AWS_S3_BUCKET=your-bucket-name
@@ -175,20 +135,33 @@ node generate.js --deploy
 | Update streaming links | `node generate.js --enrich` |
 | Full update + deploy | `node generate.js --scrape --enrich --deploy` |
 | One artist only | `node generate.js --scrape --artist "Name"` |
+| Backup workspace to S3 | `node generate.js --sync-up` |
+
+## Data sources
+
+| Source | Use case | Setup |
+|--------|----------|-------|
+| **Bandcamp** | Labels and bands with a Bandcamp page | Paste URL during first run |
+| **Internet Archive** | Netlabels, CC-licensed catalogs | Enter collection ID during first run |
+| **Spotify** | Labels without Bandcamp (planned) | Not yet fully implemented |
 
 ## Metadata quality levels
 
-| Level | Data source | What you get |
+| Level | What you need | What you get |
 |---|---|---|
-| Basic | Bandcamp only | Website with Bandcamp links, artwork, bios |
-| + CSV | Bandcamp + Digital Catalog CSV | + reliable UPC/ISRC |
-| + Spotify | + Spotify API | + streaming links (Spotify, Apple, Deezer) |
-| + Discogs | + Discogs API | + physical formats, sell links |
-| Full | + Soundcharts | + all platforms, labels, social, events |
+| Basic | Just run `node generate.js` | Website with Bandcamp links, artwork, bios |
+| + Spotify | Add `SPOTIFY_CLIENT_ID/SECRET` | + streaming links across all platforms |
+| + Last.fm | Add `LASTFM_API_KEY` | + artist bios, listener stats, genre tags, similar artists |
+| + Discogs | Add `DISCOGS_TOKEN` | + physical formats, sell links |
+| Recommended | Spotify + Last.fm + Discogs | Full enrichment at zero cost |
 
-## Merchandise
+## Bandcamp CSV (optional, recommended)
 
-Merchandise support is planned for v5.1 (LSG-144). Currently, link to your Bandcamp merch page from a static page (`content/pages/shop.md`).
+Export your Digital Catalog Report for reliable UPC/ISRC data:
+
+**Bandcamp → Settings → Tools → Digital Catalog Report → Download CSV**
+
+Place in `private/imports/`. The generator detects it automatically.
 
 ## Migrating from v4
 
