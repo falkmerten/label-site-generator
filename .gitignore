@@ -61,3 +61,6 @@ lsg-site/
 
 # Release tracking (private)
 RELEASES.md
+
+# Instance-specific custom templates
+templates/afmusic/
