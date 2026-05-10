@@ -34,8 +34,11 @@ function stripHtml (html) {
   // Remove script/style blocks entirely, then strip remaining tags
   let text = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
   text = text.replace(/<[^>]*>/g, '')
-  // Decode common HTML entities
-  text = text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+  // Decode HTML entities in a single pass (avoids double-decode vulnerabilities)
+  text = text.replace(/&(amp|lt|gt|quot|#39|#x27|nbsp);/g, (match, entity) => {
+    const map = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'", nbsp: ' ' }
+    return map[entity] || match
+  })
   return text
 }
 
