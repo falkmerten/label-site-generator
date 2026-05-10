@@ -31,9 +31,18 @@ function fetchJson (url) {
  */
 function stripHtml (html) {
   if (!html) return ''
-  // Remove script/style blocks entirely, then strip remaining tags
-  let text = html.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
-  text = text.replace(/<[^>]*>/g, '')
+  // Remove script/style blocks entirely (repeat until stable to handle nested cases)
+  let text = html
+  let prev
+  do {
+    prev = text
+    text = text.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
+  } while (text !== prev)
+  // Strip remaining HTML tags (repeat until no tags remain)
+  do {
+    prev = text
+    text = text.replace(/<[^>]*>/g, '')
+  } while (text !== prev)
   // Decode numeric character references
   text = text.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
   text = text.replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))

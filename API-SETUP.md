@@ -17,6 +17,7 @@ Internet Archive requires no API key, no authentication, and no rate limit confi
 1. **Spotify** (recommended) — Streaming links and album matching. Free developer tier is sufficient.
 2. **Last.fm** (recommended) — Artist bios, listener stats, genre tags, similar artists. Free, unlimited.
 3. **Discogs** — Physical release formats and sell links. Complements Spotify + Last.fm.
+4. **Bandsintown** — Live events and tour dates. No API key needed (automatic).
 
 ## Spotify (streaming links)
 
@@ -81,6 +82,20 @@ Adds Tidal streaming links. Requires a free developer account.
 TIDAL_CLIENT_ID=your_client_id
 TIDAL_CLIENT_SECRET=your_client_secret
 ```
+
+## Bandsintown (live events — automatic)
+
+Fetches artist events and tour dates from Bandsintown. No API key required — the generator queries the public Bandsintown API automatically during `--enrich` for artists that have a `bandsintown.json` config file.
+
+Create `content/{artist-slug}/bandsintown.json`:
+
+```json
+{
+  "artist_name": "Artist Name"
+}
+```
+
+Events are merged with local `tourdates.json` entries (deduplicated by date + city). Fan engagement CTAs (Follow, RSVP, Notify Me) are shown on artist pages when events are available.
 
 ## YouTube (video embeds)
 
@@ -154,6 +169,21 @@ AWS_CLOUDFRONT_DISTRIBUTION_ID=EXXXXXXXXX
 
 Requires AWS CLI configured with appropriate credentials (`aws configure`).
 
+## Workspace Sync (S3)
+
+Sync your workspace data (cache, content, config) to S3 for backup or multi-machine workflows.
+
+```env
+STORAGE_S3_BUCKET=your-storage-bucket
+```
+
+```bash
+node generate.js --sync-up      # Upload workspace to S3
+node generate.js --sync-down    # Download workspace from S3
+```
+
+Uses a separate bucket from deployment (`AWS_S3_BUCKET` is for the website, `STORAGE_S3_BUCKET` is for data sync). AWS CLI must be configured with appropriate credentials.
+
 ## Rate Limiting
 
 The generator handles rate limits automatically:
@@ -171,6 +201,6 @@ No configuration needed. If a rate limit is hit, the generator waits and retries
 |------|------|-------------|
 | None | — | Complete website with Bandcamp links only |
 | Basic | Spotify | + Spotify, Apple Music, Deezer links (via gap-fill) |
-| Recommended | Spotify + Last.fm + Discogs + Tidal | + All streaming links, bios, tags, listener stats, physical formats |
+| Recommended | Spotify + Last.fm + Discogs + Tidal | + All streaming links, bios, tags, listener stats, physical formats, live events |
 
-Songlink (YouTube Music, Amazon Music, SoundCloud, Pandora, Napster) runs automatically at all tiers when a Spotify URL is present — no API key needed.
+Songlink (YouTube Music, Amazon Music, SoundCloud, Pandora, Napster) runs automatically at all tiers when a Spotify URL is present — no API key needed. Bandsintown events are fetched automatically when configured.

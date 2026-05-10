@@ -540,7 +540,9 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
     ? ['lastfm']
     : ['spotify', 'songlink', 'youtubeMusic', 'lastfm', 'itunes', 'deezer', 'tidal', 'discogs']
   const enabledEnrichment = new Set(
-    (v5Config && v5Config.source && v5Config.source.enrichment) || defaultEnrichment
+    options.lastfmOnly
+      ? ['lastfm']
+      : (v5Config && v5Config.source && v5Config.source.enrichment) || defaultEnrichment
   )
 
   // Log active mode

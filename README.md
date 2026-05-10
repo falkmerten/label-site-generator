@@ -2,7 +2,7 @@
 
 Static website generator for independent music labels and bands. Supports multiple data sources (Bandcamp, Internet Archive), enriches with streaming links, generates a complete branded website.
 
-[See it live](https://aenaos-records.com) | [Quickstart](QUICKSTART.md) | [Full Documentation](https://github.com/falkmerten/label-site-generator/wiki)
+[Quickstart](QUICKSTART.md) | [Full Documentation](https://github.com/falkmerten/label-site-generator/wiki)
 
 ---
 
@@ -17,7 +17,7 @@ Static website generator for independent music labels and bands. Supports multip
 - Automatic gap-fill via Songlink/Odesli (no API key needed)
 - Artist metadata from Last.fm (bios, listener stats, tags, similar artists)
 - Physical release data from Discogs (Vinyl, CD, Cassette, sell links)
-- Tour dates from Bandsintown
+- Tour dates from Bandsintown (automatic, no API key needed)
 - Newsletter integration (Sendy, Listmonk, Keila) with auto-campaign drafts
 - Ghost CMS for news (headless mode with local file fallback)
 - SEO optimized (JSON-LD, Open Graph, sitemap, RSS feed)
@@ -77,6 +77,7 @@ Set `source.ccOnly: true` to skip non-Creative Commons releases.
 | `SPOTIFY_CLIENT_ID` / `SECRET` | No | For streaming link enrichment |
 | `LASTFM_API_KEY` | No | For artist bios, tags, listener stats |
 | `DISCOGS_TOKEN` | No | For physical release data |
+| `STORAGE_S3_BUCKET` | No | For workspace sync (--sync-up/--sync-down) |
 | `AWS_S3_BUCKET` | No | For deployment |
 
 Internet Archive requires no API credentials.
@@ -111,9 +112,11 @@ Auto-generated on first run. Key sections:
 ```bash
 node generate.js                    # Generate from cache (offline, fast, ~2s)
 node generate.js --scrape           # Re-scrape from data source
-node generate.js --enrich           # Add streaming links (Spotify + gap-fill)
+node generate.js --enrich           # Add streaming links (Spotify + Last.fm + gap-fill)
 node generate.js --scrape --enrich  # Full update
 node generate.js --deploy           # Generate + deploy to S3
+node generate.js --sync-up          # Upload workspace to S3 (backup/multi-machine)
+node generate.js --sync-down        # Download workspace from S3
 node generate.js --migrate          # Convert v4 config to v5 format
 ```
 
@@ -133,13 +136,14 @@ Run `node generate.js --help` for the full list.
 
 The enrichment pipeline adds streaming links and metadata to your albums:
 
-**Spotify** → **Songlink/Odesli** → **YouTube Music** → **iTunes/Deezer/Tidal** → **Discogs**
+**Spotify** → **Songlink/Odesli** → **YouTube Music** → **Last.fm** → **iTunes/Deezer/Tidal** → **Discogs**
 
 - **Spotify** (requires API key) — Spotify, Apple Music, Deezer links
 - **Songlink/Odesli** (automatic, no key) — YouTube Music, Amazon Music, SoundCloud, Pandora, Napster
 - **YouTube Music** (automatic, no key) — YouTube Music search fallback
-- **Last.fm** (requires API key) — Artist bios, listener stats, genre tags, similar artists
+- **Last.fm** (requires API key, free) — Artist bios, listener stats, genre tags, similar artists
 - **Discogs** (requires token) — Physical formats, sell links
+- **Bandsintown** (automatic, no key) — Live events, tour dates, fan engagement
 
 See [API-SETUP.md](API-SETUP.md) for credential setup.
 
@@ -175,9 +179,12 @@ Generates the site, syncs `dist/` to S3, and invalidates CloudFront. Requires `A
 | `src/generator.js` | Pipeline orchestrator |
 | `src/scraper.js` | Bandcamp scraper (config-aware) |
 | `src/archive.js` | Internet Archive data source |
-| `src/enricher.js` | Enrichment pipeline (Spotify/Discogs/Last.fm) |
+| `src/enricher.js` | Enrichment pipeline (Spotify/Last.fm/Discogs) |
+| `src/lastfm.js` | Last.fm API (bios, tags, listener stats, similar artists) |
 | `src/songlink.js` | Odesli API gap-fill (YouTube Music, Amazon, etc.) |
 | `src/youtubeMusic.js` | YouTube Music album search |
+| `src/bandsintown.js` | Bandsintown API (live events, fan engagement) |
+| `src/sync.js` | Workspace sync (S3 upload/download) |
 | `src/configLoader.js` | Config loading with legacy fallback |
 | `src/configGenerator.js` | Auto-generates config.json from scrape |
 | `src/configValidator.js` | JSON Schema validation |

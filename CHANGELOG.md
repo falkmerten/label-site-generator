@@ -4,6 +4,22 @@
 
 ---
 
+### v5.2.1 — 2026-05-09
+
+**Last.fm Enrichment, Bandsintown Live Events, Workspace Sync (LSG-158, LSG-88)**
+
+- Add `src/lastfm.js` — Last.fm as primary free enrichment source for artist metadata (bios, listener stats, genre tags, similar artists)
+- Add `--enrich-lastfm` flag — run only Last.fm enrichment without the full pipeline
+- Bandsintown live events integration: automatic tour date fetching, fan engagement CTAs (Follow, RSVP, Notify Me)
+- Workspace sync via S3: `--sync-up` and `--sync-down` CLI flags for backup and multi-machine workflows
+- Stale upcoming release fix: expired upcoming entries are now correctly filtered
+- YouTube video priority: videos from official artist channels are preferred over third-party uploads
+- Security: robust HTML stripping in Last.fm bio processing (resolves CodeQL alerts)
+- Enrichment pipeline is now: Spotify → Songlink → YouTube Music → Last.fm → iTunes/Deezer/Tidal → Discogs
+- Soundcharts removed from GPL version (Pro-only going forward, see lsg-pro)
+
+---
+
 ### v5.2.0 — 2026-05-08
 
 **Internet Archive Integration (LSG-140)**

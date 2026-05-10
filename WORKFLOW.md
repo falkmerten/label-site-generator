@@ -49,9 +49,9 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
 | Artist placeholder SVG | ✅ Done | Band silhouette for missing photos |
 | Consistent hero banners | ✅ Done | Logo as fallback, same height |
 | Lightweight Spotify enrichment | ✅ Done | 2-3 calls/artist, links only |
-| Spotify 429 handling (60s stop) | ✅ Done | SC recommendation on rate limit |
+| Spotify 429 handling (60s stop) | ✅ Done | Graceful degradation on rate limit |
 | UPC from Spotify (--force only) | ✅ Done | Authoritative UPC, risk of 429 |
-| SC recommendation in summary | ✅ Done | Always shown when SC not configured |
+| Last.fm enrichment | ✅ Done | Bios, tags, listener stats, similar artists |
 | Compilations: label-subdomain only | ✅ Done | No more 105 false positives |
 | `relationship` field | ✅ Done | member_band / connected_account |
 | No legacy env fallbacks | ✅ Done | .env = secrets only |
@@ -80,7 +80,7 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
 ```
   No Bandcamp Digital Catalog CSV found in private/imports/.
 
-  Export here: https://aenaos.bandcamp.com/tools#catalog
+  Export here: https://your-label.bandcamp.com/tools#catalog
   Place the downloaded file in private/imports/ for reliable UPC/ISRC matching.
 
   Continue without CSV? [Y/n]:
@@ -93,7 +93,7 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
     Bandcamp account type: Label
     Site mode: Label (multi-artist)
     Artists found: 15
-    Connected accounts: 2 (Shearer, afmusic)
+    Connected accounts: 2 (disabled by default)
     Source: Bandcamp API
 ```
 
@@ -102,8 +102,8 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
 ```
   Do you have additional Bandcamp pages to include? [y/N]:
   Enter Bandcamp URLs (one per line, empty line to finish):
-  > https://goldenapes.bandcamp.com/
-  > https://voyna-official.bandcamp.com/
+  > https://extra-artist.bandcamp.com/
+  > https://another-artist.bandcamp.com/
   >
   Adding 2 additional artist(s).
 ```
@@ -132,32 +132,32 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
 ```json
 {
   "site": {
-    "name": "Aenaos Records",
+    "name": "Your Label",
     "url": null,
     "mode": "label",
     "theme": "bandcamp",
     "template": null
   },
   "artists": {
-    "amautica": {
-      "name": "Amáutica",
+    "artist-slug": {
+      "name": "Artist Name",
       "enabled": true,
       "source": "bandcamp",
       "exclude": false,
       "excludeAlbums": [],
       "relationship": "member_band",
-      "bandcampUrl": "https://amautica.bandcamp.com/",
-      "links": { "spotify": null, "soundcharts": null, "bandcamp": "https://amautica.bandcamp.com/" }
+      "bandcampUrl": "https://artist-name.bandcamp.com/",
+      "links": { "spotify": null, "bandcamp": "https://artist-name.bandcamp.com/" }
     },
-    "shearer": {
-      "name": "Shearer",
+    "side-project": {
+      "name": "Side Project",
       "enabled": false,
       "source": "bandcamp",
       "exclude": false,
       "excludeAlbums": [],
       "relationship": "connected_account",
-      "bandcampUrl": "https://shearer.bandcamp.com/",
-      "links": { "spotify": null, "bandcamp": "https://shearer.bandcamp.com/" }
+      "bandcampUrl": "https://side-project.bandcamp.com/",
+      "links": { "spotify": null, "bandcamp": "https://side-project.bandcamp.com/" }
     }
   },
   "compilations": {
@@ -169,7 +169,7 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
   "newsletter": { "provider": null },
   "source": {
     "primary": "bandcamp",
-    "url": "https://aenaos.bandcamp.com/",
+    "url": "https://your-label.bandcamp.com/",
     "accountType": "label",
     "detection": "api_member_bands",
     "confidence": "high"
@@ -226,10 +226,11 @@ Per artist:
 2. Fetch album links from Spotify (1-2 pagination calls, limit=10)
 3. Title-match: BC album ↔ Spotify album (local, Unicode-normalized)
 4. Assign Spotify link to BC album
-5. Save Spotify URL to config.json (write-back)
+5. Songlink gap-fill (YouTube Music, Amazon Music, SoundCloud, Pandora, Napster)
+6. Last.fm: fetch artist bio, listener stats, genre tags, similar artists
+7. Save Spotify URL to config.json (write-back)
 
-No UPC fetch, no metadata, no ISRCs.
-For full metadata: configure Soundcharts.
+For full metadata (all platforms, UPC, ISRCs, labels): use lsg-pro with Soundcharts (Pro only).
 ```
 
 ---
@@ -237,7 +238,7 @@ For full metadata: configure Soundcharts.
 ## UPC Priority
 
 ```
-Manual override > Soundcharts > Bandcamp CSV (by album ID) > Bandcamp scrape (raw.current.upc) > Spotify UPC (--force, confidence-gated) > Discogs barcode
+Manual override > Bandcamp CSV (by album ID) > Bandcamp scrape (raw.current.upc) > Spotify UPC (--force, confidence-gated) > Discogs barcode
 ```
 
 ---
@@ -279,9 +280,8 @@ BANDCAMP_CLIENT_SECRET=
 SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
 
-# Optional: Soundcharts (full metadata — recommended for professional catalog needs)
-SOUNDCHARTS_APP_ID=
-SOUNDCHARTS_API_KEY=
+# Optional: Last.fm (artist bios, tags, listener stats — free, unlimited)
+LASTFM_API_KEY=
 
 # Optional: Discogs (physical formats, sell links — only used if "discogs" in stores)
 DISCOGS_TOKEN=
@@ -297,6 +297,9 @@ YOUTUBE_API_KEY=
 AWS_S3_BUCKET=
 AWS_S3_REGION=
 AWS_CLOUDFRONT_DISTRIBUTION_ID=
+
+# Optional: Workspace sync (backup, multi-machine)
+STORAGE_S3_BUCKET=
 
 # Optional: Ghost CMS (news articles)
 GHOST_URL=

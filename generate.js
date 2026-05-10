@@ -38,6 +38,7 @@ Options:
   --scrape             Re-scrape from Bandcamp (ignoring cache)
   --enrich             Fetch streaming links, labels, physical formats
   --enrich --force     Re-enrich even already-enriched albums
+  --enrich-lastfm      Run only Last.fm enrichment (bios, tags, listeners, similar)
   --deploy             Sync dist/ to S3 and invalidate CloudFront
   --check-seo          Validate SEO basics after generate (standalone or strict with --deploy)
   --clean              Delete dist/ before generate (removes stale files, re-runs image optimizer)
@@ -106,6 +107,9 @@ function parseArgs(argv) {
       options.artistFilter = args[++i];
     } else if (arg === '--enrich') {
       options.enrich = true;
+    } else if (arg === '--enrich-lastfm') {
+      options.enrich = true;
+      options.enrichLastfmOnly = true;
     } else if (arg === '--force') {
       options.force = true;
     } else if (arg === '--init-artists') {
@@ -431,7 +435,8 @@ async function run() {
       tidalOnly: options.tidalOnly,
       artistFilter: options.artistFilter || null,
       refresh: options.force || false,
-      serviceFilter: v5Options.serviceFilter || null
+      serviceFilter: v5Options.serviceFilter || null,
+      lastfmOnly: options.enrichLastfmOnly || false
     });
   } else if (options.enrich) {
     const backupPath = await backupCache(options.cachePath);
@@ -441,7 +446,8 @@ async function run() {
       tidalOnly: options.tidalOnly,
       artistFilter: options.artistFilter || null,
       refresh: options.force || false,
-      serviceFilter: v5Options.serviceFilter || null
+      serviceFilter: v5Options.serviceFilter || null,
+      lastfmOnly: options.enrichLastfmOnly || false
     });
   }
   if (options.downloadArtwork) {
