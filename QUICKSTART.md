@@ -27,9 +27,9 @@ That's it. No `.env` file required. The interactive setup asks you to choose a d
 3. **Spotify** — provide Spotify artist URLs (planned, not yet fully implemented)
 
 The generator then:
-- Detects your account type (label vs. artist)
+- Scrapes your catalog from the chosen source
+- Detects your account type (for Bandcamp: label vs. artist)
 - Asks about theme preference (standard, dark, or bandcamp auto-colors)
-- Scrapes your catalog
 - Creates `content/config.json`
 - Builds a complete website to `dist/`
 
