@@ -98,9 +98,12 @@ function validateEntry (entry, artistSlug, index) {
  * @param {string} contentDir - Path to content directory
  * @param {object} rawData - Raw site data (mutated in place)
  * @param {string} [artistFilter] - Optional artist name/slug filter
+ * @param {object} [options] - Options including siteConfig
  * @returns {Promise<number>} Number of entries added
  */
-async function loadUpcomingLocal (contentDir, rawData, artistFilter) {
+async function loadUpcomingLocal (contentDir, rawData, artistFilter, options) {
+  options = options || {}
+  const siteConfig = options.siteConfig || {}
   let config
   try {
     const raw = await fs.readFile(path.join(contentDir, 'upcoming.json'), 'utf8')
@@ -181,7 +184,7 @@ async function loadUpcomingLocal (contentDir, rawData, artistFilter) {
         upcoming: true,
         tier,
         slug: albumSlug,
-        labelName: process.env.SITE_NAME || process.env.LABEL_NAME || null,
+        labelName: siteConfig.siteName || process.env.SITE_NAME || process.env.LABEL_NAME || null,
         artist: artist.name,
         url: null,
         privateUrl: null,
@@ -221,9 +224,12 @@ async function loadUpcomingLocal (contentDir, rawData, artistFilter) {
  * @param {string} contentDir - Path to content directory
  * @param {object} rawData - Raw site data (mutated in place)
  * @param {string} [artistFilter] - Optional artist name/slug filter
+ * @param {object} [options] - Options including siteConfig
  * @returns {Promise<number>} Number of entries added
  */
-async function loadUpcomingFull (contentDir, rawData, artistFilter) {
+async function loadUpcomingFull (contentDir, rawData, artistFilter, options) {
+  options = options || {}
+  const siteConfig = options.siteConfig || {}
   let config
   try {
     const raw = await fs.readFile(path.join(contentDir, 'upcoming.json'), 'utf8')
@@ -309,7 +315,7 @@ async function loadUpcomingFull (contentDir, rawData, artistFilter) {
           if (releaseDate) existing.releaseDate = releaseDate
           // Set default label if not yet assigned
           if (!existing.labelName && existing.upcoming) {
-            existing.labelName = process.env.SITE_NAME || process.env.LABEL_NAME || null
+            existing.labelName = siteConfig.siteName || process.env.SITE_NAME || process.env.LABEL_NAME || null
           }
           if (existing.upcoming) {
             console.log(`  ✓ Upcoming "${info.title}" re-scraped from private link`)
@@ -317,7 +323,7 @@ async function loadUpcomingFull (contentDir, rawData, artistFilter) {
           continue
         }
 
-        const defaultLabel = process.env.SITE_NAME || process.env.LABEL_NAME || null
+        const defaultLabel = siteConfig.siteName || process.env.SITE_NAME || process.env.LABEL_NAME || null
         const albumSlug = toSlug(info.title)
 
         artist.albums.push({

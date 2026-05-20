@@ -603,11 +603,13 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
   // When OTHER_LABEL_CONTENT is not set or false (default), Spotify-only albums
   // from other labels are filtered out after enrichment. This prevents artists
   // who share a name with a major-label act from polluting the site.
-  const includeOtherLabelContent = (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
-  const siteMode = process.env.SITE_MODE || ''
-  const siteName = (process.env.SITE_NAME || process.env.LABEL_NAME || '').trim()
-  const extraLabelNames = (process.env.LABEL_ALIASES || process.env.EXTRA_LABEL_NAMES || '')
-    .split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  const v5Site = v5Config && v5Config.site
+  const includeOtherLabelContent = (v5Site && v5Site.otherLabelContent === true) || (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
+  const siteMode = (v5Site && v5Site.mode) || process.env.SITE_MODE || ''
+  const siteName = (v5Site && v5Site.name) || (process.env.SITE_NAME || process.env.LABEL_NAME || '').trim()
+  const extraLabelNames = ((v5Site && v5Site.labelAliases) || [])
+    .concat((process.env.LABEL_ALIASES || process.env.EXTRA_LABEL_NAMES || '').split(','))
+    .map(s => s.trim().toLowerCase()).filter(Boolean)
   const ownLabelNames = [siteName.toLowerCase(), ...extraLabelNames].filter(Boolean)
 
   const totalArtists = artists.length

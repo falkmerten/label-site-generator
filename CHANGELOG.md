@@ -4,6 +4,19 @@
 
 ---
 
+### v5.2.2 — 2026-05-19
+
+**Config refactoring: direct config.json read (LSG-150)**
+
+- Add `getSiteConfig()` to configLoader — builds a frozen config object from config.json
+- Remove process.env propagation from generator.js (SITE_*, LABEL_*, HOMEPAGE_LABELS, PHYSICAL_STORES, LABEL_ALIASES, social links)
+- Modules now receive config as parameter: renderer, assets, upcoming, markdown, enricher
+- Add `markdown.configure({ siteUrl })` for explicit initialization
+- `extra` source in artist config is mapped to `bandcamp` (backward compat)
+- process.env now only contains real secrets (BANDCAMP_URL, API keys, AWS credentials)
+
+---
+
 ### v5.2.1 — 2026-05-09
 
 **Last.fm Enrichment, Bandsintown Live Events, Workspace Sync (LSG-158, LSG-88)**

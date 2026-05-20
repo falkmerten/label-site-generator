@@ -89,7 +89,8 @@ const CONFIG_SCHEMA = {
           },
           source: {
             type: 'string',
-            enum: ['bandcamp', 'extra', 'archive']
+            // 'extra' is deprecated but still accepted for backward compat (mapped to 'bandcamp')
+            enum: ['bandcamp', 'extra', 'archive', 'spotify']
           },
           exclude: {
             type: 'boolean',

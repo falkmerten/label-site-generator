@@ -12,6 +12,7 @@ const { copyAssets, downloadFile } = require('./assets');
 const { generateRedirects } = require('./redirects');
 const { fetchAllArtists } = require('./bandsintown');
 const { loadConfig } = require('./configLoader');
+const { getSiteConfig } = require('./configLoader');
 const { generateConfig } = require('./configGenerator');
 const { scrapeArchiveCollection, mergeArchiveData, isValidCollectionId } = require('./archive');
 
@@ -514,7 +515,7 @@ async function generate(options) {
 
   // Step 4b: Load upcoming releases — announce/preview tier (always runs, no scraping)
   const { loadUpcomingLocal, loadUpcomingFull, applyPresaveUrls, clearStaleUpcoming } = require('./upcoming');
-  const localCount = await loadUpcomingLocal(contentDir, rawData, opts.artistFilter);
+  const localCount = await loadUpcomingLocal(contentDir, rawData, opts.artistFilter, { siteConfig });
   if (localCount > 0) {
     console.log(`Loaded ${localCount} upcoming release(s) (announce/preview).`);
   }
@@ -533,7 +534,7 @@ async function generate(options) {
 
   // Step 4c: Load upcoming releases — full tier (only on scrape, requires Bandcamp)
   if (refresh) {
-    const fullCount = await loadUpcomingFull(contentDir, rawData, opts.artistFilter);
+    const fullCount = await loadUpcomingFull(contentDir, rawData, opts.artistFilter, { siteConfig });
     if (fullCount > 0) {
       console.log(`Loaded ${fullCount} upcoming release(s) (full).`);
     }
@@ -555,7 +556,15 @@ async function generate(options) {
     'label'
   mergedData._siteMode = siteMode
 
-  // Propagate config.json settings to process.env for renderer/assets (they read env)
+  // Build site config object from config.json (replaces process.env propagation)
+  const siteConfig = getSiteConfig(config)
+
+  // Configure markdown renderer with site URL (for internal link detection)
+  const { configure: configureMarkdown } = require('./markdown')
+  configureMarkdown({ siteUrl: siteConfig.siteUrl })
+
+  // Propagate only what's needed for backward compat with env-reading code paths
+  // that haven't been refactored yet (e.g. custom templates reading env)
   if (config && config.site) {
     if (config.site.template && !process.env.SITE_TEMPLATE) {
       process.env.SITE_TEMPLATE = config.site.template
@@ -566,35 +575,8 @@ async function generate(options) {
     if (config.site.url && !process.env.SITE_URL) {
       process.env.SITE_URL = config.site.url
     }
-    if (config.site.labelFilter && !process.env.HOMEPAGE_LABELS) {
-      process.env.HOMEPAGE_LABELS = config.site.labelFilter.join(',')
-    }
-    if (config.site.labelAliases && !process.env.LABEL_ALIASES) {
-      process.env.LABEL_ALIASES = config.site.labelAliases.join(',')
-    }
   }
-  // Propagate stores config to process.env
-  if (config && config.stores && !process.env.PHYSICAL_STORES) {
-    const storeIds = config.stores.map(s => typeof s === 'string' ? s : s.id).filter(Boolean)
-    process.env.PHYSICAL_STORES = storeIds.join(',')
-    const esStore = config.stores.find(s => typeof s === 'object' && s.id === 'elasticstage')
-    if (esStore && esStore.url && !process.env.ELASTICSTAGE_LABEL_URL) {
-      process.env.ELASTICSTAGE_LABEL_URL = esStore.url
-    }
-  }
-  // Propagate social links from config.json
-  if (config && config.site && config.site.social) {
-    const s = config.site.social
-    if (s.spotify && !process.env.LABEL_SPOTIFY_URL) process.env.LABEL_SPOTIFY_URL = s.spotify
-    if (s.soundcloud && !process.env.LABEL_SOUNDCLOUD_URL) process.env.LABEL_SOUNDCLOUD_URL = s.soundcloud
-    if (s.youtube && !process.env.LABEL_YOUTUBE_URL) process.env.LABEL_YOUTUBE_URL = s.youtube
-    if (s.instagram && !process.env.LABEL_INSTAGRAM_URL) process.env.LABEL_INSTAGRAM_URL = s.instagram
-    if (s.facebook && !process.env.LABEL_FACEBOOK_URL) process.env.LABEL_FACEBOOK_URL = s.facebook
-    if (s.tiktok && !process.env.LABEL_TIKTOK_URL) process.env.LABEL_TIKTOK_URL = s.tiktok
-    if (s.twitter && !process.env.LABEL_TWITTER_URL) process.env.LABEL_TWITTER_URL = s.twitter
-    if (s.discogs && !process.env.LABEL_DISCOGS_URL) process.env.LABEL_DISCOGS_URL = s.discogs
-  }
-  // Propagate newsletter config to process.env
+  // Propagate newsletter config to process.env (for newsletterCampaign module)
   if (config && config.newsletter) {
     const nl = config.newsletter
     if (nl.provider && !process.env.NEWSLETTER_PROVIDER) process.env.NEWSLETTER_PROVIDER = nl.provider
@@ -725,7 +707,7 @@ async function generate(options) {
   console.log('Rendering pages...');
   let pageCount;
   try {
-    pageCount = await renderSite(mergedData, content.pages || {}, outputDir, labelName, newsArticles);
+    pageCount = await renderSite(mergedData, content.pages || {}, outputDir, labelName, newsArticles, { siteConfig });
   } catch (err) {
     console.error('[generator] Fatal: could not write to output directory.');
     throw err;
@@ -733,7 +715,7 @@ async function generate(options) {
 
   // Step 9: Copy assets
   console.log('Copying assets...');
-  await copyAssets(mergedData, contentDir, outputDir);
+  await copyAssets(mergedData, contentDir, outputDir, { siteConfig });
 
   // Step 9: Optimize images (resize + WebP conversion)
   console.log('Optimizing images...');

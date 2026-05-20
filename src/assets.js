@@ -50,13 +50,16 @@ function downloadFile (url, destPath, maxRedirects = 5) {
  * @param {object} data - MergedSiteData
  * @param {string} contentDir - path to the content directory
  * @param {string} outputDir - path to the output directory
+ * @param {object} [options] - Options including siteConfig
  */
-async function copyAssets (data, contentDir, outputDir) {
+async function copyAssets (data, contentDir, outputDir, options) {
+  options = options || {}
+  const siteConfig = options.siteConfig || {}
   await fs.mkdir(outputDir, { recursive: true })
 
   // 0. Check for template-bundled style.css (SITE_TEMPLATE takes priority)
   let hasStyleCss = false
-  const siteTemplate = process.env.SITE_TEMPLATE || ''
+  const siteTemplate = siteConfig.siteTemplate || process.env.SITE_TEMPLATE || ''
   if (siteTemplate) {
     const templateCssPath = path.join(__dirname, '..', 'templates', siteTemplate, 'style.css')
     try {
@@ -87,7 +90,7 @@ async function copyAssets (data, contentDir, outputDir) {
 
   // 2. Write theme CSS if no custom style.css was found
   if (!hasStyleCss) {
-    const themeName = process.env.SITE_THEME || ''
+    const themeName = siteConfig.siteTheme || process.env.SITE_THEME || ''
     const envOverrides = {}
     if (process.env.THEME_COLOR_BACKGROUND) envOverrides.background = process.env.THEME_COLOR_BACKGROUND
     if (process.env.THEME_COLOR_TEXT) envOverrides.text = process.env.THEME_COLOR_TEXT

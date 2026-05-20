@@ -350,4 +350,71 @@ function orderArtists (artists) {
   return ordered
 }
 
-module.exports = { loadConfig, loadLegacyConfig, resolveValue, writeConfig }
+/**
+ * Builds a flat, frozen site config object from the parsed config.json.
+ * This is the single source of truth for all site settings that modules need.
+ * Replaces the old process.env propagation pattern.
+ *
+ * Maps old `extra` source to `bandcamp` for backward compatibility.
+ *
+ * @param {object} config - Parsed config from loadConfig()
+ * @returns {object} Frozen config object with all site settings
+ */
+function getSiteConfig (config) {
+  if (!config) {
+    return Object.freeze({
+      siteName: process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site',
+      siteUrl: (process.env.SITE_URL || '').replace(/\/?$/, '/'),
+      siteMode: process.env.SITE_MODE || 'label',
+      siteTheme: process.env.SITE_THEME || 'standard',
+      siteTemplate: process.env.SITE_TEMPLATE || '',
+      siteTagline: process.env.SITE_TAGLINE || '',
+      labelName: process.env.LABEL_NAME || process.env.SITE_NAME || '',
+      homepageLabels: [],
+      labelAliases: [],
+      physicalStores: ['bandcamp', 'discogs'],
+      otherLabelContent: false,
+      newsletter: { provider: '', actionUrl: '' },
+      social: {},
+      stores: [],
+      extraArtistUrls: []
+    })
+  }
+
+  const site = config.site || {}
+  const stores = config.stores || []
+  const newsletter = config.newsletter || {}
+  const social = site.social || {}
+
+  // Map old `extra` source to `bandcamp` in artist configs
+  if (config.artists) {
+    for (const artist of Object.values(config.artists)) {
+      if (artist.source === 'extra') {
+        artist.source = 'bandcamp'
+      }
+    }
+  }
+
+  // Build physical stores list
+  const storeIds = stores.map(s => typeof s === 'string' ? s : (s && s.id)).filter(Boolean)
+
+  return Object.freeze({
+    siteName: site.name || 'My Site',
+    siteUrl: (site.url || '').replace(/\/?$/, site.url ? '/' : ''),
+    siteMode: site.mode || 'label',
+    siteTheme: site.theme || 'standard',
+    siteTemplate: site.template || '',
+    siteTagline: site.tagline || '',
+    labelName: site.name || '',
+    homepageLabels: (site.labelFilter || []).map(s => s.trim().toLowerCase()),
+    labelAliases: (site.labelAliases || []).map(s => s.trim().toLowerCase()),
+    physicalStores: storeIds.length > 0 ? storeIds : ['bandcamp', 'discogs'],
+    otherLabelContent: site.otherLabelContent === true,
+    newsletter,
+    social,
+    stores,
+    extraArtistUrls: (config._extraArtistUrls || [])
+  })
+}
+
+module.exports = { loadConfig, loadLegacyConfig, resolveValue, writeConfig, getSiteConfig }

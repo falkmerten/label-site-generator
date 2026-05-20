@@ -3,14 +3,31 @@
 const { marked } = require('marked')
 const DOMPurify = require('isomorphic-dompurify')
 
-// Extract own domain from SITE_URL for internal link detection
-// Matches both example.com and www.example.com
+// Own domain for internal link detection — can be set via configure() or falls back to SITE_URL env
 let _ownDomain = null
-const siteUrl = (process.env.SITE_URL || '').trim()
-if (siteUrl) {
+
+/**
+ * Configure the markdown renderer with site settings.
+ * Call this once before rendering to avoid process.env dependency.
+ *
+ * @param {object} options
+ * @param {string} [options.siteUrl] - Site URL for internal link detection
+ */
+function configure (options) {
+  options = options || {}
+  const url = (options.siteUrl || '').trim()
+  if (url) {
+    try {
+      _ownDomain = new URL(url).hostname.replace(/^www\./, '')
+    } catch { /* invalid URL */ }
+  }
+}
+
+// Fallback: read from process.env at module load (backward compat)
+const _envSiteUrl = (process.env.SITE_URL || '').trim()
+if (_envSiteUrl && !_ownDomain) {
   try {
-    const hostname = new URL(siteUrl).hostname
-    _ownDomain = hostname.replace(/^www\./, '')
+    _ownDomain = new URL(_envSiteUrl).hostname.replace(/^www\./, '')
   } catch { /* invalid URL */ }
 }
 
@@ -43,3 +60,4 @@ function renderMarkdown (mdString) {
 }
 
 module.exports.renderMarkdown = renderMarkdown
+module.exports.configure = configure

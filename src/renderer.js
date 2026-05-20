@@ -37,11 +37,13 @@ const NEWSLETTER_PROVIDERS = {
   }
 };
 
-function resolveNewsletter() {
-  let provider = (process.env.NEWSLETTER_PROVIDER || '').toLowerCase();
+function resolveNewsletter(siteConfig) {
+  siteConfig = siteConfig || {}
+  const nl = siteConfig.newsletter || {}
+  let provider = (nl.provider || process.env.NEWSLETTER_PROVIDER || '').toLowerCase();
 
   // Backward compat: no provider set but action URL exists → sendy
-  if (!provider && process.env.NEWSLETTER_ACTION_URL) {
+  if (!provider && (nl.actionUrl || process.env.NEWSLETTER_ACTION_URL)) {
     provider = 'sendy';
   }
 
@@ -55,7 +57,7 @@ function resolveNewsletter() {
     return { provider: '', actionUrl: '' };
   }
 
-  // Check required env vars
+  // Check required env vars (newsletter secrets still come from env)
   for (const key of config.required) {
     if (!process.env[key]) {
       console.warn(`[newsletter] ${key} is required for provider "${provider}" but not set. Skipping newsletter form.`);
@@ -71,14 +73,19 @@ function resolveNewsletter() {
  * @param {object} data - MergedSiteData
  * @param {object} pages - map of page name → markdown file path (from content.pages)
  * @param {string} outputDir - Directory to write rendered HTML files into
+ * @param {string} [labelName] - Site/label name
+ * @param {Array} [newsArticles] - News articles array
+ * @param {object} [options] - Options including siteConfig
  * @returns {Promise<number>} Total number of pages written
  */
-async function renderSite(data, pages, outputDir, labelName, newsArticles) {
+async function renderSite(data, pages, outputDir, labelName, newsArticles, options) {
+  options = options || {}
+  const siteConfig = options.siteConfig || {}
   newsArticles = newsArticles || []
-  labelName = labelName || process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site';
-  const siteUrl = (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
-  const physicalStores = (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  const homepageLabels = (process.env.HOMEPAGE_LABELS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  labelName = labelName || siteConfig.siteName || process.env.SITE_NAME || process.env.LABEL_NAME || 'My Site';
+  const siteUrl = siteConfig.siteUrl || (process.env.SITE_URL || '').replace(/\/?$/, '/'); // ensure trailing slash
+  const physicalStores = siteConfig.physicalStores || (process.env.PHYSICAL_STORES || 'bandcamp,discogs').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const homepageLabels = siteConfig.homepageLabels || (process.env.HOMEPAGE_LABELS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
   // Build custom store definitions from env vars: STORE_{ID}_URL, STORE_{ID}_LABEL, STORE_{ID}_ICON
   const customStoreDefs = {}
@@ -103,7 +110,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   } catch { /* no stores.json */ }
 
   // Determine site mode (label or artist) for template resolution
-  const siteMode = process.env.SITE_MODE || data._siteMode || 'label';
+  const siteMode = siteConfig.siteMode || process.env.SITE_MODE || data._siteMode || 'label';
   const validModes = ['label', 'artist'];
   if (!validModes.includes(siteMode)) {
     console.warn(`[renderer] Unknown SITE_MODE "${siteMode}", falling back to "label"`);
@@ -112,7 +119,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
 
   // Custom template: SITE_TEMPLATE overrides the mode-based template directory
   // Falls back to mode-based templates for any missing files
-  const customTemplate = process.env.SITE_TEMPLATE || '';
+  const customTemplate = siteConfig.siteTemplate || process.env.SITE_TEMPLATE || '';
   const modeDir = path.join(__dirname, '..', 'templates', effectiveMode);
   const sharedDir = path.join(__dirname, '..', 'templates', 'shared');
 
@@ -345,9 +352,9 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     'diest', 'dgrs'
   ])
   // Dynamically add label name and aliases to skip list
-  const siteNameLower = (process.env.SITE_NAME || process.env.LABEL_NAME || '').toLowerCase().trim()
+  const siteNameLower = (siteConfig.siteName || process.env.SITE_NAME || process.env.LABEL_NAME || '').toLowerCase().trim()
   if (siteNameLower) SKIP_TAGS.add(siteNameLower)
-  const labelAliases = (process.env.LABEL_ALIASES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  const labelAliases = siteConfig.labelAliases || (process.env.LABEL_ALIASES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
   for (const alias of labelAliases) SKIP_TAGS.add(alias)
   const sortedArtists = [...(data.artists || [])]
     .filter(a => a.name.toLowerCase() !== 'various artists' && a.name.toLowerCase() !== 'various')
@@ -388,7 +395,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
   if (!hasLogo) { try { await fs.access(path.join(outputDir, 'logo.png')); hasLogo = true; logoUrl = 'logo.png' } catch { /* */ } }
   if (!hasLogo) { try { await fs.access(path.join('assets', 'logo.png')); hasLogo = true; logoUrl = 'logo.png' } catch { /* */ } }
 
-  const showOtherLabels = (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
+  const showOtherLabels = siteConfig.otherLabelContent || (process.env.OTHER_LABEL_CONTENT || '').toLowerCase() === 'true'
 
   const baseCtx = {
     artists: sortedArtists,
@@ -402,28 +409,28 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles) {
     customStoreDefs,
     extraStores,
     currentYear: new Date().getFullYear(),
-    newsletter: resolveNewsletter(),
+    newsletter: resolveNewsletter(siteConfig),
     latestReleases: homepageAlbums.slice(0, 16),
     totalReleases: homepageAlbums.length,
     labelBandcampUrl: process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
     labelEmail: process.env.SITE_EMAIL || process.env.LABEL_EMAIL || '',
     labelAddress: process.env.SITE_ADDRESS || process.env.LABEL_ADDRESS || '',
     labelVatId: process.env.SITE_VAT_ID || process.env.LABEL_VAT_ID || '',
-    siteTagline: process.env.SITE_TAGLINE || '',
+    siteTagline: siteConfig.siteTagline || process.env.SITE_TAGLINE || '',
     extraPages,
     mainNavPages,
     footerNavPages,
     pages,
     social: {
       bandcamp:   process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
-      spotify:    process.env.LABEL_SPOTIFY_URL || '',
-      soundcloud: process.env.LABEL_SOUNDCLOUD_URL || '',
-      youtube:    process.env.LABEL_YOUTUBE_URL || '',
-      instagram:  process.env.LABEL_INSTAGRAM_URL || '',
-      facebook:   process.env.LABEL_FACEBOOK_URL || '',
-      tiktok:     process.env.LABEL_TIKTOK_URL || '',
-      twitter:    process.env.LABEL_TWITTER_URL || '',
-      discogs:    process.env.LABEL_DISCOGS_URL || '',
+      spotify:    (siteConfig.social && siteConfig.social.spotify) || process.env.LABEL_SPOTIFY_URL || '',
+      soundcloud: (siteConfig.social && siteConfig.social.soundcloud) || process.env.LABEL_SOUNDCLOUD_URL || '',
+      youtube:    (siteConfig.social && siteConfig.social.youtube) || process.env.LABEL_YOUTUBE_URL || '',
+      instagram:  (siteConfig.social && siteConfig.social.instagram) || process.env.LABEL_INSTAGRAM_URL || '',
+      facebook:   (siteConfig.social && siteConfig.social.facebook) || process.env.LABEL_FACEBOOK_URL || '',
+      tiktok:     (siteConfig.social && siteConfig.social.tiktok) || process.env.LABEL_TIKTOK_URL || '',
+      twitter:    (siteConfig.social && siteConfig.social.twitter) || process.env.LABEL_TWITTER_URL || '',
+      discogs:    (siteConfig.social && siteConfig.social.discogs) || process.env.LABEL_DISCOGS_URL || '',
     },
     newsArticles: newsArticles.slice(0, 10),
     hasNews: newsArticles.length > 0,
