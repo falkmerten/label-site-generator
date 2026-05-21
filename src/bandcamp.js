@@ -244,7 +244,7 @@ async function getAlbumInfo (albumUrl) {
 
   let imageUrl = $('#tralbumArt img').attr('src') || null
   if (imageUrl) {
-    imageUrl = imageUrl.replace(/_\d{1,3}\./, '_2.') // use small version
+    imageUrl = imageUrl.replace(/_\d{1,3}\./, '_10.') // use 1200x1200 hi-res version
   }
 
   // Tags

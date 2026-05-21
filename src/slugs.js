@@ -25,7 +25,11 @@ function toSlug (name) {
  * Assigns URL-safe slugs to artists and their albums, resolving collisions
  * by appending `-2`, `-3`, etc. to duplicates within the same scope.
  *
- * @param {Array<{name: string, albums: Array<{title: string}>}>} artists
+ * For Bandcamp URLs, when a collision occurs between an album and a track
+ * with the same slug, the track (single) gets a `-single` suffix instead
+ * of a numeric one.
+ *
+ * @param {Array<{name: string, albums: Array<{title: string, url?: string}>}>} artists
  * @returns {Array} New array of artist objects with `slug` fields added (originals not mutated)
  */
 function assignSlugs (artists) {
@@ -37,13 +41,36 @@ function assignSlugs (artists) {
     const count = artistSlugCounts[baseSlug]
     const artistSlug = count === 1 ? baseSlug : `${baseSlug}-${count}`
 
-    const albumSlugCounts = {}
+    // Disambiguate album slugs — first occurrence keeps the base slug,
+    // subsequent duplicates get -single (for tracks) or -2, -3, etc.
+    const usedSlugs = new Set()
     const albums = (artist.albums || []).map(album => {
       const albumBase = toSlug(album.title)
-      albumSlugCounts[albumBase] = (albumSlugCounts[albumBase] || 0) + 1
-      const albumCount = albumSlugCounts[albumBase]
-      const albumSlug = albumCount === 1 ? albumBase : `${albumBase}-${albumCount}`
-      return { ...album, slug: albumSlug }
+      let candidate = albumBase
+      if (usedSlugs.has(candidate)) {
+        // Collision — try URL-derived disambiguation first
+        if (album.url) {
+          const urlMatch = album.url.match(/\/(track)\/([^/?#]+)/)
+          if (urlMatch) {
+            // It's a single/track — use -single suffix
+            const singleCandidate = `${albumBase}-single`
+            if (!usedSlugs.has(singleCandidate)) {
+              candidate = singleCandidate
+            }
+          }
+        }
+        // If still colliding, fall back to numeric suffix
+        if (usedSlugs.has(candidate)) {
+          let suffix = 2
+          candidate = `${albumBase}-${suffix}`
+          while (usedSlugs.has(candidate)) {
+            suffix++
+            candidate = `${albumBase}-${suffix}`
+          }
+        }
+      }
+      usedSlugs.add(candidate)
+      return { ...album, slug: candidate }
     })
 
     return { ...artist, slug: artistSlug, albums }

@@ -127,6 +127,9 @@ function parseArgs(argv) {
       options.enrich = true; // implies enrich
     } else if (arg === '--download-artwork') {
       options.downloadArtwork = true;
+    } else if (arg === '--upgrade-artwork') {
+      options.downloadArtwork = true;
+      options.upgradeArtwork = true;
     } else if (arg === '--sync-elasticstage') {
       options.syncElasticStage = true;
     } else if (arg === '--sync-youtube') {
@@ -452,7 +455,10 @@ async function run() {
   }
   if (options.downloadArtwork) {
     console.log('Downloading remote artwork to content/...');
-    await downloadArtwork(options.cachePath, options.contentDir);
+    await downloadArtwork(options.cachePath, options.contentDir, {
+      force: options.upgradeArtwork || false,
+      upgradeResolution: options.upgradeArtwork || false
+    });
   }
   if (options.syncElasticStage) {
     const esUrl = process.env.ELASTICSTAGE_LABEL_URL;
