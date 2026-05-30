@@ -4,6 +4,18 @@
 
 ---
 
+### v5.2.3 — 2026-05-30
+
+**Hi-res artwork download, album/track slug collision fix (LSG-159)**
+
+- Bandcamp scraper now downloads 1200x1200 artwork (`_10.jpg`) instead of 350x350 thumbnails (`_2.jpg`)
+- New `--upgrade-artwork` CLI flag: re-downloads all existing artwork in hi-res and upgrades cache URLs
+- Album/track slug collision fix: when an album and a single share the same title, the single gets a `-single` suffix instead of `-2`
+- `downloadArtwork` now runs `assignSlugs()` before downloading to prevent content directory collisions
+- `assignSlugs()` detects Bandcamp `/track/` URLs and applies `-single` suffix for disambiguation
+
+---
+
 ### v5.2.2 — 2026-05-19
 
 **Config refactoring: direct config.json read (LSG-150)**
