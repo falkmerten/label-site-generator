@@ -549,6 +549,38 @@ async function generate(options) {
     mergedData._labelProfileImage = rawData.labelProfileImage
   }
 
+  // ── Apply config.json links as overrides (no --enrich needed) ─────────────
+  // config.json is authoritative for social/streaming links.
+  // This ensures edits in config.json take effect on next deploy without --enrich.
+  if (config && config.artists) {
+    for (const artist of (mergedData.artists || [])) {
+      const slug = toSlug(artist.name)
+      const artistCfg = config.artists[slug]
+      if (!artistCfg || !artistCfg.links) continue
+      const cl = artistCfg.links
+
+      // Social links override
+      if (cl.instagram) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.instagram = cl.instagram }
+      if (cl.facebook) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.facebook = cl.facebook }
+      if (cl.tiktok) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.tiktok = cl.tiktok }
+      if (cl.twitter) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.twitter = cl.twitter }
+      if (cl.smartlink) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.smartlink = cl.smartlink }
+      if (cl.website) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.website = cl.website }
+      // Streaming links override
+      if (cl.youtube) { artist.streamingLinks = artist.streamingLinks || {}; artist.streamingLinks.youtube = cl.youtube }
+      if (cl.soundcloud) { artist.streamingLinks = artist.streamingLinks || {}; artist.streamingLinks.soundcloud = cl.soundcloud }
+
+      // Remove bandLinks that duplicate socialLinks.website (avoid double rendering)
+      if (cl.website && artist.bandLinks) {
+        const websiteHost = cl.website.replace(/^https?:\/\//, '').replace(/\/$/, '')
+        artist.bandLinks = artist.bandLinks.filter(bl => {
+          const blHost = (bl.url || '').replace(/^https?:\/\//, '').replace(/\/$/, '')
+          return blHost !== websiteHost
+        })
+      }
+    }
+  }
+
   // Resolve site mode: config.json > env > auto-detected from scrape > default 'label'
   const siteMode = (config && config.site && config.site.mode) ||
     process.env.SITE_MODE ||

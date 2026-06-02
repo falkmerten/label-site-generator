@@ -1187,6 +1187,42 @@ async function enrichCache (cachePath, contentDir = './content', options = {}) {
       }
     }
 
+    // ── config.json link sync (write-back + override) ───────────────────────
+    // 1. Write-back: discovered links → config.json (only if empty there)
+    // 2. Override: config.json wins for any link that's already set there
+    if (v5Config && v5ArtistConfig) {
+      if (!v5ArtistConfig.links) v5ArtistConfig.links = {}
+      const cl = v5ArtistConfig.links
+
+      // Social links: write-back new discoveries
+      const socialWriteBack = { instagram: 'instagram', facebook: 'facebook', tiktok: 'tiktok', twitter: 'twitter' }
+      for (const [configKey, socialKey] of Object.entries(socialWriteBack)) {
+        if (!cl[configKey] && artist.socialLinks && artist.socialLinks[socialKey]) {
+          cl[configKey] = artist.socialLinks[socialKey]
+          configDirty = true
+        }
+      }
+      // Streaming links: write-back
+      if (!cl.youtube && artist.streamingLinks && artist.streamingLinks.youtube) {
+        cl.youtube = artist.streamingLinks.youtube
+        configDirty = true
+      }
+      if (!cl.soundcloud && artist.streamingLinks && artist.streamingLinks.soundcloud) {
+        cl.soundcloud = artist.streamingLinks.soundcloud
+        configDirty = true
+      }
+
+      // Override: config.json is authoritative for any value that's set
+      if (cl.instagram) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.instagram = cl.instagram }
+      if (cl.facebook) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.facebook = cl.facebook }
+      if (cl.tiktok) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.tiktok = cl.tiktok }
+      if (cl.twitter) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.twitter = cl.twitter }
+      if (cl.smartlink) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.smartlink = cl.smartlink }
+      if (cl.website) { artist.socialLinks = artist.socialLinks || {}; artist.socialLinks.website = cl.website }
+      if (cl.youtube) { artist.streamingLinks = artist.streamingLinks || {}; artist.streamingLinks.youtube = cl.youtube }
+      if (cl.soundcloud) { artist.streamingLinks = artist.streamingLinks || {}; artist.streamingLinks.soundcloud = cl.soundcloud }
+    }
+
     // ── Per-artist cache save (progress preservation) ───────────────────────
     await writeCache(cachePath, data)
     // Also save config.json per-artist (discovered Spotify URLs, etc.)

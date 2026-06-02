@@ -156,6 +156,18 @@ function parseArgs(argv) {
       options.rosterSource = args[++i]
     } else if (arg === '--dry-run') {
       options.dryRun = true
+    } else if (arg === '--import-subscribers') {
+      options.importSubscribers = args[++i] || true
+    } else if (arg === '--list') {
+      options.listId = args[++i]
+    } else if (arg === '--create-list') {
+      options.createList = args[++i]
+    } else if (arg === '--tag') {
+      options.tag = args[++i]
+    } else if (arg === '--active-only') {
+      options.activeOnly = true
+    } else if (arg === '--split-customers') {
+      options.splitCustomers = true
     }
   }
 
@@ -497,6 +509,23 @@ async function run() {
     if (report) printAuditReport(report);
     return;
   }
+
+  // ── Subscriber Import ────────────────────────────────────────────────────────
+  if (options.importSubscribers) {
+    const { importSubscribers } = require('./src/subscriberImport');
+    await importSubscribers({
+      importPath: options.importSubscribers,
+      listId: options.listId,
+      dryRun: options.dryRun,
+      contentDir: options.contentDir,
+      activeOnly: options.activeOnly,
+      tag: options.tag,
+      createList: options.createList,
+      splitCustomers: options.splitCustomers
+    });
+    return;
+  }
+
   // Auto-convert any bio.docx files before generating
   await convertAllDocs(options.contentDir);
   // Pass scrape flag to generator (full re-scrape mode)
