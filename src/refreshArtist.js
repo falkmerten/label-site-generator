@@ -254,7 +254,10 @@ async function refreshArtist (cachePath, artistFilter) {
   const albums = []
 
   for (const scraped of scrapedAlbums) {
-    const existing = artist.albums.find(a => a.url === scraped.url)
+    // Match by URL first, then by slug (handles private → public URL transition)
+    const scrapedSlug = scraped.url ? toSlug(scraped.title) : null
+    const existing = artist.albums.find(a => a.url === scraped.url) ||
+      (scrapedSlug && artist.albums.find(a => a.slug === scrapedSlug || toSlug(a.title) === scrapedSlug))
     const album = { ...scraped }
 
     // Preserve all enrichment fields from existing cached album
@@ -285,6 +288,17 @@ async function refreshArtist (cachePath, artistFilter) {
           album.raw.current = album.raw.current || {}
           album.raw.current.about = existing.raw.current.about
         }
+      }
+    }
+
+    // Backfill labelName from selling_band_id if still missing after merge
+    // (handles private → public URL transition where slug match also failed)
+    if (!album.labelName && album.raw && album.raw.current) {
+      const sellingBandId = album.raw.current.selling_band_id
+      const artistBandId = album.raw.current.band_id
+      if (sellingBandId && sellingBandId !== artistBandId) {
+        // selling_band_id differs from band_id → released via a label account
+        album.labelName = process.env.SITE_NAME || process.env.LABEL_NAME || null
       }
     }
 
