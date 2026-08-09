@@ -33,7 +33,7 @@
     "mammoth": "^1.12.0",
     "marked": "^12.0.0",
     "nunjucks": "^3.2.4",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "directories": {
     "example": "examples"
