@@ -263,7 +263,11 @@
     {% if album.description %}
       <section class="album-description prose">
         <h2>About</h2>
-        <p>{{ album.description | nl2br | safe }}</p>
+        {% if album.notes %}
+          {{ album.notes | safe }}
+        {% else %}
+          <p>{{ album.description | nl2br | safe }}</p>
+        {% endif %}
       </section>
     {% endif %}
     {% if album.releaseDate %}
@@ -310,12 +314,7 @@
       </section>
     {% endif %}
 
-    {% if album.notes %}
-      <section class="album-notes prose">
-        <h2>Notes</h2>
-        {{ album.notes | safe }}
-      </section>
-    {% endif %}
+
 
     {% if album.credits %}
       <section class="album-credits">
