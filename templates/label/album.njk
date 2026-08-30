@@ -138,7 +138,7 @@
       <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
     {% endif %}
 
-    {% if album.presaveUrl %}
+    {% if album.presaveUrl and album.releaseDate and (album.releaseDate | isFuture) %}
       <section class="presave-section">
         <a href="{{ album.presaveUrl }}" target="_blank" rel="noopener noreferrer" class="btn presave-btn"><i class="fa-solid fa-bell"></i> Pre-save this release</a>
       </section>

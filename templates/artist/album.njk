@@ -112,7 +112,7 @@
       </div>
     </div>
 
-    {% if album.albumId and (not album.upcoming or album.tier == 'full') and not album.privateUrl %}
+    {% if album.albumId and (not album.upcoming or album.tier == 'full') and (not album.privateUrl or album.url) %}
       <section class="bandcamp-embed">
         {% if album.itemType === 'track' %}
           <iframe
@@ -126,7 +126,7 @@
             seamless></iframe>
         {% endif %}
       </section>
-    {% elif album.url and (not album.upcoming or album.tier == 'full') and not album.privateUrl %}
+    {% elif album.url and (not album.upcoming or album.tier == 'full') and (not album.privateUrl or album.url) %}
       <p class="bandcamp-link"><a href="{{ album.url }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-bandcamp"></i> Listen on Bandcamp &rarr;</a></p>
     {% endif %}
 

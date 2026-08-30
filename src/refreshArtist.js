@@ -254,10 +254,12 @@ async function refreshArtist (cachePath, artistFilter) {
   const albums = []
 
   for (const scraped of scrapedAlbums) {
-    // Match by URL first, then by slug (handles private → public URL transition)
+    // Match by URL first, then by slug, then by normalized title (handles upcoming → live transition)
     const scrapedSlug = scraped.url ? toSlug(scraped.title) : null
+    const normTitle = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
     const existing = artist.albums.find(a => a.url === scraped.url) ||
-      (scrapedSlug && artist.albums.find(a => a.slug === scrapedSlug || toSlug(a.title) === scrapedSlug))
+      (scrapedSlug && artist.albums.find(a => a.slug === scrapedSlug || toSlug(a.title) === scrapedSlug)) ||
+      artist.albums.find(a => !a.url && normTitle(a.title) === normTitle(scraped.title))
     const album = { ...scraped }
 
     // Preserve all enrichment fields from existing cached album
@@ -268,14 +270,21 @@ async function refreshArtist (cachePath, artistFilter) {
         }
       }
 
+      // If the new scrape has fresh raw.packages data, let the merger re-derive
+      // physicalFormats from Bandcamp instead of preserving stale enrichment data.
+      // This handles upcoming → pre-sale transitions where BC packages become available.
+      if (album.raw && album.raw.packages && album.raw.packages.length > 0) {
+        delete album.physicalFormats
+      }
+
       // Preserve releaseDate — Spotify/Soundcharts dates (set during enrichment)
       // are authoritative over Bandcamp dates. Always keep the existing date if set.
       if (existing.releaseDate) {
         album.releaseDate = existing.releaseDate
       }
 
-      // Preserve slug from existing if title didn't change
-      if (existing.slug && album.title === existing.title) {
+      // Preserve slug from existing (upcoming → live transition must keep the established slug)
+      if (existing.slug) {
         album.slug = existing.slug
       }
 
@@ -307,11 +316,14 @@ async function refreshArtist (cachePath, artistFilter) {
 
   // Retain cached albums not found during re-scrape
   for (const cached of (artist.albums || [])) {
+    // Skip if already merged (matched by URL, slug, or title)
+    if (albums.some(a => a.slug === cached.slug)) continue
+
     if (cached.url && !scrapedUrlSet.has(cached.url)) {
       console.warn(`  ⚠ Album not found during re-scrape, retaining cached: "${cached.title}" (${cached.url})`)
       albums.push(cached)
     } else if (!cached.url) {
-      // Spotify-only or upcoming albums (no Bandcamp URL) — always retain
+      // Spotify-only or upcoming albums (no Bandcamp URL) — retain if not matched
       console.log(`  ↩ Retaining non-Bandcamp album: "${cached.title}"${cached.upcoming ? ' (upcoming)' : ' (Spotify-only)'}`)
       albums.push(cached)
     }

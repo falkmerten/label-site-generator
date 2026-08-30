@@ -175,7 +175,7 @@ async function mergeData (rawData, content) {
                     Math.max(0, (album.labelName || '').split(' / ').length - 1)
                   ).fill(null)]
                 : null),
-              slug: toSlug(album.title),
+              slug: album.slug || toSlug(album.title),
               archiveIdentifier: album.archiveIdentifier || null
             }
           })
@@ -316,7 +316,7 @@ async function mergeData (rawData, content) {
                   Math.max(0, (album.labelName || '').split(' / ').length - 1)
                 ).fill(null)]
               : null),
-            slug: albumSlug,
+            slug: album.slug || albumSlug,
             archiveIdentifier: album.archiveIdentifier || null
           }
 
