@@ -132,8 +132,9 @@ function parseArgs (argv) {
 
       case '--theme':
         i++
+        // Setting SITE_THEME skips only the theme prompt; the other
+        // onboarding prompts (CSV, extra artists) still run unless --yes.
         if (args[i]) process.env.SITE_THEME = args[i]
-        options._nonInteractive = true // --theme implies non-interactive for theme prompt
         break
 
       case '--output':

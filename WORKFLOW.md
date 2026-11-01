@@ -1,29 +1,68 @@
-# v5.0.0 Onboarding Workflow
+# Workflow (v5.2)
 
 ## Overview
 
-The v5 onboarding replaces the old multi-file, multi-env-var setup with a single interactive flow. One env var (`BANDCAMP_URL`), one command (`node generate.js`), the generator handles the rest.
+One env var (`BANDCAMP_URL`), one command (`node generate.js`). The first run asks a few questions, scrapes Bandcamp, writes `content/config.json` and renders the site. After that, `config.json` is the source of truth and `.env` holds secrets only.
 
 ---
 
 ## First-Run Flow
 
+Triggered when there is no `cache.json` and no `content/config.json`.
+
 ```
-1. .env: only BANDCAMP_URL (+ optional API credentials)
+1. .env: BANDCAMP_URL (+ optional API credentials)
 
 2. node generate.js
-   a. CSV check (private/imports/) → prompt with direct export link
-   b. Account-type detection → summary with connected accounts
+   a. Source selection — only if BANDCAMP_URL is not set:
+      1. Bandcamp  2. Internet Archive  3. Spotify (not implemented yet)
+   b. CSV check (private/imports/*_digital.csv) → prompt with direct export link
    c. Extra artists prompt (interactive URL input)
-   d. Theme prompt (1/2/3)
-   e. Merch prompt (y/N) — v5.1, not active
-   f. Scrape: Artists + Albums (+ Merch if enabled)
-   g. UPC from Bandcamp data + CSV (if present)
-   h. config.json generation (all settings, artists, merch)
-   i. Website render
+   d. Scrape starts → account-type detection → detection summary
+   e. Detection confirmation (Y/n/edit) — override label/artist mode
+   f. Scrape: artists + albums
+   g. Theme prompt (1/2/3) — skipped if --theme or --yes is given
+   h. config.json generation (site, artists, source, stores)
+   i. UPC/catalog number gap-fill from the catalog CSV (if present)
+   j. Website render
 
-3. Summary (what was detected, imported, missing, next steps)
+3. Summary (what was detected, what is missing, next steps)
 ```
+
+`--yes` / `-y` skips every prompt and uses the defaults. `--theme <name>` only skips the theme prompt.
+
+**Recovery:** if a previous first run was aborted after the scrape (cache exists, no `config.json`), the next run asks only the theme prompt and generates `config.json` from the cache.
+
+**Internet Archive onboarding** (source 2) asks for a collection ID, a Creative-Commons-only filter and a theme (standard, dark, or a custom template folder), then writes `config.json` with `source.primary: "archive.org"` and scrapes the collection.
+
+---
+
+## Day-to-Day Commands
+
+| Command | What it does |
+|---------|--------------|
+| `node generate.js` | Render the site from `cache.json` (no network scrape) |
+| `node generate.js --scrape` | Re-scrape all artists from Bandcamp, then render |
+| `node generate.js --scrape --artist "Name"` | Re-scrape one artist (no render) |
+| `node generate.js --enrich` | Add streaming links, Last.fm data, etc., then render |
+| `node generate.js --enrich --force` | Re-enrich albums that were already enriched |
+| `node generate.js --scrape --enrich` | Scrape, **then** enrich, then render |
+| `node generate.js --enrich --deploy` | Enrich, render, SEO check, upload to S3 + CloudFront invalidation |
+| `node generate.js --rollback` | Restore the most recent cache backup |
+
+Full list: `node generate.js --help`.
+
+### Re-scraping keeps enrichment
+
+A re-scrape (full or `--artist`) refreshes Bandcamp data but carries over everything enrichment added: streaming links, UPCs, Discogs data, Last.fm data, physical formats, presave URLs, release dates set by enrichment, and the established page slugs (so URLs don't change). The one exception: if Bandcamp now lists physical packages for an album, physical formats are re-derived from Bandcamp.
+
+### Cache backups
+
+`--scrape`, `--enrich`, `--fill-gaps` and `--import-csv` write a timestamped backup (`cache.backup.<timestamp>.json`) before changing the cache. The 5 most recent backups are kept. `--rollback` restores the newest one.
+
+### Workspace sync
+
+If a sync backend is configured (`sync` section in `config.json`, or `SYNC_BUCKET` / `SYNC_DIR` in `.env`), every run first pulls the latest cache + content. `--sync-up` pushes local state, `--sync-down` forces a pull.
 
 ---
 
@@ -37,24 +76,28 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
 | Account-type detection (API) | ✅ Done | my_bands → member_bands + connected accounts |
 | Account-type detection (HTML) | ✅ Done | /artists page or regrouping |
 | Detection summary | ✅ Done | Shows account type, mode, source; artist count deferred for regrouping |
+| Detection confirmation (Y/n/edit) | ✅ Done | Override detected mode in interactive mode |
 | Connected accounts (disabled) | ✅ Done | Saved in config.json with `relationship` field |
 | Extra artists prompt | ✅ Done | Interactive URL input, saved in config.json |
 | Theme prompt (1/2/3) | ✅ Done | Skippable with --yes or --theme flag |
 | `--yes` flag (non-interactive) | ✅ Done | Skips all prompts |
-| config.json as source of truth | ✅ Done | No legacy fallbacks |
+| Internet Archive as data source | ✅ Done | Primary source or gap-fill alongside Bandcamp |
+| config.json as source of truth | ✅ Done | config.json always wins |
+| Legacy env fallbacks | ⚠️ Partial | Still read as fallbacks when config.json lacks a value: `SITE_NAME`/`LABEL_NAME` (renderer), `SITE_THEME`, `SITE_URL`, `NEWSLETTER_*`, `LABEL_*_URL` social links, and others. Planned for removal |
 | Config-driven scraping | ✅ Done | Artists with bandcampUrl in config are scraped |
+| Re-scrape keeps enrichment | ✅ Done | Full and single-artist scrape, with cache backup |
 | UPC from Bandcamp scrape | ✅ Done | raw.current.upc extracted |
-| UPC from CSV | ✅ Done | Matched by Bandcamp album ID |
+| UPC from CSV | ✅ Done | Matched by Bandcamp album ID (RFC 4180 CSV parsing) |
 | Unicode-normalized deduplication | ✅ Done | Amáutica/AMAUTICA handled |
 | Artist placeholder SVG | ✅ Done | Band silhouette for missing photos |
-| Consistent hero banners | ✅ Done | Logo as fallback, same height |
+| Consistent hero banners | ✅ Done | Artist photo, logo as fallback, same height |
 | Lightweight Spotify enrichment | ✅ Done | 2-3 calls/artist, links only |
 | Spotify 429 handling (60s stop) | ✅ Done | Graceful degradation on rate limit |
 | UPC from Spotify (--force only) | ✅ Done | Authoritative UPC, risk of 429 |
 | Last.fm enrichment | ✅ Done | Bios, tags, listener stats, similar artists |
+| Bandcamp anti-bot handling | ✅ Done | "Client Challenge" page detected and retried with backoff |
 | Compilations: label-subdomain only | ✅ Done | No more 105 false positives |
 | `relationship` field | ✅ Done | member_band / connected_account |
-| No legacy env fallbacks | ✅ Done | .env = secrets only |
 | No extra-artists.txt | ✅ Done | Replaced by interactive prompt + config.json |
 | `source` object in config.json | ✅ Done | accountType, detection, confidence |
 | `stores` array in config.json | ✅ Done | bandcamp, discogs, custom objects |
@@ -63,19 +106,35 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
 | Discogs gated on stores config | ✅ Done | Only runs if "discogs" in stores array |
 | config.json write-back per artist | ✅ Done | Spotify URLs saved after each artist, not just at end |
 | Site name from Bandcamp page title | ✅ Done | No SITE_NAME env var needed |
+| Hi-res artwork | ✅ Done | 1200x1200; `--upgrade-artwork` re-downloads existing |
 | Merch CSV import (`*_merch.csv`) | 🔲 Planned | Same pattern as catalog CSV |
 | Merch scrape (/merch page) | 🔲 Planned | HTML scraping of BC merch page |
 | Merch prompt at onboarding | 🔲 Planned | "Include Merch page? [y/N]" |
 | Merch page template | 🔲 Planned | Product cards + BC link, display_only |
-| Detection confirmation (Y/n/edit) | ✅ Done | Override detected mode in interactive mode |
 | Metadata quality flags | 🔲 Planned | Per-release UPC/ISRC/Spotify status |
-| Spotify-first onboarding path | 🔲 v5.1 | For labels without Bandcamp |
+| Spotify-first onboarding path | 🔲 Planned | Option 3 in source selection exits with "not yet implemented" |
+| Subscriber import (`--import-subscribers`) | 🔲 Not in this build | Exits with an error |
 
 ---
 
-## Prompt Sequence (First Run)
+## Prompt Sequence (First Run, Bandcamp)
 
-### 1. CSV Check
+### 1. Source (only if `BANDCAMP_URL` is not set)
+
+```
+  Welcome to the Label Site Generator!
+
+  Choose your primary data source:
+    1. Bandcamp
+    2. Internet Archive
+    3. Spotify (requires SPOTIFY_CLIENT_ID/SECRET in .env)
+
+  Source [1]:
+```
+
+Choosing Bandcamp then asks for the URL (`https://name.bandcamp.com/`).
+
+### 2. CSV Check
 
 ```
   No Bandcamp Digital Catalog CSV found in private/imports/.
@@ -83,19 +142,10 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
   Export here: https://your-label.bandcamp.com/tools#catalog
   Place the downloaded file in private/imports/ for reliable UPC/ISRC matching.
 
-  Continue without CSV? [Y/n]:
+  Continue with public Bandcamp data only? [Y/n]:
 ```
 
-### 2. Detection Summary
-
-```
-  Detected setup:
-    Bandcamp account type: Label
-    Site mode: Label (multi-artist)
-    Artists found: 15
-    Connected accounts: 2 (disabled by default)
-    Source: Bandcamp API
-```
+`n` prints the export link again and exits so you can add the file.
 
 ### 3. Extra Artists
 
@@ -108,7 +158,22 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
   Adding 2 additional artist(s).
 ```
 
-### 4. Theme
+### 4. Detection Summary + Confirmation
+
+```
+  Detected setup:
+    Bandcamp account type: Label
+    Site mode: Label (multi-artist)
+    Artists found: 15 (incl. 2 extra)
+    Connected accounts: 2 (Side Project, Other Band)
+    Source: Bandcamp API
+
+  Use this setup? [Y/n/edit]:
+```
+
+`edit` lets you switch between label website (multi-artist) and artist/band website (single band).
+
+### 5. Theme (after the scrape)
 
 ```
   Choose a theme:
@@ -119,10 +184,10 @@ The v5 onboarding replaces the old multi-file, multi-env-var setup with a single
   Theme [1]:
 ```
 
-### 5. Merch (v5.1 — not active)
+### 6. Merch (planned — not active)
 
 ```
-  Include a Merch page? [y/N]:    ← planned for v5.1
+  Include a Merch page? [y/N]:
 ```
 
 ---
@@ -191,15 +256,21 @@ Default when omitted: `["bandcamp"]`
 
 ### `source` Object
 
-Top-level metadata about how the site was detected/created. Written once during first-run, not modified afterwards:
+Top-level metadata about how the site was detected/created. Written once during first run, not modified afterwards:
 
 | Field | Values | Description |
 |-------|--------|-------------|
-| `primary` | `bandcamp`, `spotify`, `archive` | Primary data source |
-| `url` | URL string | Source URL used for scraping |
+| `primary` | `bandcamp`, `archive.org` | Primary data source |
+| `url` | URL string | Source URL used for scraping (Bandcamp) |
+| `collection` | collection ID | Internet Archive collection (`archive.org` only) |
+| `ccOnly` | `true`, `false` | Only Creative Commons releases (`archive.org` only) |
 | `accountType` | `label`, `artist` | Bandcamp account type detected |
 | `detection` | `api_member_bands`, `html_artists_page`, `html_regrouping` | How account type was determined |
 | `confidence` | `high`, `medium`, `low` | Detection confidence |
+
+### `sync` Object (optional)
+
+Workspace sync backend, e.g. `{ "backend": "s3", "bucket": "...", "prefix": "", "region": "eu-central-1" }` or `{ "backend": "local", "dir": "..." }`. Takes priority over the `SYNC_*` env vars.
 
 ### User Assets: `content/global/`
 
@@ -216,10 +287,13 @@ The `assets/` directory is for generated/downloaded files (auto-logo, placeholde
 
 ---
 
-## Enrichment Flow (after first run)
+## Enrichment Flow
 
 ```
-node generate.js --enrich
+node generate.js --enrich            # all services
+node generate.js --enrich --spotify  # Spotify only
+node generate.js --enrich --discogs  # Discogs only
+node generate.js --enrich-lastfm     # Last.fm only
 
 Per artist:
 1. Resolve Spotify artist URL (1 search call, or from config)
@@ -227,11 +301,15 @@ Per artist:
 3. Title-match: BC album ↔ Spotify album (local, Unicode-normalized)
 4. Assign Spotify link to BC album
 5. Songlink gap-fill (YouTube Music, Amazon Music, SoundCloud, Pandora, Napster)
-6. Last.fm: fetch artist bio, listener stats, genre tags, similar artists
-7. Save Spotify URL to config.json (write-back)
+6. Further link sources: YouTube Music, iTunes, Deezer, Tidal (Tidal needs credentials)
+7. Discogs (only if "discogs" in stores): physical formats, sell links
+8. Last.fm: artist bio, listener stats, genre tags, similar artists
+9. Save Spotify URL to config.json (write-back)
+```
+
+Already-enriched albums are skipped unless `--force` is given. `--tidal-only` re-checks Tidal links only.
 
 For full metadata (all platforms, UPC, ISRCs, labels): use lsg-pro with Soundcharts (Pro only).
-```
 
 ---
 
@@ -260,7 +338,7 @@ Based on the workflow evaluation document, here's how each critical point is add
 | Non-interactive mode | ✅ Done | `--yes` flag |
 | Direct BC export link | ✅ Done | `https://{slug}.bandcamp.com/tools#catalog` |
 | relationship field | ✅ Done | member_band / connected_account |
-| No legacy fallbacks | ✅ Done | .env = secrets only |
+| No legacy fallbacks | ⚠️ Partial | config.json wins; some env fallbacks remain (see status table) |
 | Discogs gated on stores | ✅ Done | Only runs if "discogs" in stores array |
 | Compilations manual Spotify | ✅ Done | config.json compilations object with URLs |
 
@@ -290,25 +368,33 @@ DISCOGS_TOKEN=
 TIDAL_CLIENT_ID=
 TIDAL_CLIENT_SECRET=
 
-# Optional: YouTube (channel data, video embeds)
+# Optional: YouTube (channel data, video embeds; --sync-youtube, --resolve-youtube)
 YOUTUBE_API_KEY=
 
-# Optional: Deployment
+# Optional: MusicFetch via RapidAPI (extra streaming-link lookups during --enrich)
+MUSICFETCH_RAPIDAPI_KEY=
+
+# Optional: ElasticStage (--sync-elasticstage)
+ELASTICSTAGE_LABEL_URL=
+
+# Optional: Deployment (--deploy)
 AWS_S3_BUCKET=
 AWS_S3_REGION=
 AWS_CLOUDFRONT_DISTRIBUTION_ID=
 
-# Optional: Workspace sync (backup, multi-machine)
-STORAGE_S3_BUCKET=
+# Optional: Workspace sync (backup, multi-machine) — or use the "sync" section in config.json
+SYNC_BUCKET=          # S3 backend
+SYNC_PREFIX=
+SYNC_REGION=          # defaults to AWS_S3_REGION, then eu-central-1
+SYNC_DIR=             # local/network folder backend (alternative to SYNC_BUCKET)
 
 # Optional: Ghost CMS (news articles)
 GHOST_URL=
 GHOST_CONTENT_API_KEY=
 
-# Optional: Newsletter (campaign drafts)
-NEWSLETTER_PROVIDER=
+# Optional: Newsletter (campaign drafts). Provider and form settings live in config.json → newsletter
 NEWSLETTER_API_TOKEN=
-NEWSLETTER_AUTO_CAMPAIGN=true
+NEWSLETTER_AUTO_CAMPAIGN=false
 
 # Optional: Label aliases (comma-separated, for Spotify label filter)
 LABEL_ALIASES=

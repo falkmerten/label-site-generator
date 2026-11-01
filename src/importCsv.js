@@ -798,4 +798,4 @@ function formatAnalysisReport (report) {
   return lines.join('\n')
 }
 
-module.exports = { parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary, formatAnalysisReport }
+module.exports = { parseRfc4180, parseCsv, groupByArtist, buildActiveRoster, analyzeGaps, fillGaps, fullImport, printParseSummary, formatAnalysisReport }

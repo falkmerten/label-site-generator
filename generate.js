@@ -3,7 +3,7 @@
 
 require('dotenv').config();
 
-const { generate } = require('./src/generator');
+const { generate, scrapeToCache } = require('./src/generator');
 const { enrichCache } = require('./src/enricher');
 const { initArtistsConfig } = require('./src/initArtists');
 const { initContent } = require('./src/initContent');
@@ -24,7 +24,7 @@ function printUsage() {
 Common workflows:
   node generate.js                                    Generate site from cache
   node generate.js --scrape --artist "Name"           Re-scrape one artist from Bandcamp
-  node generate.js --enrich --artist "Name"           Enrich one artist (Soundcharts/Discogs/etc.)
+  node generate.js --enrich --artist "Name"           Enrich one artist (Spotify/Last.fm/Discogs/etc.)
   node generate.js --scrape --enrich --artist "Name"  Re-scrape + enrich one artist
   node generate.js --enrich                           Enrich all artists
   node generate.js --scrape --enrich                  Re-scrape + enrich all artists
@@ -35,8 +35,9 @@ Options:
   --content <dir>      Content directory (default: ./content)
   --cache <file>       Cache file path (default: ./cache.json)
   --artist <name>      Filter to a single artist by name or slug
-  --scrape             Re-scrape from Bandcamp (ignoring cache)
+  --scrape             Re-scrape from Bandcamp (keeps existing enrichment data)
   --enrich             Fetch streaming links, labels, physical formats
+  --spotify / --discogs  Limit --enrich to one service
   --enrich --force     Re-enrich even already-enriched albums
   --enrich-lastfm      Run only Last.fm enrichment (bios, tags, listeners, similar)
   --deploy             Sync dist/ to S3 and invalidate CloudFront
@@ -44,11 +45,17 @@ Options:
   --clean              Delete dist/ before generate (removes stale files, re-runs image optimizer)
   --tidal-only         Re-check Tidal links only (implies --enrich)
   --download-artwork   Download remote artwork to content/
+  --upgrade-artwork    Re-download all artwork in hi-res (1200x1200)
   --sync-elasticstage  Sync ElasticStage release links to stores.json
   --sync-youtube       Search YouTube and create videos.json
   --resolve-youtube    Resolve @handle entries in youtube.json
   --cleanup            Report orphaned content folders and audit cache
   --rollback           Restore the most recent cache backup
+  --sync-up            Push cache + content to the sync backend (SYNC_BUCKET / SYNC_DIR)
+  --sync-down          Pull cache + content from the sync backend
+  --yes, -y            Non-interactive: skip all prompts
+  --theme <name>       Theme for first run: standard, dark, bandcamp
+  --migrate            Migrate legacy content files to config.json
   --init-artists       Generate content/artists.json with Spotify URLs
   --init-content       Scaffold content/{artist}/ folders
   --create-campaigns   Create newsletter campaign drafts
@@ -248,7 +255,7 @@ async function deploy(outputDir) {
     `aws s3 sync ${outputDir} s3://${bucket}${regionFlag} --exclude "*" --include "*.html" --cache-control "public, max-age=0, must-revalidate"`,
     { stdio: 'inherit' }
   );
-  // 5. Everything else (catch-all, no --delete to avoid removing files from previous syncs)
+  // 5. Everything else (catch-all; --delete removes files no longer in dist/)
   execSync(
     `aws s3 sync ${outputDir} s3://${bucket} --delete${regionFlag}`,
     { stdio: 'inherit' }
@@ -284,9 +291,11 @@ async function run() {
   const { syncDown, syncUp, resolveSyncConfig } = require('./src/sync')
   const { loadConfig } = require('./src/configLoader')
   let syncConfig = null
+  let loadedConfig = null
+  let alreadyScraped = false
   try {
-    const cfg = await loadConfig(options.contentDir)
-    syncConfig = resolveSyncConfig(cfg)
+    loadedConfig = await loadConfig(options.contentDir)
+    syncConfig = resolveSyncConfig(loadedConfig)
   } catch { /* no config yet */ }
 
   // --sync-up: push local state to remote (standalone command)
@@ -438,12 +447,25 @@ async function run() {
     return;
   }
   // ── Scrape + Enrich combo: --scrape --enrich [--artist] ─────────────────
+  // Order matters: scrape first, then enrich, then render — otherwise the
+  // scrape would run after enrichment and the fresh links would be lost.
   if (options.scrape && options.enrich) {
     const backupPath = await backupCache(options.cachePath);
     if (backupPath) console.log(`Cache backed up to ${backupPath}`);
     if (options.artistFilter) {
       console.log(`Re-scraping artist: ${options.artistFilter}`);
       await refreshArtist(options.cachePath, options.artistFilter);
+    } else if (!(loadedConfig && loadedConfig.source && loadedConfig.source.primary === 'archive.org')) {
+      // Full Bandcamp re-scrape (keeps existing enrichment). Internet Archive
+      // primary mode is scraped by generate() itself and merges with the cache.
+      const labelUrl = process.env.BANDCAMP_URL || '';
+      if (!/^https:\/\/[a-z0-9-]+\.bandcamp\.com\/?$/.test(labelUrl)) {
+        console.error('[error] BANDCAMP_URL must be set to a valid Bandcamp URL (https://name.bandcamp.com/) for --scrape.');
+        process.exit(1);
+      }
+      console.log('Re-scraping all artists from Bandcamp...');
+      await scrapeToCache({ labelUrl, cachePath: options.cachePath, contentDir: options.contentDir, nonInteractive: v5Options._nonInteractive || false });
+      alreadyScraped = true;
     }
     console.log('Enriching cache with streaming links...');
     await enrichCache(options.cachePath, options.contentDir, {
@@ -511,25 +533,29 @@ async function run() {
   }
 
   // ── Subscriber Import ────────────────────────────────────────────────────────
+  // The subscriber import module is not part of this build — fail clearly
+  // instead of crashing with "Cannot find module".
   if (options.importSubscribers) {
-    const { importSubscribers } = require('./src/subscriberImport');
-    await importSubscribers({
-      importPath: options.importSubscribers,
-      listId: options.listId,
-      dryRun: options.dryRun,
-      contentDir: options.contentDir,
-      activeOnly: options.activeOnly,
-      tag: options.tag,
-      createList: options.createList,
-      splitCustomers: options.splitCustomers
-    });
-    return;
+    console.error('Error: --import-subscribers is not available in this version.');
+    process.exit(1);
+  }
+
+  // Full re-scrape without --enrich: back up the cache first (the scrape
+  // rewrites it). The --enrich path above already made a backup.
+  if (options.scrape && !options.artistFilter && !options.enrich) {
+    const backupPath = await backupCache(options.cachePath);
+    if (backupPath) console.log(`Cache backed up to ${backupPath}`);
   }
 
   // Auto-convert any bio.docx files before generating
   await convertAllDocs(options.contentDir);
   // Pass scrape flag to generator (full re-scrape mode)
-  const generateOptions = { ...options, refresh: options.scrape && !options.artistFilter, _nonInteractive: v5Options._nonInteractive || false }
+  const generateOptions = {
+    ...options,
+    refresh: options.scrape && !options.artistFilter,
+    alreadyScraped,
+    _nonInteractive: v5Options._nonInteractive || false
+  }
   const { pageCount, outputDir } = await generate(generateOptions);
   console.log(`Generated ${pageCount} pages to ${outputDir}`);
 

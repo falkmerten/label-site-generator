@@ -34,8 +34,70 @@ const ALBUM_ENRICHMENT_FIELDS = [
  */
 const ARTIST_ENRICHMENT_FIELDS = [
   'streamingLinks', 'socialLinks', 'discoveryLinks', 'eventLinks',
-  'events', 'soundchartsUuid'
+  'events', 'soundchartsUuid', 'lastfm'
 ]
+
+/**
+ * Copies enrichment data from a cached album onto a freshly scraped one.
+ * Also keeps the cached releaseDate (enrichment dates win over Bandcamp) and
+ * slug (so page URLs stay stable, e.g. upcoming → live).
+ * @param {object} existing - album from the old cache
+ * @param {object} album - freshly scraped album (mutated)
+ */
+function preserveAlbumEnrichment (existing, album) {
+  for (const field of ALBUM_ENRICHMENT_FIELDS) {
+    if (existing[field] !== undefined && existing[field] !== null) {
+      album[field] = existing[field]
+    }
+  }
+  // Fresh raw.packages from Bandcamp: let the merger re-derive physicalFormats
+  // instead of keeping stale data (upcoming → pre-sale transition).
+  if (album.raw && album.raw.packages && album.raw.packages.length > 0) {
+    delete album.physicalFormats
+  }
+  if (existing.releaseDate) album.releaseDate = existing.releaseDate
+  if (existing.slug) album.slug = existing.slug
+}
+
+/**
+ * Carries enrichment data from the old cache over to a full re-scrape, so
+ * `--scrape` refreshes Bandcamp data without wiping streaming links, UPCs,
+ * Discogs/Last.fm data or established slugs.
+ * Artists match by Bandcamp URL, then by slug; albums by URL, slug, then title.
+ * @param {object|null} oldData - previous cache contents
+ * @param {object} newData - freshly scraped data (mutated)
+ * @returns {{ artists: number, albums: number }} how many entries were carried over
+ */
+function preserveEnrichment (oldData, newData) {
+  const stats = { artists: 0, albums: 0 }
+  if (!oldData || !Array.isArray(oldData.artists) || !newData || !Array.isArray(newData.artists)) return stats
+
+  const normTitle = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  for (const artist of newData.artists) {
+    const old = oldData.artists.find(a => a.url && a.url === artist.url) ||
+      oldData.artists.find(a => toSlug(a.name || '') === toSlug(artist.name || ''))
+    if (!old) continue
+    stats.artists++
+
+    for (const field of ARTIST_ENRICHMENT_FIELDS) {
+      if (old[field] !== undefined && old[field] !== null && (artist[field] === undefined || artist[field] === null)) {
+        artist[field] = old[field]
+      }
+    }
+
+    const oldAlbums = old.albums || []
+    for (const album of artist.albums || []) {
+      const slug = album.title ? toSlug(album.title) : null
+      const existing = (album.url && oldAlbums.find(a => a.url === album.url)) ||
+        (slug && oldAlbums.find(a => a.slug === slug || toSlug(a.title || '') === slug)) ||
+        oldAlbums.find(a => !a.url && normTitle(a.title) === normTitle(album.title))
+      if (!existing) continue
+      preserveAlbumEnrichment(existing, album)
+      stats.albums++
+    }
+  }
+  return stats
+}
 
 /**
  * Computes the Levenshtein distance between two strings.
@@ -264,29 +326,7 @@ async function refreshArtist (cachePath, artistFilter) {
 
     // Preserve all enrichment fields from existing cached album
     if (existing) {
-      for (const field of ALBUM_ENRICHMENT_FIELDS) {
-        if (existing[field] !== undefined && existing[field] !== null) {
-          album[field] = existing[field]
-        }
-      }
-
-      // If the new scrape has fresh raw.packages data, let the merger re-derive
-      // physicalFormats from Bandcamp instead of preserving stale enrichment data.
-      // This handles upcoming → pre-sale transitions where BC packages become available.
-      if (album.raw && album.raw.packages && album.raw.packages.length > 0) {
-        delete album.physicalFormats
-      }
-
-      // Preserve releaseDate — Spotify/Soundcharts dates (set during enrichment)
-      // are authoritative over Bandcamp dates. Always keep the existing date if set.
-      if (existing.releaseDate) {
-        album.releaseDate = existing.releaseDate
-      }
-
-      // Preserve slug from existing (upcoming → live transition must keep the established slug)
-      if (existing.slug) {
-        album.slug = existing.slug
-      }
+      preserveAlbumEnrichment(existing, album)
 
       // If resolution is 'keep-cached', keep cached scraped fields too
       if (resolution === 'keep-cached') {
@@ -400,5 +440,7 @@ module.exports = {
   detectConflicts,
   promptConflictResolution,
   ALBUM_ENRICHMENT_FIELDS,
-  ARTIST_ENRICHMENT_FIELDS
+  ARTIST_ENRICHMENT_FIELDS,
+  preserveAlbumEnrichment,
+  preserveEnrichment
 }

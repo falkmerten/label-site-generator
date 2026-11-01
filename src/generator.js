@@ -24,6 +24,39 @@ const DEFAULTS = {
   refresh: false,
 };
 
+/**
+ * Full Bandcamp scrape into the cache. Enrichment data from the previous cache
+ * (streaming links, UPCs, Discogs/Last.fm data, slugs) is carried over, so a
+ * re-scrape never wipes the results of --enrich.
+ * @returns {Promise<object>} the new cache data
+ */
+async function scrapeToCache({ labelUrl, cachePath, contentDir, nonInteractive = false }) {
+  const { preserveEnrichment } = require('./refreshArtist');
+  const apiCredentials = {
+    clientId: process.env.BANDCAMP_CLIENT_ID,
+    clientSecret: process.env.BANDCAMP_CLIENT_SECRET
+  };
+  const oldData = await readCache(cachePath);
+  let rawData;
+  try {
+    rawData = await scrapeLabel(labelUrl, apiCredentials, contentDir, { _nonInteractive: nonInteractive });
+  } catch (err) {
+    console.error('[generator] Fatal: Bandcamp scrape failed.');
+    throw err;
+  }
+  if (oldData) {
+    const kept = preserveEnrichment(oldData, rawData);
+    console.log(`Kept enrichment data for ${kept.artists} artist(s), ${kept.albums} album(s) from previous cache.`);
+  }
+  await writeCache(cachePath, rawData);
+  console.log(`Cache written to ${cachePath}`);
+
+  // Download remote artwork to local content (only on scrape)
+  const { downloadArtwork } = require('./downloadArtwork');
+  await downloadArtwork(cachePath, contentDir);
+  return rawData;
+}
+
 async function generate(options) {
   const startTime = Date.now();
   const opts = { ...DEFAULTS, ...options };
@@ -101,7 +134,9 @@ async function generate(options) {
     rawData = mergeArchiveData(existingData, archiveData, 'primary')
     await writeCache(cachePath, rawData)
     console.log(`[archive] Cache updated with IA data (${rawData.artists.length} artists, ${rawData.artists.reduce((n, a) => n + (a.albums || []).length, 0)} albums)`)
-  } else if (!refresh) {
+  } else if (!refresh || opts.alreadyScraped) {
+    // alreadyScraped: generate.js ran scrapeToCache() before enrichment, so the
+    // cache is fresh — skip the Bandcamp scrape but keep the other refresh steps.
     rawData = await readCache(cachePath);
     if (rawData) console.log(`Using cached data from ${cachePath}`);
   }
@@ -383,29 +418,14 @@ async function generate(options) {
 
     // ── Spotify onboarding (placeholder) ──────────────────────────────────────
     } else if (chosenSource === 'spotify') {
-      console.error('[error] Spotify-first onboarding is not yet implemented (planned for v5.2).')
+      console.error('[error] Spotify-first onboarding is not yet implemented.')
       console.error('  Set BANDCAMP_URL in .env for now, or use Internet Archive.')
       process.exit(1)
     }
   }
 
   if (rawData === null && !iaPrimaryMode) {
-    const apiCredentials = {
-      clientId: process.env.BANDCAMP_CLIENT_ID,
-      clientSecret: process.env.BANDCAMP_CLIENT_SECRET
-    };
-    try {
-      rawData = await scrapeLabel(labelUrl, apiCredentials, contentDir, { _nonInteractive: opts._nonInteractive });
-    } catch (err) {
-      console.error('[generator] Fatal: could not scrape and no cache available.');
-      throw err;
-    }
-    await writeCache(cachePath, rawData);
-    console.log(`Cache written to ${cachePath}`);
-
-    // Step 3b: Download remote artwork to local content (only on scrape)
-    const { downloadArtwork } = require('./downloadArtwork');
-    await downloadArtwork(cachePath, contentDir);
+    rawData = await scrapeToCache({ labelUrl, cachePath, contentDir, nonInteractive: opts._nonInteractive });
   }
 
   // Step 3b-IA: Internet Archive integration (secondary/archive modes)
@@ -459,10 +479,12 @@ async function generate(options) {
     const csvFile = catalogCsvFiles.sort().pop()
     const csvPath = path.join(importDir, csvFile)
     try {
-      const csvText = await fs.readFile(csvPath, 'utf8')
-      const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean)
+      const csvText = (await fs.readFile(csvPath, 'utf8')).replace(/^﻿/, '')
+      // RFC 4180 parser: titles like "Title, Pt. 2" must not shift columns
+      const { parseRfc4180 } = require('./importCsv')
+      const lines = parseRfc4180(csvText).filter(r => r.some(c => c.trim() !== ''))
       if (lines.length > 1) {
-        const headers = lines[0].split(',')
+        const headers = lines[0].map(h => h.trim())
         const idIdx = headers.indexOf('id')
         const upcIdx = headers.indexOf('upc')
         const isrcIdx = headers.indexOf('isrc')
@@ -473,7 +495,7 @@ async function generate(options) {
           let filled = 0
           const csvById = new Map()
           for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',')
+            const cols = lines[i].map(c => c.trim())
             if (cols[typeIdx] === 'album' && cols[idIdx]) {
               csvById.set(cols[idIdx], {
                 upc: upcIdx >= 0 ? cols[upcIdx] : null,
@@ -838,3 +860,4 @@ async function generate(options) {
 }
 
 module.exports.generate = generate;
+module.exports.scrapeToCache = scrapeToCache;
