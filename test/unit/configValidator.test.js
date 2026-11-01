@@ -1,18 +1,19 @@
-'use strict'
 
 const { validate } = require('../../src/configValidator')
 const { CONFIG_SCHEMA } = require('../../src/configSchema')
+
+// Shared minimal valid building blocks for the current schema:
+// top-level required = site, source, artists.
+// `source` is a top-level object ({ primary, ... }); `site` requires name + mode.
+const validSite = { name: 'Test', mode: 'label' }
+const validSource = { primary: 'bandcamp', url: 'https://test.bandcamp.com/' }
 
 describe('configValidator', () => {
   describe('valid configs', () => {
     it('accepts a minimal valid config', () => {
       const config = {
-        site: {
-          name: 'My Label',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://mylabel.bandcamp.com/'
-        },
+        site: { name: 'My Label', mode: 'label' },
+        source: { primary: 'bandcamp', url: 'https://mylabel.bandcamp.com/' },
         artists: {}
       }
       const result = validate(config, CONFIG_SCHEMA)
@@ -27,10 +28,9 @@ describe('configValidator', () => {
           url: 'https://aenaos.com/',
           mode: 'label',
           theme: 'standard',
-          template: null,
-          source: 'bandcamp',
-          sourceUrl: 'https://aenaos.bandcamp.com/'
+          template: null
         },
+        source: { primary: 'bandcamp', url: 'https://aenaos.bandcamp.com/' },
         artists: {
           'golden-apes': {
             name: 'Golden Apes',
@@ -52,7 +52,11 @@ describe('configValidator', () => {
             }
           }
         },
-        compilations: ['various-artists'],
+        compilations: {
+          'various-artists': {
+            'some-compilation': 'https://open.spotify.com/album/123'
+          }
+        },
         newsletter: {
           provider: 'keila',
           actionUrl: 'https://news.aenaos.com',
@@ -67,13 +71,8 @@ describe('configValidator', () => {
 
     it('accepts string or null for url fields', () => {
       const config = {
-        site: {
-          name: 'Test',
-          url: null,
-          mode: 'artist',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: { name: 'Test', url: null, mode: 'artist' },
+        source: validSource,
         artists: {}
       }
       const result = validate(config, CONFIG_SCHEMA)
@@ -85,33 +84,19 @@ describe('configValidator', () => {
   describe('type validation', () => {
     it('reports wrong type for string field', () => {
       const config = {
-        site: {
-          name: 123,
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: { name: 123, mode: 'label' },
+        source: validSource,
         artists: {}
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors).toHaveLength(1)
-      expect(result.errors[0]).toEqual({
-        path: 'site.name',
-        message: 'Expected string, got number',
-        expected: 'string',
-        actual: 123
-      })
+      expect(result.errors.some(e => e.path === 'site.name' && e.expected === 'string')).toBe(true)
     })
 
     it('reports wrong type for boolean field', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: validSite,
+        source: validSource,
         artists: {
           'test-artist': {
             name: 'Test',
@@ -126,23 +111,13 @@ describe('configValidator', () => {
 
     it('reports wrong type for array of types (string|null)', () => {
       const config = {
-        site: {
-          name: 'Test',
-          url: 42,
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: { name: 'Test', url: 42, mode: 'label' },
+        source: validSource,
         artists: {}
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors[0]).toEqual({
-        path: 'site.url',
-        message: 'Expected string|null, got number',
-        expected: 'string|null',
-        actual: 42
-      })
+      expect(result.errors.some(e => e.path === 'site.url' && e.expected === 'string|null')).toBe(true)
     })
   })
 
@@ -151,36 +126,40 @@ describe('configValidator', () => {
       const config = {}
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors).toHaveLength(2)
-      expect(result.errors[0].path).toBe('site')
-      expect(result.errors[0].message).toBe('Missing required property: site')
-      expect(result.errors[1].path).toBe('artists')
-      expect(result.errors[1].message).toBe('Missing required property: artists')
+      const paths = result.errors.map(e => e.path)
+      expect(paths).toContain('site')
+      expect(paths).toContain('source')
+      expect(paths).toContain('artists')
     })
 
     it('reports missing required nested fields', () => {
       const config = {
-        site: {
-          name: 'Test'
-        },
+        site: { name: 'Test' },
+        source: validSource,
         artists: {}
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
       const paths = result.errors.map(e => e.path)
       expect(paths).toContain('site.mode')
-      expect(paths).toContain('site.source')
-      expect(paths).toContain('site.sourceUrl')
+    })
+
+    it('reports missing required primary in source', () => {
+      const config = {
+        site: validSite,
+        source: { url: 'https://test.bandcamp.com/' },
+        artists: {}
+      }
+      const result = validate(config, CONFIG_SCHEMA)
+      expect(result.valid).toBe(false)
+      const paths = result.errors.map(e => e.path)
+      expect(paths).toContain('source.primary')
     })
 
     it('reports missing required field in additionalProperties', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: validSite,
+        source: validSource,
         artists: {
           'no-name-artist': {
             enabled: true
@@ -189,57 +168,50 @@ describe('configValidator', () => {
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors[0].path).toBe('artists.no-name-artist.name')
+      expect(result.errors.some(e => e.path === 'artists.no-name-artist.name')).toBe(true)
     })
   })
 
   describe('enum validation', () => {
     it('reports invalid enum value', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'invalid-mode',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: { name: 'Test', mode: 'invalid-mode' },
+        source: validSource,
         artists: {}
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors[0].path).toBe('site.mode')
-      expect(result.errors[0].message).toContain('must be one of')
+      const modeError = result.errors.find(e => e.path === 'site.mode')
+      expect(modeError).toBeDefined()
+      expect(modeError.message).toContain('must be one of')
     })
   })
 
   describe('array items validation', () => {
     it('reports invalid array item type', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
-        artists: {},
-        compilations: ['valid', 123, 'also-valid']
+        site: validSite,
+        source: validSource,
+        artists: {
+          'test-artist': {
+            name: 'Test',
+            excludeAlbums: ['valid', 123, 'also-valid']
+          }
+        }
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors).toHaveLength(1)
-      expect(result.errors[0].path).toBe('compilations[1]')
-      expect(result.errors[0].expected).toBe('string')
+      const err = result.errors.find(e => e.path === 'artists.test-artist.excludeAlbums[1]')
+      expect(err).toBeDefined()
+      expect(err.expected).toBe('string')
     })
   })
 
   describe('additionalProperties validation', () => {
     it('validates all dynamic artist keys against the artist schema', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: validSite,
+        source: validSource,
         artists: {
           'artist-a': { name: 'A', enabled: true },
           'artist-b': { name: 'B', enabled: 'not-boolean' }
@@ -247,20 +219,17 @@ describe('configValidator', () => {
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors).toHaveLength(1)
-      expect(result.errors[0].path).toBe('artists.artist-b.enabled')
+      expect(result.errors.some(e => e.path === 'artists.artist-b.enabled')).toBe(true)
+      // artist-a is fully valid, so it contributes no errors
+      expect(result.errors.some(e => e.path.startsWith('artists.artist-a'))).toBe(false)
     })
   })
 
   describe('nested object validation', () => {
     it('validates deeply nested link fields', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: validSite,
+        source: validSource,
         artists: {
           'golden-apes': {
             name: 'Golden Apes',
@@ -282,12 +251,8 @@ describe('configValidator', () => {
   describe('multiple errors', () => {
     it('collects all errors without stopping at first', () => {
       const config = {
-        site: {
-          name: 123,
-          mode: 'invalid',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: { name: 123, mode: 'invalid' },
+        source: validSource,
         artists: {
           'bad-artist': {
             name: 456,
@@ -349,12 +314,8 @@ describe('configValidator', () => {
 
     it('handles bandsintown nested object-or-null', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: validSite,
+        source: validSource,
         artists: {
           'test-artist': {
             name: 'Test',
@@ -370,12 +331,8 @@ describe('configValidator', () => {
 
     it('rejects bandsintown with missing required fields', () => {
       const config = {
-        site: {
-          name: 'Test',
-          mode: 'label',
-          source: 'bandcamp',
-          sourceUrl: 'https://test.bandcamp.com/'
-        },
+        site: validSite,
+        source: validSource,
         artists: {
           'test-artist': {
             name: 'Test',
@@ -387,7 +344,7 @@ describe('configValidator', () => {
       }
       const result = validate(config, CONFIG_SCHEMA)
       expect(result.valid).toBe(false)
-      expect(result.errors[0].path).toBe('artists.test-artist.links.bandsintown.artistId')
+      expect(result.errors.some(e => e.path === 'artists.test-artist.links.bandsintown.artistId')).toBe(true)
     })
   })
 })

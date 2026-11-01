@@ -105,6 +105,7 @@ describe('transformEvent', () => {
       countryCode: 'SE',
       countryName: 'Sweden',
       eventUrl: 'https://www.bandsintown.com/e/12345',
+      lineup: [],
       offers: [{ type: 'Tickets', url: 'https://tickets.example.com', status: 'available' }],
       source: 'bandsintown'
     })
@@ -184,7 +185,7 @@ describe('fetchArtistInfo', () => {
     setupHttps(200, { tracker_count: 100, upcoming_event_count: 5 })
 
     const result = await fetchArtistInfo('TestArtist', 'app123')
-    expect(result).toEqual({ trackerCount: 100, upcomingEventCount: 5 })
+    expect(result).toEqual({ trackerCount: 100, upcomingEventCount: 5, links: [], imageUrl: null })
   })
 
   test('returns null on HTTP error', async () => {

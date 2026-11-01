@@ -5,6 +5,25 @@ const http = require('http')
 const cheerio = require('cheerio')
 const urlHelper = require('url')
 
+// Browser-like headers reduce the chance of Bandcamp serving its anti-bot
+// "Client Challenge" interstitial instead of the real page.
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9'
+}
+
+/**
+ * Detects Bandcamp's anti-bot interstitial. It returns HTTP 200 with a tiny
+ * "Client Challenge" body and NONE of the real page markup, so without this
+ * check the scraper would treat it as a valid-but-empty page (no name, 0 albums).
+ */
+function isBandcampChallenge (html) {
+  if (!html || html.length > 8000) return false
+  return /<title>\s*Client Challenge\s*<\/title>/i.test(html) ||
+    (/client challenge/i.test(html) && !/band-name|music-grid|data-tralbum/i.test(html))
+}
+
 /**
  * Fetches a URL over HTTPS, following up to maxRedirects redirects.
  * Returns the response body as a string.
@@ -12,7 +31,7 @@ const urlHelper = require('url')
 function fetchPage (pageUrl, maxRedirects = 5, _retryCount = 0) {
   return new Promise((resolve, reject) => {
     const protocol = pageUrl.startsWith('https') ? https : http
-    protocol.get(pageUrl, (res) => {
+    protocol.get(pageUrl, { headers: BROWSER_HEADERS }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         if (maxRedirects <= 0) return reject(new Error('Too many redirects'))
         const redirectUrl = new URL(res.headers.location, pageUrl).toString()
@@ -34,7 +53,21 @@ function fetchPage (pageUrl, maxRedirects = 5, _retryCount = 0) {
       }
       const chunks = []
       res.on('data', chunk => chunks.push(chunk))
-      res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+      res.on('end', () => {
+        const body = Buffer.concat(chunks).toString('utf8')
+        if (isBandcampChallenge(body)) {
+          // Treat as a retryable block (anti-bot), not a valid empty page.
+          if (_retryCount >= 3) {
+            return reject(new Error(`Bandcamp anti-bot challenge for ${pageUrl} after ${_retryCount} retries (IP likely temporarily blocked)`))
+          }
+          const backoff = Math.min(5000 * Math.pow(2, _retryCount), 30000)
+          console.warn(`[bandcamp] anti-bot challenge — waiting ${backoff / 1000}s (attempt ${_retryCount + 1}/3)`)
+          return setTimeout(() => {
+            resolve(fetchPage(pageUrl, maxRedirects, _retryCount + 1))
+          }, backoff)
+        }
+        resolve(body)
+      })
       res.on('error', reject)
     }).on('error', reject)
   })
@@ -289,17 +322,46 @@ async function getAlbumInfo (albumUrl) {
 
   // Parse raw data
   const scriptWithRaw = $('script[data-tralbum]')
+  let parsedRaw = false
   if (scriptWithRaw.length > 0) {
-    object.raw = scriptWithRaw.data('tralbum')
-  } else {
+    // cheerio's .data() JSON-parses the attribute; a truncated/partial page
+    // yields malformed JSON and would throw "Unexpected end of JSON input".
+    // Degrade gracefully instead of crashing.
+    try {
+      object.raw = scriptWithRaw.data('tralbum')
+      parsedRaw = object.raw != null
+    } catch (error) {
+      console.warn(`[bandcamp] getAlbumInfo: malformed data-tralbum for ${albumUrl} — ${error.message}`)
+    }
+  }
+  if (!parsedRaw) {
     let raw = extractJavascriptObjectVariable(html, 'TralbumData')
     // Handle concatenation pattern: "http://example.com" + "/album/name"
     raw = raw ? raw.replace('" + "', '') : ''
     try {
       object.raw = JSON.parse(raw)
     } catch (error) {
-      console.error(error)
+      console.warn(`[bandcamp] getAlbumInfo: could not parse TralbumData for ${albumUrl} — ${error.message}`)
     }
+  }
+
+  // Fallback for single-track releases (/track/ URLs): these pages have no
+  // #track_table, so DOM extraction yields 0 tracks even though the track
+  // exists in raw.trackinfo. Build the track list from raw data instead.
+  if (object.tracks.length === 0 && object.raw && Array.isArray(object.raw.trackinfo) && object.raw.trackinfo.length > 0) {
+    object.tracks = object.raw.trackinfo
+      .map(t => {
+        const name = (t.title || '').trim()
+        if (!name) return null
+        const track = { name }
+        if (typeof t.duration === 'number' && t.duration > 0) {
+          const m = Math.floor(t.duration / 60)
+          const s = Math.round(t.duration % 60)
+          track.duration = `${m}:${String(s).padStart(2, '0')}`
+        }
+        return track
+      })
+      .filter(Boolean)
   }
 
   object.url = albumUrl

@@ -73,7 +73,19 @@
       <h1 class="artist-hero-name">{{ artist.name }}</h1>
       {% if artist.location %}<p class="artist-hero-location">{{ artist.location }}</p>{% endif %}
     </div>
-    {% if hasLogo %}
+    {% if artist.photo %}
+    <a href="{{ rootPath }}artists/{{ artist.slug }}/" class="artist-hero-logo-link">
+      {% if artist.photo | isLocal %}
+      <picture>
+        <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toMobileWebp }}" media="(max-width: 640px)" type="image/webp">
+        <source srcset="{{ rootPath }}artists/{{ artist.slug }}/{{ artist.photo | toWebp }}" type="image/webp">
+        <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
+      </picture>
+      {% else %}
+      <img src="{{ artistPhotoUrl }}" alt="{{ artist.name }}" class="site-hero-logo">
+      {% endif %}
+    </a>
+    {% elif hasLogo %}
     <a href="{{ rootPath }}" class="artist-hero-logo-link">
       <picture>
         <source srcset="{{ rootPath }}logo-round.webp" type="image/webp">

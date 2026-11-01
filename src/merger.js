@@ -613,15 +613,18 @@ function extractBitEventId (url) {
 }
 
 /**
- * Creates a deduplication key from an event's date, city, and venue (case-insensitive).
+ * Creates a deduplication key from an event's date and city (case-insensitive).
+ * Venue is intentionally NOT part of the key: the same event from two sources
+ * (Soundcharts vs. Bandsintown) often has slightly different venue names
+ * (e.g. "Arena Wien" vs. "BIT Arena"), so including venue would prevent the
+ * merge. Dedup is by date + city, matching the documented behaviour.
  * @param {object} event
  * @returns {string}
  */
 function dedupKey (event) {
   const day = (event.date || '').slice(0, 10)
   const city = (event.cityName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-\s]+/g, '').trim()
-  const venue = (event.venueName || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[-\s]+/g, '').trim()
-  return `${day}|${city}|${venue}`
+  return `${day}|${city}`
 }
 
 module.exports = { mergeData, extractAlbumId, pickFirst, albumBelongsToArtist, convertLocalTourDates, mergeBandsintownEvents }
