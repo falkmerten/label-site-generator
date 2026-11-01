@@ -1,10 +1,10 @@
 # Label Site Generator
 
-**v5.2.5** — Static website generator for independent music labels and bands. Supports multiple data sources (Bandcamp, Internet Archive), enriches with streaming links, generates a complete branded website.
+**v5.2.6** — Static website generator for independent music labels and bands. Supports multiple data sources (Bandcamp, Internet Archive), enriches with streaming links, generates a complete branded website.
 
 [Quickstart](QUICKSTART.md) | [Full Documentation](https://github.com/falkmerten/label-site-generator/wiki)
 
-> **Maintenance mode**: Label Site Generator stays on version 5. It receives bugfixes and security fixes only — no new features.
+> **Maintenance mode**: Label Site Generator stays on version 5. It receives bugfixes and security fixes only — no new features. Security fixes are provided until **31 December 2027**.
 
 ---
 

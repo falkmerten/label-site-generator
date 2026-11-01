@@ -4,6 +4,16 @@
 
 ---
 
+### v5.2.6 — 2026-11-01
+
+**Security: Sendy admin API key no longer published in the signup form**
+
+- Security: the Sendy signup form (shared partial and label homepage) included the Sendy admin API key (`NEWSLETTER_API_TOKEN` / `NEWSLETTER_API_KEY`) in the page HTML. The key is no longer passed to templates; Sendy's public `/subscribe` endpoint works with the list ID alone. Campaign drafts still use the key server-side only. **If you used Sendy with an earlier version, generate a new Sendy API key and rebuild your site.**
+- Security: "already subscribed" now gets the same reply as a new signup (Sendy and Listmonk), so the form can't be used to check whether an email address is on your list
+- Security policy: v5 receives security fixes until 31 December 2027
+
+---
+
 ### v5.2.5 — 2026-11-01
 
 **Bugfixes: Internet Archive scrape crash, footer Bandcamp link, newsletter campaigns**
