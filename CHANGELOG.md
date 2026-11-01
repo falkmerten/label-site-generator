@@ -4,6 +4,27 @@
 
 ---
 
+### v5.2.4 — 2026-11-01
+
+**Re-scrape keeps enrichment, Bandcamp anti-bot handling, workflow fixes (LSG-168)**
+
+- Full `--scrape` now keeps enrichment data (streaming links, UPCs, Discogs/Last.fm data, release dates, slugs) instead of wiping it, and backs up the cache first
+- `--scrape --enrich` now scrapes before enriching (enrichment was previously lost to the scrape)
+- Single-artist re-scrape now also keeps Last.fm data
+- Slug preservation from cache, upcoming → live transition, presave/privateUrl logic, physical formats from Bandcamp packages
+- Bandcamp "Client Challenge" anti-bot page detected and retried with backoff; browser-like request headers
+- Malformed album data no longer crashes the scrape; single-track releases get their track list from raw data
+- Catalog CSV (`private/imports/*_digital.csv`) parsed per RFC 4180 — titles with commas no longer shift columns
+- Event dedup by date + city (venue names differ between sources)
+- Artist hero shows the artist photo when available
+- `--theme` only skips the theme prompt (no longer implies `--yes`)
+- `--import-subscribers` exits with a clear error (module not in this build)
+- `--help` lists `--sync-up/--sync-down`, `--upgrade-artwork`, `--yes`, `--theme`, `--migrate`, `--spotify/--discogs`
+- WORKFLOW.md rewritten to match the current code
+- npm audit fixes (1 critical, 8 high)
+
+---
+
 ### v5.2.3 — 2026-05-30
 
 **Hi-res artwork download, album/track slug collision fix (LSG-159)**
