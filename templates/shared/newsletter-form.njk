@@ -1,6 +1,6 @@
 {#
   Newsletter signup form.
-  Expects: newsletter (with .actionUrl, .provider, .listId, .apiKey, .formId, .doubleOptIn)
+  Expects: newsletter (with .actionUrl, .provider, .listId, .formId, .doubleOptIn)
            labelEmail (for error messages)
            labelName
 #}
@@ -68,9 +68,9 @@
           document.getElementById('newsletter-form').style.display = 'none';
           msg.style.display = 'block';
           {% if newsletter.doubleOptIn %}
-          msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+          msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
           {% else %}
-          msg.textContent = 'Successfully subscribed!';
+          msg.textContent = 'Thanks! You\'re on the list.';
           {% endif %}
           msg.className = 'newsletter-msg newsletter-success';
           return;
@@ -79,7 +79,7 @@
         data.append('email', document.getElementById('nl-email').value);
         data.append('name', document.getElementById('nl-name').value);
         data.append('list', '{{ newsletter.listId }}');
-        data.append('api_key', '{{ newsletter.apiKey }}');
+        // No api_key: Sendy's public /subscribe authenticates via the list id. The admin key must never ship in page HTML.
         data.append('gdpr', document.getElementById('nl-gdpr').checked ? 'true' : '');
         data.append('hp', document.getElementById('nl-hp').value);
         data.append('subform', 'yes');
@@ -95,15 +95,21 @@
               document.getElementById('newsletter-form').style.display = 'none';
               msg.style.display = 'block';
               {% if newsletter.doubleOptIn %}
-              msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+              msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
               {% else %}
-              msg.textContent = 'Successfully subscribed!';
+              msg.textContent = 'Thanks! You\'re on the list.';
               {% endif %}
               msg.className = 'newsletter-msg newsletter-success';
             } else if (result === 'Already subscribed.') {
+              // Same reply as a new signup (prevents checking who is subscribed)
+              document.getElementById('newsletter-form').style.display = 'none';
               msg.style.display = 'block';
-              msg.textContent = 'You are already subscribed to this list.';
-              msg.className = 'newsletter-msg newsletter-error';
+              {% if newsletter.doubleOptIn %}
+              msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
+              {% else %}
+              msg.textContent = 'Thanks! You\'re on the list.';
+              {% endif %}
+              msg.className = 'newsletter-msg newsletter-success';
             } else if (result === 'Bounced email address.') {
               msg.style.display = 'block';
               msg.textContent = 'This email address has bounced previously. Please contact us at {{ labelEmail }} if you\'d like to re-subscribe.';
@@ -135,9 +141,9 @@
           document.getElementById('newsletter-form').style.display = 'none';
           msg.style.display = 'block';
           {% if newsletter.doubleOptIn %}
-          msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+          msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
           {% else %}
-          msg.textContent = 'Successfully subscribed!';
+          msg.textContent = 'Thanks! You\'re on the list.';
           {% endif %}
           msg.className = 'newsletter-msg newsletter-success';
           return;
@@ -157,15 +163,21 @@
               document.getElementById('newsletter-form').style.display = 'none';
               msg.style.display = 'block';
               {% if newsletter.doubleOptIn %}
-              msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+              msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
               {% else %}
-              msg.textContent = 'Successfully subscribed!';
+              msg.textContent = 'Thanks! You\'re on the list.';
               {% endif %}
               msg.className = 'newsletter-msg newsletter-success';
             } else if (response.status === 409) {
+              // Same reply as a new signup (prevents checking who is subscribed)
+              document.getElementById('newsletter-form').style.display = 'none';
               msg.style.display = 'block';
-              msg.textContent = 'You are already subscribed to this list.';
-              msg.className = 'newsletter-msg newsletter-error';
+              {% if newsletter.doubleOptIn %}
+              msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
+              {% else %}
+              msg.textContent = 'Thanks! You\'re on the list.';
+              {% endif %}
+              msg.className = 'newsletter-msg newsletter-success';
             } else {
               response.json().then(function(data) {
                 msg.style.display = 'block';
@@ -194,7 +206,7 @@
         if (spamCheck) {
           document.getElementById('newsletter-form').style.display = 'none';
           msg.style.display = 'block';
-          msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+          msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
           msg.className = 'newsletter-msg newsletter-success';
           return;
         }
@@ -216,7 +228,7 @@
             if (response.ok) {
               document.getElementById('newsletter-form').style.display = 'none';
               msg.style.display = 'block';
-              msg.textContent = 'Almost there! Please check your email and confirm your subscription.';
+              msg.textContent = 'Almost there! If you\'re not subscribed yet, please check your email to confirm your subscription.';
               msg.className = 'newsletter-msg newsletter-success';
             } else {
               msg.style.display = 'block';

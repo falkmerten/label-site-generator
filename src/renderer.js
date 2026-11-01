@@ -13,7 +13,8 @@ const NEWSLETTER_PROVIDERS = {
       provider: 'sendy',
       actionUrl: process.env.NEWSLETTER_ACTION_URL || '',
       listId: process.env.NEWSLETTER_LIST_ID || '',
-      apiKey: process.env.NEWSLETTER_API_TOKEN || process.env.NEWSLETTER_API_KEY || '',
+      // The Sendy admin API key is deliberately NOT passed to templates: it would
+      // end up in public HTML. Campaign drafts read it server-side (newsletterCampaign.js).
       doubleOptIn: (process.env.NEWSLETTER_DOUBLE_OPTIN || '').toLowerCase() === 'true'
     })
   },
