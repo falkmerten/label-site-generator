@@ -62,7 +62,7 @@
 - YouTube video priority: videos from official artist channels are preferred over third-party uploads
 - Security: robust HTML stripping in Last.fm bio processing (resolves CodeQL alerts)
 - Enrichment pipeline is now: Spotify → Songlink → YouTube Music → Last.fm → iTunes/Deezer/Tidal → Discogs
-- Soundcharts removed from GPL version (Pro-only going forward, see lsg-pro)
+- Soundcharts removed
 
 ---
 
@@ -83,7 +83,7 @@
 
 **Enrichment Refactor (LSG-158)**
 
-- Remove Soundcharts integration from GPL version (Pro-only going forward)
+- Remove Soundcharts integration from GPL version
 - Add `src/songlink.js` — Odesli API for YouTube Music, Amazon Music, SoundCloud, Pandora, Napster links
 - Add `src/youtubeMusic.js` — YouTube Music album search via youtubei internal API
 - Simplified enrichment pipeline: Spotify → Songlink → YouTube Music → iTunes/Deezer/Tidal → Discogs

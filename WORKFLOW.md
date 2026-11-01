@@ -1,5 +1,7 @@
 # Workflow (v5.2)
 
+> Label Site Generator stays on version 5 and receives bugfixes and security fixes only. Items marked "Planned" below are not scheduled.
+
 ## Overview
 
 One env var (`BANDCAMP_URL`), one command (`node generate.js`). The first run asks a few questions, scrapes Bandcamp, writes `content/config.json` and renders the site. After that, `config.json` is the source of truth and `.env` holds secrets only.
@@ -308,8 +310,6 @@ Per artist:
 ```
 
 Already-enriched albums are skipped unless `--force` is given. `--tidal-only` re-checks Tidal links only.
-
-For full metadata (all platforms, UPC, ISRCs, labels): use lsg-pro with Soundcharts (Pro only).
 
 ---
 
