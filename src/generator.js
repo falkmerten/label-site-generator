@@ -106,6 +106,8 @@ async function generate(options) {
   const iaConfigSource = config && config.source && config.source.primary === 'archive.org'
   const archiveCollection = (config && config.source && config.source.collection) || ''
   const archiveCcOnly = (config && config.source && config.source.ccOnly === true)
+  // Bandcamp sites with an IA collection: "secondary" (merge, default) or "archive" (fill gaps)
+  const archiveMode = (config && config.source && config.source.archiveMode) || ''
   const iaPrimaryMode = !!(iaConfigSource && archiveCollection)
 
   // Environment validation — skip if IA primary mode or interactive onboarding will handle it
@@ -433,13 +435,13 @@ async function generate(options) {
     const { scrapeArchiveCollection, mergeArchiveData, isValidCollectionId } = require('./archive')
     // Validate collection ID
     if (!isValidCollectionId(archiveCollection)) {
-      console.error(`[error] ARCHIVE_ORG_COLLECTION "${archiveCollection}" is invalid — must match /^[a-zA-Z0-9_-]+$/`)
+      console.error(`[error] source.collection "${archiveCollection}" is invalid — must match /^[a-zA-Z0-9_-]+$/`)
       process.exit(1)
     }
 
     // Validate mode
     if (archiveMode && !['secondary', 'archive'].includes(archiveMode)) {
-      console.error(`[error] ARCHIVE_ORG_MODE "${archiveMode}" is invalid — must be "primary", "secondary", or "archive"`)
+      console.error(`[error] source.archiveMode "${archiveMode}" is invalid — must be "secondary" or "archive" (use source.primary: "archive.org" for IA-only sites)`)
       process.exit(1)
     }
 

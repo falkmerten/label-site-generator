@@ -422,7 +422,7 @@ async function renderSite(data, pages, outputDir, labelName, newsArticles, optio
     footerNavPages,
     pages,
     social: {
-      bandcamp:   process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
+      bandcamp:   (siteConfig.social && siteConfig.social.bandcamp) || process.env.BANDCAMP_URL || process.env.BANDCAMP_LABEL_URL || '',
       spotify:    (siteConfig.social && siteConfig.social.spotify) || process.env.LABEL_SPOTIFY_URL || '',
       soundcloud: (siteConfig.social && siteConfig.social.soundcloud) || process.env.LABEL_SOUNDCLOUD_URL || '',
       youtube:    (siteConfig.social && siteConfig.social.youtube) || process.env.LABEL_YOUTUBE_URL || '',

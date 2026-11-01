@@ -4,6 +4,13 @@
 
 ---
 
+### Unreleased
+
+- Fix: `--scrape` crashed (`archiveMode is not defined`) on Bandcamp sites with an Internet Archive collection. The mode is now set via `source.archiveMode` (`secondary` default, or `archive`) in config.json
+- Fix: footer Bandcamp link now uses `site.social.bandcamp` from config.json (fallback `BANDCAMP_URL`)
+
+---
+
 ### v5.2.4 — 2026-11-01
 
 **Re-scrape keeps enrichment, Bandcamp anti-bot handling, workflow fixes (LSG-168)**

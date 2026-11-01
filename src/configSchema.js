@@ -52,6 +52,11 @@ const CONFIG_SCHEMA = {
           type: 'string',
           description: 'Internet Archive collection identifier'
         },
+        archiveMode: {
+          type: 'string',
+          enum: ['secondary', 'archive'],
+          description: 'Bandcamp site + IA collection: secondary (merge, default) or archive (fill gaps only)'
+        },
         ccOnly: {
           type: 'boolean',
           description: 'Only include Creative Commons licensed releases (IA mode)'
