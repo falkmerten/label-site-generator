@@ -12,12 +12,18 @@ const querystring = require('querystring')
  *
  * @param {Array} articles - news article objects from loadNews()
  * @param {string} contentDir - content directory path
+ * @param {object} [options]
+ * @param {boolean} [options.manual] - true for --create-campaigns: runs even when autoCampaign is off
  * @returns {Promise<number>} number of campaigns created
  */
-async function createCampaignDrafts (articles, contentDir) {
+async function createCampaignDrafts (articles, contentDir, options = {}) {
   const provider = (process.env.NEWSLETTER_PROVIDER || '').toLowerCase()
-  if (!provider) return 0
-  if (process.env.NEWSLETTER_AUTO_CAMPAIGN !== 'true') return 0
+  if (!provider) {
+    if (options.manual) console.warn('[newsletter] No newsletter provider configured (config.json → newsletter.provider).')
+    return 0
+  }
+  // Auto mode (during builds) needs autoCampaign; --create-campaigns (manual) always runs
+  if (!options.manual && process.env.NEWSLETTER_AUTO_CAMPAIGN !== 'true') return 0
 
   const sentFile = path.join(contentDir, 'news', '.campaigns-created')
   let sentSlugs = new Set()

@@ -8,6 +8,8 @@
 
 - Fix: `--scrape` crashed (`archiveMode is not defined`) on Bandcamp sites with an Internet Archive collection. The mode is now set via `source.archiveMode` (`secondary` default, or `archive`) in config.json
 - Fix: footer Bandcamp link now uses `site.social.bandcamp` from config.json (fallback `BANDCAMP_URL`)
+- Fix: `--create-campaigns` ignored the newsletter settings in config.json and did nothing unless `autoCampaign` was on; it now reads config.json and always creates drafts when run explicitly
+- Fix: campaign emails use `site.name` from config.json instead of falling back to "Newsletter"
 
 ---
 

@@ -417,4 +417,33 @@ function getSiteConfig (config) {
   })
 }
 
-module.exports = { loadConfig, loadLegacyConfig, resolveValue, writeConfig, getSiteConfig }
+/**
+ * Copies config.json values that env-based modules (newsletter campaigns)
+ * still read from process.env. Existing env vars win, so .env overrides keep working.
+ * @param {object|null} config - parsed config.json
+ */
+function applyConfigToEnv (config) {
+  if (!config) return
+  const setIfMissing = (key, value) => {
+    if (value !== undefined && value !== null && value !== '' && !process.env[key]) {
+      process.env[key] = String(value)
+    }
+  }
+  const site = config.site || {}
+  setIfMissing('SITE_URL', site.url)
+  setIfMissing('SITE_NAME', site.name)
+
+  const nl = config.newsletter || {}
+  setIfMissing('NEWSLETTER_PROVIDER', nl.provider)
+  setIfMissing('NEWSLETTER_ACTION_URL', nl.actionUrl)
+  setIfMissing('NEWSLETTER_LIST_ID', nl.listId)
+  setIfMissing('NEWSLETTER_KEILA_FORM_ID', nl.formId)
+  setIfMissing('NEWSLETTER_DOUBLE_OPTIN', nl.doubleOptin)
+  setIfMissing('NEWSLETTER_AUTO_CAMPAIGN', nl.autoCampaign)
+  setIfMissing('NEWSLETTER_FROM_NAME', nl.fromName)
+  setIfMissing('NEWSLETTER_FROM_EMAIL', nl.fromEmail)
+  setIfMissing('NEWSLETTER_REPLY_TO', nl.replyTo)
+  setIfMissing('NEWSLETTER_BRAND_ID', nl.brandId)
+}
+
+module.exports = { loadConfig, loadLegacyConfig, resolveValue, writeConfig, getSiteConfig, applyConfigToEnv }

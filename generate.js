@@ -350,7 +350,9 @@ async function run() {
       console.log('No news articles found.');
       return;
     }
-    const count = await createCampaignDrafts(articles, options.contentDir);
+    // Standalone command: generate() doesn't run, so apply config.json here
+    require('./src/configLoader').applyConfigToEnv(loadedConfig);
+    const count = await createCampaignDrafts(articles, options.contentDir, { manual: true });
     if (count > 0) {
       console.log(`Created ${count} newsletter campaign draft(s).`);
     } else {

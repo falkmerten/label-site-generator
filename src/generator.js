@@ -632,20 +632,8 @@ async function generate(options) {
       process.env.SITE_URL = config.site.url
     }
   }
-  // Propagate newsletter config to process.env (for newsletterCampaign module)
-  if (config && config.newsletter) {
-    const nl = config.newsletter
-    if (nl.provider && !process.env.NEWSLETTER_PROVIDER) process.env.NEWSLETTER_PROVIDER = nl.provider
-    if (nl.actionUrl && !process.env.NEWSLETTER_ACTION_URL) process.env.NEWSLETTER_ACTION_URL = nl.actionUrl
-    if (nl.listId && !process.env.NEWSLETTER_LIST_ID) process.env.NEWSLETTER_LIST_ID = nl.listId
-    if (nl.formId && !process.env.NEWSLETTER_KEILA_FORM_ID) process.env.NEWSLETTER_KEILA_FORM_ID = nl.formId
-    if (nl.doubleOptin !== undefined && !process.env.NEWSLETTER_DOUBLE_OPTIN) process.env.NEWSLETTER_DOUBLE_OPTIN = String(nl.doubleOptin)
-    if (nl.autoCampaign !== undefined && !process.env.NEWSLETTER_AUTO_CAMPAIGN) process.env.NEWSLETTER_AUTO_CAMPAIGN = String(nl.autoCampaign)
-    if (nl.fromName && !process.env.NEWSLETTER_FROM_NAME) process.env.NEWSLETTER_FROM_NAME = nl.fromName
-    if (nl.fromEmail && !process.env.NEWSLETTER_FROM_EMAIL) process.env.NEWSLETTER_FROM_EMAIL = nl.fromEmail
-    if (nl.replyTo && !process.env.NEWSLETTER_REPLY_TO) process.env.NEWSLETTER_REPLY_TO = nl.replyTo
-    if (nl.brandId && !process.env.NEWSLETTER_BRAND_ID) process.env.NEWSLETTER_BRAND_ID = nl.brandId
-  }
+  // Propagate site name/URL + newsletter config to process.env (for newsletterCampaign module)
+  require('./configLoader').applyConfigToEnv(config)
 
   // Pass theme colors through for CSS variable overrides in copyAssets
   if (rawData.themeColors && Object.keys(rawData.themeColors).length > 0) {
