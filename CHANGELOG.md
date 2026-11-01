@@ -4,7 +4,9 @@
 
 ---
 
-### Unreleased
+### v5.2.5 — 2026-11-01
+
+**Bugfixes: Internet Archive scrape crash, footer Bandcamp link, newsletter campaigns**
 
 - Fix: `--scrape` crashed (`archiveMode is not defined`) on Bandcamp sites with an Internet Archive collection. The mode is now set via `source.archiveMode` (`secondary` default, or `archive`) in config.json
 - Fix: footer Bandcamp link now uses `site.social.bandcamp` from config.json (fallback `BANDCAMP_URL`)
