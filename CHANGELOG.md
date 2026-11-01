@@ -4,6 +4,17 @@
 
 ---
 
+### Unreleased
+
+**Stable page URLs (ported from v6, LSGPRO-58/56)**
+
+- Fix: album page URLs (slugs) were recalculated from the title on every build, so the slug kept in the cache was ignored. A title change on Bandcamp, Spotify title normalization, or an upcoming release going live could change a page URL and break links. Albums now keep their established slug
+- Fix: when several new releases share a title, the slug no longer depends on the order Bandcamp lists them in: the release with most tracks (then earliest date) gets the plain slug, others get `-single` / `-ep` by track count and length (new `src/releaseType.js`), `-2` only as a last resort. Existing slugs (including `-2`) are not changed
+- Fix: re-scrapes recognise an album by its Bandcamp release ID first (then URL, UPC, title), so enrichment data and the slug stay attached even when Bandcamp changes the album URL or title
+- `--scrape --artist` now settles slugs for new releases at scrape time
+
+---
+
 ### v5.2.6 — 2026-11-01
 
 **Security: Sendy admin API key no longer published in the signup form**

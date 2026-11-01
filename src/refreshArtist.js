@@ -2,7 +2,7 @@
 
 const bandcamp = require('./bandcamp.js')
 const { readCache, writeCache } = require('./cache')
-const { toSlug } = require('./slugs')
+const { toSlug, assignSlugs, bcIdOf } = require('./slugs')
 const readline = require('readline')
 
 const DELAY_MS = 1500
@@ -60,6 +60,41 @@ function preserveAlbumEnrichment (existing, album) {
 }
 
 /**
+ * Finds the cached version of a freshly scraped album (ported from v6, LSGPRO-58).
+ * Order: Bandcamp release id → URL → UPC → slug/title → title of an entry
+ * without URL (upcoming → live). The id survives Bandcamp URL and title changes.
+ * @param {Array} oldAlbums - albums from the cache
+ * @param {object} album - freshly scraped album
+ * @returns {object|null}
+ */
+function findExistingAlbum (oldAlbums, album) {
+  if (!Array.isArray(oldAlbums) || !album) return null
+  const normTitle = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const upcOf = (a) => a.upc || (a.raw && a.raw.current && a.raw.current.upc) || ''
+
+  const id = bcIdOf(album)
+  if (id) {
+    const byId = oldAlbums.find(a => bcIdOf(a) === id)
+    if (byId) return byId
+  }
+  if (album.url) {
+    const byUrl = oldAlbums.find(a => a.url === album.url)
+    if (byUrl) return byUrl
+  }
+  const upc = upcOf(album)
+  if (upc) {
+    const byUpc = oldAlbums.find(a => upcOf(a) === upc)
+    if (byUpc) return byUpc
+  }
+  const slug = album.title ? toSlug(album.title) : null
+  if (slug) {
+    const bySlug = oldAlbums.find(a => a.slug === slug || toSlug(a.title || '') === slug)
+    if (bySlug) return bySlug
+  }
+  return oldAlbums.find(a => !a.url && normTitle(a.title) === normTitle(album.title)) || null
+}
+
+/**
  * Carries enrichment data from the old cache over to a full re-scrape, so
  * `--scrape` refreshes Bandcamp data without wiping streaming links, UPCs,
  * Discogs/Last.fm data or established slugs.
@@ -72,7 +107,6 @@ function preserveEnrichment (oldData, newData) {
   const stats = { artists: 0, albums: 0 }
   if (!oldData || !Array.isArray(oldData.artists) || !newData || !Array.isArray(newData.artists)) return stats
 
-  const normTitle = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   for (const artist of newData.artists) {
     const old = oldData.artists.find(a => a.url && a.url === artist.url) ||
       oldData.artists.find(a => toSlug(a.name || '') === toSlug(artist.name || ''))
@@ -87,10 +121,7 @@ function preserveEnrichment (oldData, newData) {
 
     const oldAlbums = old.albums || []
     for (const album of artist.albums || []) {
-      const slug = album.title ? toSlug(album.title) : null
-      const existing = (album.url && oldAlbums.find(a => a.url === album.url)) ||
-        (slug && oldAlbums.find(a => a.slug === slug || toSlug(a.title || '') === slug)) ||
-        oldAlbums.find(a => !a.url && normTitle(a.title) === normTitle(album.title))
+      const existing = findExistingAlbum(oldAlbums, album)
       if (!existing) continue
       preserveAlbumEnrichment(existing, album)
       stats.albums++
@@ -316,12 +347,8 @@ async function refreshArtist (cachePath, artistFilter) {
   const albums = []
 
   for (const scraped of scrapedAlbums) {
-    // Match by URL first, then by slug, then by normalized title (handles upcoming → live transition)
-    const scrapedSlug = scraped.url ? toSlug(scraped.title) : null
-    const normTitle = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const existing = artist.albums.find(a => a.url === scraped.url) ||
-      (scrapedSlug && artist.albums.find(a => a.slug === scrapedSlug || toSlug(a.title) === scrapedSlug)) ||
-      artist.albums.find(a => !a.url && normTitle(a.title) === normTitle(scraped.title))
+    // Match by Bandcamp id, URL, UPC, slug/title, then title of an upcoming entry
+    const existing = findExistingAlbum(artist.albums, scraped)
     const album = { ...scraped }
 
     // Preserve all enrichment fields from existing cached album
@@ -430,6 +457,10 @@ async function refreshArtist (cachePath, artistFilter) {
     console.log(`Added ${upcomingCount} upcoming release(s) for ${artistInfo.name}.`)
   }
 
+  // Fix slugs for new releases now, so the URL is settled at scrape time
+  // (established slugs are kept by assignSlugs)
+  data.artists = assignSlugs(data.artists)
+
   await writeCache(cachePath, data)
   console.log(`Cache updated for ${artistInfo.name}.`)
 }
@@ -442,5 +473,6 @@ module.exports = {
   ALBUM_ENRICHMENT_FIELDS,
   ARTIST_ENRICHMENT_FIELDS,
   preserveAlbumEnrichment,
-  preserveEnrichment
+  preserveEnrichment,
+  findExistingAlbum
 }
