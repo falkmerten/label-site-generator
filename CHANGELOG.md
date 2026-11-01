@@ -4,7 +4,7 @@
 
 ---
 
-### Unreleased
+### v5.2.7 — 2026-11-01
 
 **Stable page URLs (ported from v6, LSGPRO-58/56)**
 
